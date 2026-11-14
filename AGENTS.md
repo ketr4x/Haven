@@ -4,6 +4,8 @@
 
 Rezonans is a local two-player, horizontal split-screen parkour race built with Godot 4.7 Forward+. The entry scene is `scenes/game/race.tscn`. Player 1 plays in the top viewport with `A`/`D` to move, `W` to jump, and `S` to shout. Player 2 plays in the bottom viewport with the arrow keys: left/right to move, up to jump, and down to shout. `R` restarts the current seed, `N` increments the seed and generates a new course, and `Escape` pauses during a race.
 
+The game’s player-facing text is in Polish. Use Polish for new UI copy, prompts, and other text shown to players. Keep source code, identifiers, comments, and project documentation in English.
+
 Each viewport has its own `PlayerWorld`, player, generated level, waves, finish area, camera, and echo overlay. The race controller gives both worlds the same seed so they generate the same chunk sequence without sharing physics or rendering. Player 2's course is reflected horizontally and runs right-to-left.
 
 The game loop centers on loudness and returning sound waves. Running and wall contact raise a player's loudness, while idle time reduces it. Shouting adds loudness and emits a visible ring plus radial physics rays. Rays can bounce from collision geometry. The first ray from a pulse that returns to its emitter after a bounce triggers that player's echo overlay and a temporary movement boost.

@@ -19,8 +19,3 @@ position = Vector2(384, 0)
 [node name="Terrain" type="TileMapLayer" parent="."]
 position = Vector2(-24, -24)
 tile_set = ExtResource("2_tiles")
-
-[node name="Beacon" type="Polygon2D" parent="."]
-position = Vector2(192, -48)
-polygon = PackedVector2Array(-12, -48, 12, -48, 12, 0, -12, 0)
-color = Color(0.509804, 0.709804, 0.85098, 0.45)
