@@ -18,6 +18,9 @@ func _initialize() -> void:
 	assert(player_one_generator != player_two_generator)
 	assert(player_one_generator.seed_value == player_two_generator.seed_value)
 	assert(player_one_generator.course_signature == player_two_generator.course_signature)
+	var player_two := player_two_world.get_node("Player") as RezonansPlayer
+	assert(player_one.global_position == player_one_generator.global_position + player_one_generator.player_spawn)
+	assert(player_two.global_position == player_two_generator.global_position + player_two_generator.player_spawn)
 
 	finish_area._on_body_entered(player_one)
 	var winner_label := race.get_node("GlobalUi/Winner") as Label

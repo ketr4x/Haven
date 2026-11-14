@@ -65,11 +65,19 @@ func _on_wave_returned(_owner: RezonansPlayer, loudness: float, pulse_id: int) -
 
 
 func _on_course_generated(_seed: int, _signature: String) -> void:
-	_player.global_position = _generator.player_spawn
+	var generator_origin := _generator.global_position
+	_player.global_position = generator_origin + _generator.player_spawn
 	_player.velocity = Vector2.ZERO
-	_finish_area.global_position = _generator.finish_position
+	_finish_area.global_position = generator_origin + _generator.finish_position
 	_finish_area.monitoring = true
 	_activated_pulses.clear()
+	_clear_waves()
+
+
+func _clear_waves() -> void:
+	for wave in _waves.get_children():
+		_waves.remove_child(wave)
+		wave.queue_free()
 
 
 func _on_finish_area_player_finished(_finisher: RezonansPlayer) -> void:

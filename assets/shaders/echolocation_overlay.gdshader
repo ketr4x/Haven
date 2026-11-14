@@ -22,9 +22,13 @@ void fragment() {
 
 	vec3 edge_color = mix(vec3(0.15, 0.72, 1.0), vec3(0.9, 0.97, 1.0), edge);
 	vec3 source = texture(screen_texture, SCREEN_UV).rgb;
-	float signal_pixel = step(0.72, source.b) * step(0.52, source.g);
+	float cyan_player = step(0.72, source.b) * step(0.52, source.g);
+	float pink_player = step(0.72, source.r) * step(0.34, source.b) * (1.0 - step(0.7, source.g));
+	float player_pixel = max(cyan_player, pink_player);
+	float player_window = 1.0 - smoothstep(0.025, 0.06, distance_to_center);
 	vec3 echo = edge_color * edge * echo_area * reveal_strength;
-	echo = max(echo, source * signal_pixel);
+	echo = max(echo, source * max(player_pixel, player_window));
 	float reveal_alpha = 1.0 - echo_area * reveal_strength * 0.9;
+	reveal_alpha = min(reveal_alpha, 1.0 - player_window);
 	COLOR = vec4(echo, reveal_alpha);
 }

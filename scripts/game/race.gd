@@ -9,8 +9,6 @@ var _seed: int = 12_345
 var _race_finished: bool = false
 
 func _ready() -> void:
-	$SharedSimulation.visible = false
-	$SharedSimulation.process_mode = Node.PROCESS_MODE_DISABLED
 	_player_one_world.player_finished.connect(_on_player_finished)
 	_player_two_world.player_finished.connect(_on_player_finished)
 	_generate_race(_seed)
