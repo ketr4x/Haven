@@ -4,10 +4,10 @@ extends Control
 @onready var _player_one: RezonansPlayer = $SharedSimulation/PlayerOne
 @onready var _player_two: RezonansPlayer = $SharedSimulation/PlayerTwo
 @onready var _finish_area: FinishArea = $SharedSimulation/FinishArea
-@onready var _top_viewport: SubViewport = $SplitScreen/TopContainer/TopViewport
-@onready var _bottom_viewport: SubViewport = $SplitScreen/BottomContainer/BottomViewport
-@onready var _top_camera: Camera2D = $SplitScreen/TopContainer/TopViewport/TopCamera
-@onready var _bottom_camera: Camera2D = $SplitScreen/BottomContainer/BottomViewport/BottomCamera
+@onready var _top_viewport: SubViewport = $Presentation/SplitScreen/TopContainer/TopViewport
+@onready var _bottom_viewport: SubViewport = $Presentation/SplitScreen/BottomContainer/BottomViewport
+@onready var _top_camera: Camera2D = $Presentation/SplitScreen/TopContainer/TopViewport/TopCamera
+@onready var _bottom_camera: Camera2D = $Presentation/SplitScreen/BottomContainer/BottomViewport/BottomCamera
 @onready var _seed_label: Label = $GlobalUi/Seed
 @onready var _winner_label: Label = $GlobalUi/Winner
 
