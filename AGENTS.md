@@ -1,0 +1,249 @@
+# Rezonans
+
+## Project brief
+
+**Rezonans** is a two-player horizontal split-screen parkour race in pitch darkness. Player 1 races in the top viewport and Player 2 races in the bottom viewport. Both use the same generated course and do not collide.
+
+Movement produces soundwaves. Waves reflect from solid geometry, briefly reveal nearby terrain, and can return to their owner. Catching a reflected wave grants that player a short speed and jump boost.
+
+The 24-hour Haven build targets **Windows PC** with the Godot 4.x Forward+ renderer. It must be playable locally by two people on one keyboard. Peer voters are likely to play for five minutes or less. The game must therefore get them into a clear race in under 15 seconds, show the Sonic Shout in the first 20 seconds, and let them finish a satisfying race in 60 to 90 seconds. The game generates a new fair course each run from a seed. Art may begin as deliberately readable placeholders and be replaced with hand-made pixel art when the playable loop is stable.
+
+Local PvP is required. Party and Matchmaking may appear in the menu only as unavailable options. Do not build a backend, fake online play, or sacrifice the local race for networking.
+
+## Product priorities
+
+1. Deliver the first playable race in under 15 seconds with no account, lobby, or long instructions.
+2. Make the Sonic Shout look and sound striking in the first 20 seconds.
+3. Let a first race finish in 60 to 90 seconds, then offer an instant rematch.
+4. Responsive movement and fair generated courses come before art polish.
+5. Procedural generation must use small authored chunks and validation, not unrestricted random terrain.
+6. Prefer scene composition and exported tuning values over node construction in code.
+
+## Scope
+
+### Required vertical slice
+
+- Two-player local keyboard input and top/bottom split-screen.
+- Coyote time, jump buffering, wall slide, wall jump, and directional Sonic Shout.
+- Waves from footsteps, landings, wall jumps, and Sonic Shout.
+- Predictable wave reflection, short local reveal, impact ring/trail, and returned-wave boost.
+- A deterministic seeded course generator which assembles safe, authored chunks.
+- A seed retained internally for reproducible QA, a same-seed rematch, and a new-seed rematch.
+- A 5-second title/controls screen, a 3-second countdown, finish trigger, winner screen, pause, and quick restart.
+- A Windows Forward+ export tested outside the editor.
+
+### Explicit cuts for this jam
+
+- Real party service, matchmaking, online synchronization, NAT traversal, dedicated servers, and anti-cheat.
+- Ranked leaderboard, accounts, persistence, progression, cosmetics, and replays.
+- Unbounded procedural terrain, multiple game modes, AI opponents, and more than one generation biome.
+- Per-tile fog-of-war shaders unless the basic local reveal is complete and already fun.
+- Seed entry, seed displays in the normal HUD, long tutorials, and settings menus. Keep a developer-only seed override for testing.
+
+## Five-minute peer-vote experience
+
+The opening must work for people who will never read a README:
+
+1. **0–5 seconds:** title card shows both control schemes beside a prominent `Press any movement key` prompt.
+2. **5–8 seconds:** a three-second countdown begins as soon as both players move or the first player presses a key.
+3. **8–30 seconds:** the start chunk presents a wall or corridor where a Sonic Shout immediately reveals the route. Trigger a strong ring, flash, and bounce sound.
+4. **30–90 seconds:** one clean race uses a gap, a wall-jump route, and one obvious returned-wave shortcut. Never require the boost to finish.
+5. **Finish:** show the winner, a one-line “Catch your bounced wave for a boost” reminder, and large `Rematch` / `New course` actions.
+
+The first generated chunk must always be a curated tutorial-start chunk. Randomization begins after that. Use the same 60–90 second target length for every valid seed.
+
+## Technology and conventions
+
+- Godot 4.x, GDScript, 2D game, **Forward+** renderer.
+- Windows is the shipping target. Open, save, and run scenes from Windows Godot.
+- WSL may edit text and run Git, but must not modify scene/import files while another person has them open in Godot.
+- Use `snake_case` for files, nodes, methods, variables, and signals. Use `PascalCase` for `class_name` types.
+- Use typed GDScript for public fields, function arguments, and return values where practical.
+- Expose movement, wave, generator, and boost values through `@export` so they can be tuned without script edits.
+- Use signals in past tense, for example `wave_bounced`, `boost_started`, and `race_finished`.
+- Comments explain a constraint, unit, or non-obvious decision. Do not add decorative section banners or comments that paraphrase code.
+
+## Keyboard controls
+
+Use these actions in **Project Settings > Input Map**. Do not read physical keys directly from gameplay code.
+
+| Action | Player 1 | Player 2 |
+| --- | --- | --- |
+| Move left/right | `A` / `D` | Left / Right arrows |
+| Jump | `W` | Up arrow |
+| Sonic Shout | `S` | Down arrow |
+| Restart | `R` | `R` |
+| Pause | `Escape` | `Escape` |
+
+Test the chosen keyboard in the first hour. If it ghosts when both players hold movement plus action keys, move Player 1’s shout to `F` or use an alternate tested layout. Display the final controls in the start screen.
+
+## Project layout
+
+```text
+assets/
+  art/
+  audio/
+scenes/
+  effects/
+  game/
+  generator/
+  levels/
+    chunks/
+  menus/
+  player/
+scripts/
+  effects/
+  game/
+  generator/
+  player/
+  ui/
+resources/
+  tiles/
+  chunks/
+tests/
+```
+
+Keep a scene and its primary script near each other. `race.tscn` composes the shared level, generator, two player instances, split-screen display, and HUD. `player.tscn` owns player movement. `sound_wave.tscn` owns wave lifetime and reflection. Individual course chunks live under `scenes/levels/chunks/`.
+
+## Scene-first construction
+
+Use the editor for visual, static, and tuned content:
+
+- Build `player.tscn`, `sound_wave.tscn`, HUD, menu, visual effects, TileSet, and course chunks in the scene editor.
+- Build each generator chunk as a normal scene with `TileMapLayer` collision, art, and `Marker2D` entry/exit markers.
+- Place `Marker2D` nodes for player starts, chunk exits, finish locations, and camera bounds.
+- Use exported `PackedScene` arrays to assign chunks to the generator.
+- Use scripts for input routing, player state, deterministic selection, validation, wave math, and runtime spawning.
+
+Only instantiate runtime content in code: selected chunk scenes, waves, transient rings, and result overlays. Do not assemble ordinary players, tilemaps, UI, collision shapes, or static art node-by-node in code.
+
+## Core architecture
+
+### Split-screen race
+
+`race.tscn` owns one shared generated level and two players. Player bodies must exclude one another in their collision masks. Use two `SubViewport` nodes in vertically stacked `SubViewportContainer` nodes, each with one independent `Camera2D` following its assigned player.
+
+Keep physics shared and presentation separate:
+
+- The generated TileMapLayer geometry is the single collision source for players and waves.
+- Do not duplicate the level to make split-screen work.
+- Hide the other player sprite in each viewport for the MVP unless visibility improves the race.
+
+### Procedural course generation
+
+Every run has an integer `seed` retained by the race manager for reproducible QA and rematches. The normal player HUD should not show a raw seed; show it only in a developer overlay or result/debug screen when needed. A same-seed rematch reproduces the exact layout. A new-seed rematch generates a different layout. Seed the generator once, never use unseeded `randf()` or `randi()` during layout generation.
+
+Start with a fixed recipe:
+
+```text
+start chunk -> 4 to 6 traversal chunks -> finish chunk
+```
+
+A chunk scene needs entry and exit `Marker2D` positions and exported metadata such as:
+
+- `difficulty` from 1 to 3
+- `min_width` and `max_width`
+- `allows_wall_jump`
+- `requires_shout`
+- `has_safe_landing`
+
+The generator chooses from compatible chunks with a seeded `RandomNumberGenerator`, aligns each new entry marker with the previous exit marker, and rejects invalid candidates. Validation is deliberately simple: no overlapping chunk bounds, a reachable exit, a safe landing after each required jump, and no difficulty jump larger than one tier.
+
+First prove generation using 4 flat placeholder chunks that only connect cleanly. Add a gap, wall-jump, and bounce-reward chunk one at a time. If a chunk cannot be validated, replace it with a known-safe chunk. The generator must always produce a playable course, even if variety is low.
+
+### Player contract
+
+`Player` receives exported input action names and a player id. It emits events other systems consume:
+
+```gdscript
+signal landed(position: Vector2)
+signal wall_jumped(position: Vector2, normal: Vector2)
+signal sonic_shouted(origin: Vector2, direction: Vector2)
+```
+
+Store coyote time and jump buffering as short seconds-based timers. Apply the rebound boost as a single timed state with a visible multiplier and a reliable reset. Tune movement in a small movement-lab scene before it is used in generated chunks.
+
+### Soundwave contract
+
+A soundwave has a scene with an `Area2D` or `CharacterBody2D`, collision shape, ring/trail children, owner id, direction, remaining bounce count, and lifetime. Spawn it through one narrow factory method or manager.
+
+On a solid TileMapLayer collision:
+
+1. Move to the impact point.
+2. Reflect velocity using the collision normal.
+3. Decrement the bounce count.
+4. Emit the bounce position and normal.
+5. Trigger a local reveal and ring/trail.
+6. Continue or expire when the bounce limit is exhausted.
+
+Only a wave with at least one completed bounce can boost its owner. Each wave may boost its owner once.
+
+### Darkness and reveal
+
+Start with the simplest readable effect: low-lit level art with a dark `CanvasModulate` or `ColorRect` overlay per viewport, plus short-lived local reveal sprites/rings at wave impacts. Fade reveals over about 1.5 seconds. Do not begin with a custom per-tile shader.
+
+## Ownership and 24-hour schedule
+
+| Time | Programmer | Artist | Sound, QA, and testing |
+| --- | --- | --- | --- |
+| Hour 0–1 | Input Map, folders, base scenes, movement-lab setup | Palette and readable placeholder plan | Keyboard ghosting test, controls sheet, test-case template |
+| Hour 1–3 | Run, jump, coyote time, jump buffer, wall movement | Player silhouette and terrain reference | Playtest movement and write reproducible issues |
+| Hour 3–5 | Four deterministic placeholder chunks and seeded generator | First player/terrain sprites if ready | Generate 30 seeds; report broken or boring layouts |
+| Hour 5–7 | Split-screen race, finish, winner, rematch | Darkness, wave, and HUD assets | Test two-player keyboard race and restart flow |
+| Hour 7–10 | Sonic Shout, reflection, reveal, returned-wave boost | Replace visible placeholders, add feedback art | Test boost clarity, collision edge cases, and generated paths |
+| Hour 10–14 | Add validated traversal chunks and fix blockers | Art/audio asset integration support | Full-run test matrix and issue triage |
+| Hour 14–18 | Menu, pause, seed display, tuning, Windows export | Polish the visible game path | Test export on a second Windows PC if possible |
+| Hour 18–24 | Bug fixes and submission only | Cover/title assets | Final regression, fresh-clone test, and recorded evidence |
+
+The programmer owns code and integration. The artist owns art source, palette, and animation exports. The third teammate owns sound selection/implementation support, test cases, issue reports, keyboard testing, and release verification. The third teammate may make small isolated fixes only after reporting the issue and claiming the file.
+
+## GitHub workflow
+
+1. `main` must always open and play.
+2. Create narrow branches from current `main`: `feat/movement-lab`, `feat/seeded-generator`, `feat/race-split-screen`, `feat/sound-wave`, `feat/bounce-back-boost`, `art/terrain-pass`, or `fix/seed-validation`.
+3. One branch answers one question and has one acceptance test. Do not mix generator code, imported art, and a chunk layout rewrite in one pull request.
+4. Rebase or merge current `main` before opening a pull request. The author resolves their conflicts.
+5. One teammate performs a quick smoke test before merge. The author tests the merge on `main`.
+6. Use imperative commit subjects: `Add jump buffer`, `Generate seeded chunk sequence`, `Tune wave bounce limit`.
+7. Record bugs with build/commit, seed, player slot, exact steps, expected result, actual result, and screenshot or clip.
+
+### Godot merge safety
+
+- Assign one editor owner for every `.tscn`, `.tres`, TileSet, and `project.godot` file.
+- Do not make parallel edits to the same scene, TileSet, or chunk scene.
+- Add new art as new files. Avoid moving or renaming referenced assets.
+- Close Godot before switching branches, pulling, or resolving a scene conflict.
+- Resolve `.tscn`, `.tres`, and `project.godot` conflicts manually, then open and run the result in Godot.
+- Ignore generated `.godot` editor/import/cache files. Commit only intentional project and source assets.
+
+## Delivery slices and acceptance tests
+
+Merge in this order. Begin the next slice only after the prior one works from a fresh checkout.
+
+1. **Project boot**: Forward+ project opens, `main.tscn` runs, and all keyboard actions exist.
+2. **Movement lab**: both input profiles can run, jump, coyote jump, buffered jump, wall slide, and wall jump.
+3. **Safe seed**: entering a seed produces the same connected flat placeholder course every time, and 30 generated seeds reach a finish.
+4. **Race shell**: two local players have independent top/bottom views; finish, winner, same-seed rematch, and new-seed rematch work.
+5. **Wave loop**: Sonic Shout bounces predictably, reveals impact areas, and expires cleanly.
+6. **Bounce Back**: a reflected wave boosts only its owner once and communicates that state with clear feedback.
+7. **Generated challenge**: gap, wall-jump, and bounce-reward chunks pass validation and do not create unwinnable courses.
+8. **Ship pass**: no errors over multiple complete races, keyboard input works under two players, and the Windows export starts outside the editor.
+
+## Playtest questions
+
+Watch two people play without explaining the intended strategy. Ask:
+
+- Can you immediately tell which keys are yours?
+- Does holding movement plus jumping and shouting work on this keyboard?
+- Can you see where to go after a shout?
+- Did you notice a wave come back and understand the boost?
+- Did any generated layout feel unfair, confusing, or impossible?
+- Is the winner clear and can you restart immediately?
+
+Turn observations into individual issues. Fix unclear controls, broken seeds, and frustrating movement before visual polish.
+
+## Commands and safety
+
+Run Godot and Windows exports from Windows. Use WSL for Git and text edits. Keep the project on the Windows filesystem when possible, accessed in WSL through `/mnt/c/...`, so Godot imports and file watching remain reliable.
+
+Before a merge, run the relevant scene and inspect the Godot Output panel. Before release, run the exported Windows executable, not only the editor run button.
