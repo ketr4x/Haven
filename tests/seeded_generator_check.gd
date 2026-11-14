@@ -29,6 +29,11 @@ func _initialize() -> void:
 		_assert_chunk_terrain_uses_common_grid(chunks)
 		signatures[generator.course_signature] = true
 
+	await physics_frame
+	await physics_frame
+	await physics_frame
+	_assert_tile_collision_matches_cell(chunks.get_child(0) as CourseChunk)
+
 	assert(signatures.size() > 1)
 	print("Seeded tilemap generator check passed for 30 seeds.")
 	quit()
@@ -47,3 +52,18 @@ func _assert_chunk_terrain_uses_common_grid(chunks: Node) -> void:
 		for cell in chunk.terrain_cells:
 			assert(terrain.get_cell_source_id(cell) == 0)
 		assert(chunk.find_children("*", "StaticBody2D", true, false).is_empty())
+
+
+func _assert_tile_collision_matches_cell(chunk: CourseChunk) -> void:
+	var terrain := chunk.get_node("Terrain") as TileMapLayer
+	var cell_center := terrain.to_global(terrain.map_to_local(chunk.terrain_cells[0]))
+	var expected_top := cell_center.y - float(chunk.grid_size.y) * 0.5
+	var query := PhysicsRayQueryParameters2D.create(
+		cell_center - Vector2(0.0, float(chunk.grid_size.y)),
+		cell_center + Vector2(0.0, float(chunk.grid_size.y)),
+		1,
+	)
+	var hit := chunk.get_world_2d().direct_space_state.intersect_ray(query)
+	assert(not hit.is_empty())
+	var hit_position: Vector2 = hit["position"]
+	assert(is_equal_approx(hit_position.y, expected_top))

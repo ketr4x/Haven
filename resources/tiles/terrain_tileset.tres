@@ -6,7 +6,7 @@
 texture = ExtResource("1_terrain_texture")
 texture_region_size = Vector2i(48, 48)
 0:0/0 = 0
-0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(0, 0, 48, 0, 48, 48, 0, 48)
+0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-24, -24, 24, -24, 24, 24, -24, 24)
 
 [resource]
 tile_size = Vector2i(48, 48)

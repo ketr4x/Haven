@@ -141,6 +141,7 @@ Use the editor for visual, static, and tuned content:
 - All course collision and obstacle art must be cells in a `TileMapLayer`, never individual `StaticBody2D` or `Polygon2D` obstacle nodes.
 - Use the shared `resources/tiles/terrain_tileset.tres` with a 48 × 48 pixel grid. A chunk declares its grid cells and its setup script places them into its scene-owned `Terrain` TileMapLayer.
 - Keep entry, exit, player-spawn, and finish markers on that same 48-pixel grid. The Terrain layer uses its fixed `(-24, -24)` offset so grid coordinates describe cell centres.
+- Define each tile collision polygon around the cell centre (`-24` to `24` on both axes), not from the atlas rectangle origin. This keeps collision aligned with the rendered tile after the Terrain offset.
 - Decorative nodes may sit outside the grid only when they have no collision and do not represent a playable obstacle.
 - Generator validation must reject chunks whose terrain or connection markers do not follow the common grid.
 
