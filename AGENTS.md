@@ -49,7 +49,7 @@ Local PvP is required. Party and Matchmaking may appear in the menu only as unav
 
 The opening must work for people who will never read a README:
 
-1. **0–5 seconds:** title card shows both control schemes beside a prominent `Press any movement key` prompt.
+1. **0–5 seconds:** title card shows both control schemes beside a prominent `Press any movement key` prompt. Route this start input through `_input`, not `_unhandled_input`, because SubViewports can consume unhandled events before the title controller sees them.
 2. **5–8 seconds:** a three-second countdown begins as soon as both players move or the first player presses a key.
 3. **8–30 seconds:** when the countdown ends, both players emit the same automatic introductory pulse so neither viewport looks empty or motionless. The start chunk then presents a wall or corridor where a Sonic Shout immediately produces a visible large wave. When it returns, show a strong edge flash, ring, boost aura, and bounce sound.
 4. **30–270 seconds:** one clean race uses repeated gaps, wall-jump routes, and obvious returned-wave shortcuts. Never require the boost to finish.

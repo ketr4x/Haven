@@ -52,10 +52,10 @@ func _initialize() -> void:
 	assert(float((player_one_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength")) > 0.0)
 	assert(is_zero_approx(float((player_two_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength"))))
 
-	var start_event := InputEventAction.new()
-	start_event.action = &"p1_shout"
+	var start_event := InputEventKey.new()
+	start_event.keycode = KEY_D
 	start_event.pressed = true
-	race._unhandled_input(start_event)
+	race._input(start_event)
 	assert((race.get_node("GlobalUi/Countdown") as Label).visible)
 	race._process(3.0)
 	assert(not (race.get_node("GlobalUi/Countdown") as Label).visible)
