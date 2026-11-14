@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
@@ -10,6 +10,8 @@
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_step_down.tscn" id="8_step_down"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_bridge.tscn" id="9_bridge"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="10_finish"]
+[ext_resource type="PackedScene" path="res://scenes/effects/sound_wave.tscn" id="11_wave"]
+[ext_resource type="PackedScene" path="res://scenes/effects/reveal_ring.tscn" id="12_ring"]
 
 [node name="Race" type="Control"]
 layout_mode = 3
@@ -19,6 +21,8 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_race")
+sound_wave_scene = ExtResource("11_wave")
+reveal_ring_scene = ExtResource("12_ring")
 
 [node name="SharedSimulation" type="Node2D" parent="."]
 
@@ -56,6 +60,8 @@ shout_action = &"p2_shout"
 camera_enabled = false
 
 [node name="FinishArea" parent="SharedSimulation" instance=ExtResource("4_finish_area")]
+
+[node name="Waves" type="Node2D" parent="SharedSimulation"]
 
 [node name="Presentation" type="CanvasLayer" parent="."]
 

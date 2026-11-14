@@ -1,9 +1,13 @@
 extends Control
 
+@export var sound_wave_scene: PackedScene
+@export var reveal_ring_scene: PackedScene
+
 @onready var _course_generator: CourseGenerator = $SharedSimulation/CourseGenerator
 @onready var _player_one: RezonansPlayer = $SharedSimulation/PlayerOne
 @onready var _player_two: RezonansPlayer = $SharedSimulation/PlayerTwo
 @onready var _finish_area: FinishArea = $SharedSimulation/FinishArea
+@onready var _waves: Node2D = $SharedSimulation/Waves
 @onready var _top_viewport: SubViewport = $Presentation/SplitScreen/TopContainer/TopViewport
 @onready var _bottom_viewport: SubViewport = $Presentation/SplitScreen/BottomContainer/BottomViewport
 @onready var _top_camera: Camera2D = $Presentation/SplitScreen/TopContainer/TopViewport/TopCamera
@@ -20,6 +24,8 @@ func _ready() -> void:
 
 	_course_generator.course_generated.connect(_on_course_generated)
 	_finish_area.player_finished.connect(_on_player_finished)
+	_player_one.sonic_shouted.connect(_on_player_shouted)
+	_player_two.sonic_shouted.connect(_on_player_shouted)
 	_course_generator.generate_course()
 
 
@@ -35,6 +41,19 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(_delta: float) -> void:
 	_top_camera.position = _player_one.global_position
 	_bottom_camera.position = _player_two.global_position
+
+
+func _on_player_shouted(origin: Vector2, direction: Vector2) -> void:
+	var wave := sound_wave_scene.instantiate() as SoundWave
+	_waves.add_child(wave)
+	wave.setup(origin + direction * 24.0, direction)
+	wave.bounced.connect(_on_wave_bounced)
+
+
+func _on_wave_bounced(position: Vector2, _normal: Vector2, _bounce_count: int) -> void:
+	var ring := reveal_ring_scene.instantiate() as RevealRing
+	_waves.add_child(ring)
+	ring.global_position = position
 
 
 func _on_course_generated(seed: int, _signature: String) -> void:
