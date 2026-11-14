@@ -1,11 +1,11 @@
-extends Node2D
+extends Control
 
 @onready var _course_generator: CourseGenerator = $SharedSimulation/CourseGenerator
 @onready var _player_one: RezonansPlayer = $SharedSimulation/PlayerOne
 @onready var _player_two: RezonansPlayer = $SharedSimulation/PlayerTwo
 @onready var _finish_area: FinishArea = $SharedSimulation/FinishArea
-@onready var _top_viewport: SubViewport = $SplitScreen/Viewports/TopContainer/TopViewport
-@onready var _bottom_viewport: SubViewport = $SplitScreen/Viewports/BottomContainer/BottomViewport
+@onready var _top_viewport: SubViewport = $SplitScreen/TopContainer/TopViewport
+@onready var _bottom_viewport: SubViewport = $SplitScreen/BottomContainer/BottomViewport
 @onready var _seed_label: Label = $GlobalUi/Seed
 @onready var _winner_label: Label = $GlobalUi/Winner
 

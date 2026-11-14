@@ -10,8 +10,8 @@ func _initialize() -> void:
 	var player_one := race.get_node("SharedSimulation/PlayerOne") as RezonansPlayer
 	var player_two := race.get_node("SharedSimulation/PlayerTwo") as RezonansPlayer
 	var finish_area := race.get_node("SharedSimulation/FinishArea") as FinishArea
-	var top_viewport := race.get_node("SplitScreen/Viewports/TopContainer/TopViewport") as SubViewport
-	var bottom_viewport := race.get_node("SplitScreen/Viewports/BottomContainer/BottomViewport") as SubViewport
+	var top_viewport := race.get_node("SplitScreen/TopContainer/TopViewport") as SubViewport
+	var bottom_viewport := race.get_node("SplitScreen/BottomContainer/BottomViewport") as SubViewport
 
 	assert(top_viewport.world_2d == root.get_viewport().world_2d)
 	assert(bottom_viewport.world_2d == root.get_viewport().world_2d)
