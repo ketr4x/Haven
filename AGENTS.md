@@ -6,7 +6,7 @@
 
 Movement raises **loudness**, a player-owned value from 0 to 100. Loudness is the strength of that player’s echolocation. Running, Sonic Shout, and wall movement raise it. When a player is idle it decays to 0.
 
-Soundwaves reflect from solid geometry but do not reveal terrain at their impact point. A reflected wave activates echolocation only when it returns to its owner. The resulting edge reveal and its radius are proportional to the wave’s captured loudness. Catching that returned wave also grants the temporary speed and jump boost.
+Soundwaves reflect from solid geometry but do not start the sustained reveal at their impact point. An outgoing Sonic Shout gives a brief edge preview; a reflected wave activates the full echolocation reveal only when it returns to its owner. The resulting edge reveal and its radius are proportional to the wave’s captured loudness. Catching that returned wave also grants the temporary speed and jump boost.
 
 The 24-hour Haven build targets **Windows PC** with the Godot 4.x Forward+ renderer. It must be playable locally by two people on one keyboard. Peer voters are likely to play for five minutes or less. The game must therefore get them into a clear race in under 15 seconds, show the Sonic Shout in the first 20 seconds, and let them finish a satisfying race in 180 to 270 seconds. The game generates a new fair course each run from a seed. Art may begin as deliberately readable placeholders and be replaced with hand-made pixel art when the playable loop is stable.
 
@@ -30,7 +30,7 @@ Local PvP is required. Party and Matchmaking may appear in the menu only as unav
 - Coyote time, jump buffering, wall slide, wall jump, and radial Sonic Shout pulses.
 - Player loudness from 0 to 100, raised by running, Sonic Shout, and wall movement, then decaying while idle.
 - Waves whose physical size and return-reveal radius are proportional to captured loudness.
-- Predictable wave reflection and an edge-only echolocation reveal that activates only when a reflected wave reaches its owner.
+- Predictable wave reflection, an immediate weak edge preview, and a full edge-only echolocation reveal that activates only when a reflected wave reaches its owner.
 - A returned-wave boost for the owner.
 - A deterministic seeded course generator which assembles safe, authored chunks.
 - A seed retained internally for reproducible QA, a same-seed rematch, and a new-seed rematch.
@@ -207,9 +207,9 @@ Store coyote time and jump buffering as short seconds-based timers. Apply the re
 
 A soundwave is a circular pulse, not a directional projectile. A pulse expands visibly from its owner in every direction while a bounded set of invisible radial physics rays carries the reflected return paths. The pulse scene has a ring/trail child, owner id, captured loudness, and lifetime. Spawn it through one narrow factory method or manager.
 
-When a player shouts, capture that player’s loudness and use it to scale the pulse’s visible radius and eventual echolocation radius. Emit evenly spaced physics rays in all directions. Keep those invisible probe colliders small and independent of visual wave scale, and spawn them close enough to the player that floor-facing probes do not begin inside terrain. Each ray reflects from solid TileMapLayer geometry and may return to the owner. Wall impacts produce bounce feedback only. They do not reveal terrain. Footsteps emit a small visible loudness ring but no physics rays, reveal, or boost; this keeps Sonic Shout as the deliberate echolocation action.
+When a player shouts, capture that player’s loudness and use it to scale the pulse’s visible radius and eventual echolocation radius. The outgoing shout gives an immediate, weak edge preview so the action always has readable feedback; only a reflected return starts the full-duration reveal and boost. Emit evenly spaced physics rays in all directions. Keep those invisible probe colliders small and independent of visual wave scale, and spawn them close enough to the player that floor-facing probes do not begin inside terrain. Each ray reflects from solid TileMapLayer geometry and may return to the owner. Wall impacts produce bounce feedback only. They do not trigger the full reveal. Footsteps emit a small visible loudness ring but no physics rays, reveal, or boost; this keeps Sonic Shout as the deliberate echolocation action.
 
-Only a ray with at least one completed bounce can activate its owner. The first reflected ray from a pulse to reach the owner triggers the owner-only edge reveal and boost. Other players never activate or receive its reveal.
+Only a ray with at least one completed bounce can activate its owner. The first reflected ray from a pulse to reach the owner triggers the owner-only full reveal and boost. Other players never activate or receive its reveal.
 
 ### Darkness and echolocation reveal
 

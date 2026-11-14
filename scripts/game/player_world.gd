@@ -63,6 +63,7 @@ func _on_footstep_emitted(origin: Vector2, _direction: Vector2, loudness: float)
 
 func _on_player_pulsed(origin: Vector2, _direction: Vector2, loudness: float, ray_count: int, ring_scale: float = 1.0) -> void:
 	_next_pulse_id += 1
+	_echo_overlay.preview(loudness)
 	var pulse := _spawn_reveal_ring(origin, loudness, ring_scale)
 
 	for index in ray_count:

@@ -21,16 +21,20 @@ func _initialize() -> void:
 	assert(footstep_ring.duration < 0.25)
 	world._clear_waves()
 	player.rebound_boost_started.connect(_on_boost_started)
+	var overlay := world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
+	var overlay_material := overlay.material as ShaderMaterial
 
 	world._on_player_pulsed(player.global_position, Vector2.RIGHT, 60.0, 16)
+	assert(is_equal_approx(
+		float(overlay_material.get_shader_parameter("reveal_strength")),
+		overlay.preview_strength,
+	))
 	for frame in 120:
 		await physics_frame
 		if _boost_started:
 			break
 
 	assert(_boost_started)
-	var overlay := world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
-	var overlay_material := overlay.material as ShaderMaterial
 	assert(float(overlay_material.get_shader_parameter("reveal_strength")) > 0.0)
 	print("Player world echo check passed.")
 	quit()
