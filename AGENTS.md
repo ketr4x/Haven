@@ -182,7 +182,7 @@ Only a ray with at least one completed bounce can activate its owner. The first 
 
 At loudness `0`, the playable world is black except for each player’s own silhouette and essential UI. The level must not become visible merely because a wave bounced.
 
-When a reflected wave reaches its owner, create a short-lived reveal centered on that player. It shows wall, floor, and platform **edges**, not a fully lit level. The reveal radius, line thickness, and ring scale are derived from the wave’s captured loudness. Fade it over about 1.5 seconds.
+When a reflected wave reaches its owner, create a short-lived reveal centered on that player. It shows wall, floor, and platform **edges**, not a fully lit level. The radius, line thickness, and ring scale are derived from captured loudness. A low-loudness echo must still reveal at least half of the player’s viewport; a high-loudness echo should cover the full viewport. Keep the largest recent reveal visible for about four seconds before fading it out.
 
 Implement the first version with per-viewport dark overlays and edge sprites/lines that the returning wave activates. Keep the reveal system behind a small interface so that it can later become a shader-based edge mask if time permits. Do not let player one’s reveal appear in player two’s viewport.
 

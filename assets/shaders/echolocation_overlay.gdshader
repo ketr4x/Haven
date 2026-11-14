@@ -18,7 +18,7 @@ void fragment() {
 	vec2 pixel = SCREEN_PIXEL_SIZE;
 	float horizontal = brightness(texture(screen_texture, SCREEN_UV + vec2(pixel.x, 0.0)).rgb) - brightness(texture(screen_texture, SCREEN_UV - vec2(pixel.x, 0.0)).rgb);
 	float vertical = brightness(texture(screen_texture, SCREEN_UV + vec2(0.0, pixel.y)).rgb) - brightness(texture(screen_texture, SCREEN_UV - vec2(0.0, pixel.y)).rgb);
-	float edge = smoothstep(0.02, 0.16, length(vec2(horizontal, vertical)));
+	float edge = smoothstep(0.004, 0.06, length(vec2(horizontal, vertical)));
 
 	vec3 edge_color = mix(vec3(0.15, 0.72, 1.0), vec3(0.9, 0.97, 1.0), edge);
 	vec3 source = texture(screen_texture, SCREEN_UV).rgb;
