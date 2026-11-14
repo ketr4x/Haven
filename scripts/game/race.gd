@@ -24,8 +24,8 @@ func _ready() -> void:
 
 	_course_generator.course_generated.connect(_on_course_generated)
 	_finish_area.player_finished.connect(_on_player_finished)
-	_player_one.sonic_shouted.connect(_on_player_shouted)
-	_player_two.sonic_shouted.connect(_on_player_shouted)
+	_player_one.sonic_shouted.connect(_on_player_shouted.bind(_player_one))
+	_player_two.sonic_shouted.connect(_on_player_shouted.bind(_player_two))
 	_course_generator.generate_course()
 
 
@@ -43,17 +43,22 @@ func _process(_delta: float) -> void:
 	_bottom_camera.position = _player_two.global_position
 
 
-func _on_player_shouted(origin: Vector2, direction: Vector2) -> void:
+func _on_player_shouted(origin: Vector2, direction: Vector2, player: RezonansPlayer) -> void:
 	var wave := sound_wave_scene.instantiate() as SoundWave
 	_waves.add_child(wave)
-	wave.setup(origin + direction * 24.0, direction)
+	wave.setup(player, origin + direction * 24.0, direction)
 	wave.bounced.connect(_on_wave_bounced)
+	wave.returned_to_owner.connect(_on_wave_returned)
 
 
 func _on_wave_bounced(position: Vector2, _normal: Vector2, _bounce_count: int) -> void:
 	var ring := reveal_ring_scene.instantiate() as RevealRing
 	_waves.add_child(ring)
 	ring.global_position = position
+
+
+func _on_wave_returned(player: RezonansPlayer) -> void:
+	player.apply_rebound_boost()
 
 
 func _on_course_generated(seed: int, _signature: String) -> void:

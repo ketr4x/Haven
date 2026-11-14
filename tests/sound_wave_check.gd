@@ -10,10 +10,11 @@ func _initialize() -> void:
 	root.add_child(lab)
 	await physics_frame
 
+	var player := lab.get_node("PlayerOne") as RezonansPlayer
 	var wave := SOUND_WAVE.instantiate() as SoundWave
 	lab.add_child(wave)
 	wave.bounced.connect(_on_wave_bounced)
-	wave.setup(Vector2(540, 546), Vector2.RIGHT)
+	wave.setup(player, Vector2(540, 546), Vector2.RIGHT)
 
 	for frame in 20:
 		await physics_frame

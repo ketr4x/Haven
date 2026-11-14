@@ -4,6 +4,8 @@ extends CharacterBody2D
 signal landed(position: Vector2)
 signal wall_jumped(position: Vector2, normal: Vector2)
 signal sonic_shouted(origin: Vector2, direction: Vector2)
+signal rebound_boost_started
+signal rebound_boost_ended
 
 @export_category("Input")
 @export var left_action: StringName = &"p1_left"
@@ -26,22 +28,31 @@ signal sonic_shouted(origin: Vector2, direction: Vector2)
 @export_category("Sonic Shout")
 @export var shout_cooldown: float = 0.45
 
+@export_category("Rebound Boost")
+@export var rebound_boost_duration: float = 1.4
+@export var rebound_speed_multiplier: float = 1.35
+@export var rebound_jump_multiplier: float = 1.18
+
 @export_category("Presentation")
 @export var camera_enabled: bool = false
 
 @onready var _camera: Camera2D = $Camera2D
+@onready var _boost_aura: Polygon2D = $BoostAura
 
 var facing_direction: float = 1.0
 var _coyote_time_remaining: float = 0.0
 var _jump_buffer_remaining: float = 0.0
 var _shout_cooldown_remaining: float = 0.0
+var _boost_time_remaining: float = 0.0
 var _was_on_floor: bool = false
 
 func _ready() -> void:
 	_camera.enabled = camera_enabled
+	_boost_aura.visible = false
 
 
 func _physics_process(delta: float) -> void:
+	_update_rebound_boost(delta)
 	_shout_cooldown_remaining = maxf(0.0, _shout_cooldown_remaining - delta)
 	_update_jump_buffer(delta)
 	_update_horizontal_velocity(delta)
@@ -52,6 +63,30 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_update_ground_state(delta)
 	_emit_shout_if_requested()
+
+
+func apply_rebound_boost() -> void:
+	_boost_time_remaining = rebound_boost_duration
+	_boost_aura.visible = true
+	rebound_boost_started.emit()
+
+
+func _update_rebound_boost(delta: float) -> void:
+	if is_zero_approx(_boost_time_remaining):
+		return
+
+	_boost_time_remaining = maxf(0.0, _boost_time_remaining - delta)
+	if is_zero_approx(_boost_time_remaining):
+		_boost_aura.visible = false
+		rebound_boost_ended.emit()
+
+
+func _speed_multiplier() -> float:
+	return rebound_speed_multiplier if _boost_time_remaining > 0.0 else 1.0
+
+
+func _jump_multiplier() -> float:
+	return rebound_jump_multiplier if _boost_time_remaining > 0.0 else 1.0
 
 
 func _update_jump_buffer(delta: float) -> void:
@@ -66,7 +101,7 @@ func _update_horizontal_velocity(delta: float) -> void:
 	if not is_zero_approx(input_axis):
 		facing_direction = signf(input_axis)
 		var acceleration := ground_acceleration if is_on_floor() else air_acceleration
-		velocity.x = move_toward(velocity.x, input_axis * run_speed, acceleration * delta)
+		velocity.x = move_toward(velocity.x, input_axis * run_speed * _speed_multiplier(), acceleration * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, ground_deceleration * delta)
 
@@ -81,14 +116,14 @@ func _try_jump() -> void:
 		return
 
 	if is_on_floor() or _coyote_time_remaining > 0.0:
-		velocity.y = jump_velocity
+		velocity.y = jump_velocity * _jump_multiplier()
 		_coyote_time_remaining = 0.0
 		_jump_buffer_remaining = 0.0
 		return
 
 	if is_on_wall_only():
 		var wall_normal := get_wall_normal()
-		velocity = Vector2(wall_normal.x * wall_jump_horizontal_speed, jump_velocity)
+		velocity = Vector2(wall_normal.x * wall_jump_horizontal_speed, jump_velocity * _jump_multiplier())
 		facing_direction = signf(wall_normal.x)
 		_jump_buffer_remaining = 0.0
 		wall_jumped.emit(global_position, wall_normal)
