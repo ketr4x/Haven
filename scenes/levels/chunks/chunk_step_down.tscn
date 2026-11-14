@@ -1,0 +1,42 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/generator/course_chunk.gd" id="1_chunk"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_high_floor"]
+size = Vector2(160, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_low_floor"]
+size = Vector2(160, 48)
+
+[node name="ChunkStepDown" type="Node2D"]
+script = ExtResource("1_chunk")
+chunk_id = &"step_down"
+
+[node name="EntryMarker" type="Marker2D" parent="."]
+
+[node name="ExitMarker" type="Marker2D" parent="."]
+position = Vector2(320, 56)
+
+[node name="HighFloor" type="StaticBody2D" parent="."]
+position = Vector2(80, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HighFloor"]
+shape = SubResource("RectangleShape2D_high_floor")
+
+[node name="Visual" type="Polygon2D" parent="HighFloor"]
+polygon = PackedVector2Array(-80, -24, 80, -24, 80, 24, -80, 24)
+color = Color(0.29, 0.4, 0.62, 1)
+
+[node name="LowFloor" type="StaticBody2D" parent="."]
+position = Vector2(240, 56)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LowFloor"]
+shape = SubResource("RectangleShape2D_low_floor")
+
+[node name="Visual" type="Polygon2D" parent="LowFloor"]
+polygon = PackedVector2Array(-80, -24, 80, -24, 80, 24, -80, 24)
+color = Color(0.2, 0.25, 0.43, 1)
