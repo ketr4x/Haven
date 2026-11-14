@@ -116,10 +116,14 @@ func _is_start_input(event: InputEvent) -> bool:
 		or event.is_action_pressed(&"p1_right") \
 		or event.is_action_pressed(&"p1_jump") \
 		or event.is_action_pressed(&"p1_shout") \
+		or event.is_action_pressed(&"p1_big_scream_minus") \
+		or event.is_action_pressed(&"p1_big_scream_plus") \
 		or event.is_action_pressed(&"p2_left") \
 		or event.is_action_pressed(&"p2_right") \
 		or event.is_action_pressed(&"p2_jump") \
-		or event.is_action_pressed(&"p2_shout")
+		or event.is_action_pressed(&"p2_shout") \
+		or event.is_action_pressed(&"p2_big_scream_minus") \
+		or event.is_action_pressed(&"p2_big_scream_plus")
 
 
 func _on_player_finished(player_number: int) -> void:
