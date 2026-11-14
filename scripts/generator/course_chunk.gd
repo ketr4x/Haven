@@ -9,15 +9,30 @@ extends Node2D
 @export var allows_wall_jump: bool = false
 @export var requires_shout: bool = false
 @export var has_safe_landing: bool = true
+@export var mirror_horizontally: bool = false
 @export var grid_size: Vector2i = Vector2i(48, 48)
 @export var terrain_cells: Array[Vector2i] = []
 
 @onready var _terrain: TileMapLayer = $Terrain
 
 func _ready() -> void:
+	if mirror_horizontally:
+		_mirror_markers_and_decorations()
 	_terrain.clear()
 	for cell in terrain_cells:
-		_terrain.set_cell(cell, 0, Vector2i.ZERO)
+		var target_cell: Vector2i = Vector2i(-cell.x, cell.y) if mirror_horizontally else cell
+		_terrain.set_cell(target_cell, 0, Vector2i.ZERO)
+
+
+func _mirror_markers_and_decorations() -> void:
+	for child in get_children():
+		if child is Marker2D:
+			child.position.x = -child.position.x
+		elif child is Polygon2D:
+			child.position.x = -child.position.x
+			child.scale.x = -child.scale.x
+		elif child is Label:
+			child.position.x = -child.position.x - child.size.x
 
 
 func entry_position() -> Vector2:
@@ -39,7 +54,7 @@ func finish_marker_position() -> Vector2:
 
 
 func path_width() -> float:
-	return exit_position().x - entry_position().x
+	return absf(exit_position().x - entry_position().x)
 
 
 func has_valid_grid_geometry() -> bool:

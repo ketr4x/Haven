@@ -96,6 +96,7 @@ func _toggle_pause() -> void:
 
 
 func _set_race_state(next_state: RaceState) -> void:
+	var previous_state := _race_state
 	_race_state = next_state
 	_title_panel.visible = next_state == RaceState.TITLE
 	_countdown_label.visible = next_state == RaceState.COUNTDOWN
@@ -105,6 +106,9 @@ func _set_race_state(next_state: RaceState) -> void:
 	var is_racing := next_state == RaceState.RACING
 	_player_one_world.set_race_active(is_racing)
 	_player_two_world.set_race_active(is_racing)
+	if previous_state == RaceState.COUNTDOWN and next_state == RaceState.RACING:
+		_player_one_world.emit_intro_pulse()
+		_player_two_world.emit_intro_pulse()
 
 
 func _is_start_input(event: InputEvent) -> bool:

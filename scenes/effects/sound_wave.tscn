@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/effects/sound_wave.gd" id="1_wave"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_wave"]
-radius = 11.0
+radius = 4.0
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_return_detector"]
 radius = 26.0

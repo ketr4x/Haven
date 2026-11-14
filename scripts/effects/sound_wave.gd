@@ -14,6 +14,7 @@ var captured_loudness: float = 0.0
 var pulse_id: int = 0
 var emitter: RezonansPlayer
 var _remaining_lifetime: float = 0.0
+var _return_distance: float = 42.0
 var _has_returned: bool = false
 
 func setup(source: RezonansPlayer, origin: Vector2, direction: Vector2, initial_loudness: float, pulse_identifier: int) -> void:
@@ -21,7 +22,9 @@ func setup(source: RezonansPlayer, origin: Vector2, direction: Vector2, initial_
 	pulse_id = pulse_identifier
 	captured_loudness = clampf(initial_loudness, 0.0, 100.0)
 	var size_multiplier := lerpf(0.55, 2.1, captured_loudness / 100.0)
-	scale = Vector2.ONE * size_multiplier
+	# Radial probes stay small so floor-facing rays never spawn embedded in terrain.
+	scale = Vector2.ONE
+	_return_distance = 42.0 * size_multiplier
 	global_position = origin
 	velocity = direction.normalized() * speed
 	_remaining_lifetime = lifetime
@@ -47,7 +50,7 @@ func _physics_process(delta: float) -> void:
 			queue_free()
 			return
 
-	if bounce_count > 0 and emitter and global_position.distance_to(emitter.global_position) <= 42.0 * scale.x:
+	if bounce_count > 0 and emitter and global_position.distance_to(emitter.global_position) <= _return_distance:
 		_return_to_owner()
 
 

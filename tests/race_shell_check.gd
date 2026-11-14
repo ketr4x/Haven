@@ -2,6 +2,8 @@ extends SceneTree
 
 const RACE_SCENE := preload("res://scenes/game/race.tscn")
 
+var _player_two_boost_started: bool = false
+
 func _initialize() -> void:
 	var race := RACE_SCENE.instantiate()
 	race.countdown_duration = 3.0
@@ -24,8 +26,12 @@ func _initialize() -> void:
 	assert(player_one_generator.course_signature == player_two_generator.course_signature)
 	assert(player_one_generator.get_node("GeneratedChunks").get_child_count() == 17)
 	assert(player_two_generator.get_node("GeneratedChunks").get_child_count() == 17)
-	assert(player_one_generator.scale.x == 1.0)
-	assert(player_two_generator.scale.x == -1.0)
+	assert(not player_one_generator.mirror_horizontally)
+	assert(player_two_generator.mirror_horizontally)
+	var player_two_start_chunk := player_two_generator.get_node("GeneratedChunks").get_child(0) as CourseChunk
+	var player_two_start_terrain := player_two_start_chunk.get_node("Terrain") as TileMapLayer
+	for cell in player_two_start_chunk.terrain_cells:
+		assert(player_two_start_terrain.get_cell_source_id(Vector2i(-cell.x, cell.y)) == 0)
 	var player_two := player_two_world.get_node("Player") as RezonansPlayer
 	var player_one_overlay := player_one_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
 	var player_two_overlay := player_two_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
@@ -55,6 +61,26 @@ func _initialize() -> void:
 	assert(not (race.get_node("GlobalUi/Countdown") as Label).visible)
 	assert(player_one.is_physics_processing())
 
+	var player_one_start_x := player_one.global_position.x
+	var player_two_start_x := player_two.global_position.x
+	Input.action_press(&"p1_right")
+	Input.action_press(&"p2_left")
+	for frame in 20:
+		await physics_frame
+	Input.action_release(&"p1_right")
+	Input.action_release(&"p2_left")
+	assert(player_one.global_position.x > player_one_start_x)
+	assert(player_two.global_position.x < player_two_start_x)
+
+	player_two.rebound_boost_started.connect(_on_player_two_boost_started)
+	player_two_world._on_player_pulsed(player_two.global_position, Vector2.LEFT, 60.0, 16)
+	for frame in 120:
+		await physics_frame
+		if _player_two_boost_started:
+			break
+	assert(_player_two_boost_started)
+	assert(float((player_two_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength")) > 0.0)
+
 	race._toggle_pause()
 	assert(paused)
 	assert((race.get_node("GlobalUi/PausePanel") as Control).visible)
@@ -69,3 +95,7 @@ func _initialize() -> void:
 	assert(not player_one.is_physics_processing())
 	print("Race shell and start flow check passed.")
 	quit()
+
+
+func _on_player_two_boost_started() -> void:
+	_player_two_boost_started = true

@@ -51,7 +51,7 @@ The opening must work for people who will never read a README:
 
 1. **0–5 seconds:** title card shows both control schemes beside a prominent `Press any movement key` prompt.
 2. **5–8 seconds:** a three-second countdown begins as soon as both players move or the first player presses a key.
-3. **8–30 seconds:** the start chunk presents a wall or corridor where a Sonic Shout immediately produces a visible large wave. When it returns, show a strong edge flash, ring, boost aura, and bounce sound.
+3. **8–30 seconds:** when the countdown ends, both players emit the same automatic introductory pulse so neither viewport looks empty or motionless. The start chunk then presents a wall or corridor where a Sonic Shout immediately produces a visible large wave. When it returns, show a strong edge flash, ring, boost aura, and bounce sound.
 4. **30–270 seconds:** one clean race uses repeated gaps, wall-jump routes, and obvious returned-wave shortcuts. Never require the boost to finish.
 5. **Finish:** show the winner, a one-line “Catch your bounced wave for a boost” reminder, and large `Rematch` / `New course` actions.
 
@@ -161,7 +161,7 @@ Only instantiate runtime content in code: selected chunk scenes, waves, transien
 Keep seed parity and presentation isolation explicit:
 
 - Generate Player 1’s and Player 2’s course independently from the identical seed and identical chunk sequence.
-- Mirror Player 2’s complete course horizontally. Player 1 must travel left-to-right and Player 2 right-to-left.
+- Mirror Player 2’s chunk grid cells, connection markers, and decorations in generator-local coordinates. Do not use a negative scale on the generator or any physics hierarchy. Player 1 must travel left-to-right and Player 2 right-to-left.
 - Difficulty parity is strict: both courses must have the same geometry, distances, collision shapes, chunk order, and required actions after reflection. Never give one viewport an easier seed, shortcut, or obstacle variant.
 - A player world contains exactly one player, one generated level, one wave container, one finish area, one camera, and one echo overlay.
 - Neither player, wave, reveal, nor boost can be observed or collide across viewports.
@@ -207,7 +207,7 @@ Store coyote time and jump buffering as short seconds-based timers. Apply the re
 
 A soundwave is a circular pulse, not a directional projectile. A pulse expands visibly from its owner in every direction while a bounded set of invisible radial physics rays carries the reflected return paths. The pulse scene has a ring/trail child, owner id, captured loudness, and lifetime. Spawn it through one narrow factory method or manager.
 
-When a player shouts, capture that player’s loudness and use it to scale the pulse’s visible radius and eventual echolocation radius. Emit evenly spaced physics rays in all directions. Each ray reflects from solid TileMapLayer geometry and may return to the owner. Wall impacts produce bounce feedback only. They do not reveal terrain. Footsteps emit a small visible loudness ring but no physics rays, reveal, or boost; this keeps Sonic Shout as the deliberate echolocation action.
+When a player shouts, capture that player’s loudness and use it to scale the pulse’s visible radius and eventual echolocation radius. Emit evenly spaced physics rays in all directions. Keep those invisible probe colliders small and independent of visual wave scale, and spawn them close enough to the player that floor-facing probes do not begin inside terrain. Each ray reflects from solid TileMapLayer geometry and may return to the owner. Wall impacts produce bounce feedback only. They do not reveal terrain. Footsteps emit a small visible loudness ring but no physics rays, reveal, or boost; this keeps Sonic Shout as the deliberate echolocation action.
 
 Only a ray with at least one completed bounce can activate its owner. The first reflected ray from a pulse to reach the owner triggers the owner-only edge reveal and boost. Other players never activate or receive its reveal.
 

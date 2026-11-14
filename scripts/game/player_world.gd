@@ -12,6 +12,7 @@ signal player_finished(player_number: int)
 @export var mirror_course_horizontally: bool = false
 @export var sound_wave_scene: PackedScene
 @export var reveal_ring_scene: PackedScene
+@export_range(1.0, 100.0, 1.0) var intro_pulse_loudness: float = 60.0
 @export_range(0.1, 1.0) var footstep_loudness_multiplier: float = 0.35
 @export_range(0.1, 1.0) var footstep_ring_scale: float = 0.45
 
@@ -30,7 +31,7 @@ func _ready() -> void:
 	_player.jump_action = jump_action
 	_player.shout_action = shout_action
 	_player.modulate = player_color
-	_generator.scale.x = -1.0 if mirror_course_horizontally else 1.0
+	_generator.mirror_horizontally = mirror_course_horizontally
 	_echo_overlay.set_player_color(player_color)
 	var camera := _player.get_node("Camera2D") as Camera2D
 	camera.enabled = true
@@ -51,6 +52,10 @@ func set_race_active(is_active: bool) -> void:
 	_finish_area.monitoring = is_active
 
 
+func emit_intro_pulse() -> void:
+	_on_player_pulsed(_player.global_position, Vector2(_player.facing_direction, 0.0), intro_pulse_loudness, 16)
+
+
 func _on_footstep_emitted(origin: Vector2, _direction: Vector2, loudness: float) -> void:
 	# Footsteps show current loudness without granting a free echo return or boost.
 	_spawn_reveal_ring(origin, loudness * footstep_loudness_multiplier, footstep_ring_scale)
@@ -64,7 +69,7 @@ func _on_player_pulsed(origin: Vector2, _direction: Vector2, loudness: float, ra
 		var direction := Vector2.from_angle(TAU * float(index) / float(ray_count))
 		var wave := sound_wave_scene.instantiate() as SoundWave
 		_waves.add_child(wave)
-		wave.setup(_player, origin + direction * 24.0, direction, loudness, _next_pulse_id)
+		wave.setup(_player, origin + direction * 8.0, direction, loudness, _next_pulse_id)
 		wave.bounced.connect(pulse.add_bounce)
 		wave.returned_to_owner.connect(_on_wave_returned)
 

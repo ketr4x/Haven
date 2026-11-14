@@ -7,6 +7,7 @@ signal course_generated(seed: int, signature: String)
 @export var traversal_chunks: Array[PackedScene]
 @export var safe_fallback_chunk: PackedScene
 @export var finish_chunk: PackedScene
+@export var mirror_horizontally: bool = false
 @export_range(1, 24) var traversal_count: int = 5
 @export var seed_value: int = 12_345
 
@@ -71,6 +72,7 @@ func _scene_is_compatible(chunk_scene: PackedScene, previous_difficulty: int) ->
 
 func _place_chunk(chunk_scene: PackedScene, entry_position: Vector2) -> CourseChunk:
 	var chunk := chunk_scene.instantiate() as CourseChunk
+	chunk.mirror_horizontally = mirror_horizontally
 	_generated_chunks.add_child(chunk)
 	chunk.position = entry_position - chunk.entry_position()
 	return chunk
