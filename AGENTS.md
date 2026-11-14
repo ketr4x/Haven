@@ -51,7 +51,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Do not make concurrent edits to the same `.tscn`, `.tres`, TileSet, or `project.godot` file.
 - Add new assets instead of moving or renaming referenced assets unless all references are updated.
 - Resolve scene and resource conflicts manually, then open and run the result in Godot.
-- Do not commit generated `.godot/` content, imports, logs, generated exports, or machine-local files. `local.agents.md` contains untracked, machine-specific notes and is not repository policy.
+- Do not commit generated `.godot/` content, imports, logs, generated exports, or machine-local files. When present, use `local.agents.md` for its untracked, machine-specific notes; it supplements but does not override repository policy.
 - When adding art or UI, use the existing Luap-40 palette and preserve pixel-crisp rendering. The logo and player sheet are staged assets, not active gameplay art.
 
 ## DONE
