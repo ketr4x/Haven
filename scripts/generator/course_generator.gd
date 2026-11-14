@@ -13,6 +13,7 @@ signal course_generated(seed: int, signature: String)
 
 var course_signature: String = ""
 var player_spawn: Vector2 = Vector2.ZERO
+var finish_position: Vector2 = Vector2.ZERO
 
 func generate_course(seed: int = seed_value) -> void:
 	seed_value = seed
@@ -35,6 +36,7 @@ func generate_course(seed: int = seed_value) -> void:
 		sequence.append(String(chunk.chunk_id))
 
 	var finish := _place_chunk(finish_chunk, next_entry)
+	finish_position = finish.position + Vector2(220, 0)
 	sequence.append(String(finish.chunk_id))
 	course_signature = " > ".join(sequence)
 	course_generated.emit(seed_value, course_signature)

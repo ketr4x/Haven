@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Rezonans"
-run/main_scene="res://scenes/game/generator_lab.tscn"
+run/main_scene="res://scenes/game/race.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
