@@ -47,6 +47,10 @@ signal rebound_boost_ended
 
 @onready var _camera: Camera2D = $Camera2D
 @onready var _boost_aura: Polygon2D = $BoostAura
+@onready var _landing_dust: CPUParticles2D = $LandingDust
+@onready var _wall_dust: CPUParticles2D = $WallDust
+@onready var _shout_sparks: CPUParticles2D = $ShoutSparks
+@onready var _boost_trail: CPUParticles2D = $BoostTrail
 
 var facing_direction: float = 1.0
 var loudness: float = 0.0
@@ -60,6 +64,10 @@ var _was_on_floor: bool = false
 func _ready() -> void:
 	_camera.enabled = camera_enabled
 	_boost_aura.visible = false
+	_landing_dust.emitting = false
+	_wall_dust.emitting = false
+	_shout_sparks.emitting = false
+	_boost_trail.emitting = false
 
 
 func _physics_process(delta: float) -> void:
@@ -97,6 +105,7 @@ func _add_loudness(amount: float) -> void:
 func apply_rebound_boost() -> void:
 	_boost_time_remaining = rebound_boost_duration
 	_boost_aura.visible = true
+	_boost_trail.emitting = true
 	rebound_boost_started.emit()
 
 
@@ -107,6 +116,7 @@ func _update_rebound_boost(delta: float) -> void:
 	_boost_time_remaining = maxf(0.0, _boost_time_remaining - delta)
 	if is_zero_approx(_boost_time_remaining):
 		_boost_aura.visible = false
+		_boost_trail.emitting = false
 		rebound_boost_ended.emit()
 
 
@@ -129,6 +139,7 @@ func _update_horizontal_velocity(delta: float) -> void:
 	var input_axis := Input.get_axis(left_action, right_action)
 	if not is_zero_approx(input_axis):
 		facing_direction = signf(input_axis)
+		_boost_trail.direction = Vector2(-facing_direction, -0.15).normalized()
 		var acceleration := ground_acceleration if is_on_floor() else air_acceleration
 		velocity.x = move_toward(velocity.x, input_axis * run_speed * _speed_multiplier(), acceleration * delta)
 	else:
@@ -155,6 +166,9 @@ func _try_jump() -> void:
 		velocity = Vector2(wall_normal.x * wall_jump_horizontal_speed, jump_velocity * _jump_multiplier())
 		facing_direction = signf(wall_normal.x)
 		_jump_buffer_remaining = 0.0
+		_wall_dust.position = Vector2(-wall_normal.x * 12.0, 6.0)
+		_wall_dust.direction = Vector2(wall_normal.x, -0.35).normalized()
+		_play_particle_burst(_wall_dust)
 		wall_jumped.emit(global_position, wall_normal)
 
 
@@ -167,6 +181,7 @@ func _update_ground_state(delta: float) -> void:
 	if is_on_floor():
 		_coyote_time_remaining = coyote_time
 		if not _was_on_floor:
+			_play_particle_burst(_landing_dust)
 			landed.emit(global_position)
 	else:
 		_coyote_time_remaining = maxf(0.0, _coyote_time_remaining - delta)
@@ -188,4 +203,10 @@ func _emit_shout_if_requested() -> void:
 	if Input.is_action_just_pressed(shout_action) and is_zero_approx(_shout_cooldown_remaining):
 		_shout_cooldown_remaining = shout_cooldown
 		_add_loudness(shout_loudness_gain)
+		_play_particle_burst(_shout_sparks)
 		sonic_shouted.emit(global_position, Vector2(facing_direction, 0.0), loudness)
+
+
+func _play_particle_burst(particles: CPUParticles2D) -> void:
+	particles.restart()
+	particles.emitting = true
