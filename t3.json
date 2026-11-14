@@ -1,0 +1,15 @@
+{
+  "$schema": "https://t3.codes/schema/t3.json",
+  "scripts": [
+    {
+      "name": "Start Godot Game",
+      "command": "./scripts/run_godot.sh",
+      "icon": "play"
+    },
+    {
+      "name": "Build Windows",
+      "command": "./scripts/build_windows.sh",
+      "icon": "build"
+    }
+  ]
+}

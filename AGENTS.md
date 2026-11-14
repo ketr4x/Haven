@@ -73,6 +73,8 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Every generated course has a tile-aligned roof above its highest terrain and a fall boundary below its lowest terrain. Falling below the boundary pauses that player briefly, then respawns them at the course start.
 - SceneTree checks exist for the race shell, deterministic generation, sound-wave behavior, terrain features, fall resets, and the owner-local echo path.
 - The current runnable visual scenes, `race.tscn`, `movement_lab.tscn`, and `generator_lab.tscn`, instance the Luap-40 post-process scene.
+- The committed `t3.json` exposes actions to start the Godot game and build a Windows export.
+- A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
 
 ## TO DO
 
@@ -84,7 +86,6 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Verify that all configured course chunks allow a player to reach the finish. The generator currently assembles chunks but has no pathfinding or traversal simulation.
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
-- Add a committed export preset and test an exported build. No export preset is tracked in this repository.
 - Integrate the staged logo and player sprite sheet only when the corresponding menu and animation work is implemented. They are present in `assets/art/` but are not referenced by the active scenes.
 
 ## NEXT STEPS

@@ -3,6 +3,9 @@
 *.import
 /android/
 
+# Generated Windows exports
+build/
+
 # Machine-specific agent notes
 local.agents.md
 .gitignore
