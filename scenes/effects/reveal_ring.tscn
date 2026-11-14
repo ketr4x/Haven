@@ -5,11 +5,12 @@
 [node name="RevealRing" type="Node2D"]
 script = ExtResource("1_ring")
 
-[node name="Glow" type="Polygon2D" parent="."]
-polygon = PackedVector2Array(26, 0, 18.3848, 18.3848, 0, 26, -18.3848, 18.3848, -26, 0, -18.3848, -18.3848, 0, -26, 18.3848, -18.3848)
-color = Color(0.17, 0.78, 1, 0.28)
+[node name="Glow" type="Line2D" parent="."]
+width = 7.0
+default_color = Color(0.18, 0.78, 1, 0.18)
+antialiased = true
 
-[node name="Ring" type="Line2D" parent="."]
-points = PackedVector2Array(26, 0, 18.3848, 18.3848, 0, 26, -18.3848, 18.3848, -26, 0, -18.3848, -18.3848, 0, -26, 18.3848, -18.3848, 26, 0)
-width = 3.0
-default_color = Color(0.52, 0.92, 1, 1)
+[node name="WaveFront" type="Line2D" parent="."]
+width = 2.5
+default_color = Color(0.55, 0.94, 1, 0.96)
+antialiased = true

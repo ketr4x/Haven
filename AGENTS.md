@@ -4,7 +4,9 @@
 
 **Rezonans** is a two-player horizontal split-screen parkour race in pitch darkness. Player 1 races in the top viewport and Player 2 races in the bottom viewport. Both use the same generated course and do not collide.
 
-Movement produces soundwaves. Waves reflect from solid geometry, briefly reveal nearby terrain, and can return to their owner. Catching a reflected wave grants that player a short speed and jump boost.
+Movement raises **loudness**, a player-owned value from 0 to 100. Loudness is the strength of that player’s echolocation. Running, Sonic Shout, and wall movement raise it. When a player is idle it decays to 0.
+
+Soundwaves reflect from solid geometry but do not reveal terrain at their impact point. A reflected wave activates echolocation only when it returns to its owner. The resulting edge reveal and its radius are proportional to the wave’s captured loudness. Catching that returned wave also grants the temporary speed and jump boost.
 
 The 24-hour Haven build targets **Windows PC** with the Godot 4.x Forward+ renderer. It must be playable locally by two people on one keyboard. Peer voters are likely to play for five minutes or less. The game must therefore get them into a clear race in under 15 seconds, show the Sonic Shout in the first 20 seconds, and let them finish a satisfying race in 60 to 90 seconds. The game generates a new fair course each run from a seed. Art may begin as deliberately readable placeholders and be replaced with hand-made pixel art when the playable loop is stable.
 
@@ -15,18 +17,21 @@ Local PvP is required. Party and Matchmaking may appear in the menu only as unav
 1. Deliver the first playable race in under 15 seconds with no account, lobby, or long instructions.
 2. Make the Sonic Shout look and sound striking in the first 20 seconds.
 3. Let a first race finish in 60 to 90 seconds, then offer an instant rematch.
-4. Responsive movement and fair generated courses come before art polish.
-5. Procedural generation must use small authored chunks and validation, not unrestricted random terrain.
-6. Prefer scene composition and exported tuning values over node construction in code.
+4. Make the loudness-to-echolocation relationship readable: louder actions create larger waves and a larger returned-wave reveal.
+5. Responsive movement and fair generated courses come before art polish.
+6. Procedural generation must use small authored chunks and validation, not unrestricted random terrain.
+7. Prefer scene composition and exported tuning values over node construction in code.
 
 ## Scope
 
 ### Required vertical slice
 
 - Two-player local keyboard input and top/bottom split-screen.
-- Coyote time, jump buffering, wall slide, wall jump, and directional Sonic Shout.
-- Waves from footsteps, landings, wall jumps, and Sonic Shout.
-- Predictable wave reflection, short local reveal, impact ring/trail, and returned-wave boost.
+- Coyote time, jump buffering, wall slide, wall jump, and radial Sonic Shout pulses.
+- Player loudness from 0 to 100, raised by running, Sonic Shout, and wall movement, then decaying while idle.
+- Waves whose physical size and return-reveal radius are proportional to captured loudness.
+- Predictable wave reflection and an edge-only echolocation reveal that activates only when a reflected wave reaches its owner.
+- A returned-wave boost for the owner.
 - A deterministic seeded course generator which assembles safe, authored chunks.
 - A seed retained internally for reproducible QA, a same-seed rematch, and a new-seed rematch.
 - A 5-second title/controls screen, a 3-second countdown, finish trigger, winner screen, pause, and quick restart.
@@ -46,7 +51,7 @@ The opening must work for people who will never read a README:
 
 1. **0–5 seconds:** title card shows both control schemes beside a prominent `Press any movement key` prompt.
 2. **5–8 seconds:** a three-second countdown begins as soon as both players move or the first player presses a key.
-3. **8–30 seconds:** the start chunk presents a wall or corridor where a Sonic Shout immediately reveals the route. Trigger a strong ring, flash, and bounce sound.
+3. **8–30 seconds:** the start chunk presents a wall or corridor where a Sonic Shout immediately produces a visible large wave. When it returns, show a strong edge flash, ring, boost aura, and bounce sound.
 4. **30–90 seconds:** one clean race uses a gap, a wall-jump route, and one obvious returned-wave shortcut. Never require the boost to finish.
 5. **Finish:** show the winner, a one-line “Catch your bounced wave for a boost” reminder, and large `Rematch` / `New course` actions.
 
@@ -137,13 +142,14 @@ Only instantiate runtime content in code: selected chunk scenes, waves, transien
 
 ### Split-screen race
 
-`race.tscn` owns one shared generated level and two players. Player bodies must exclude one another in their collision masks. Use two `SubViewport` nodes in vertically stacked `SubViewportContainer` nodes, each with one independent `Camera2D` following its assigned player.
+`race.tscn` owns two independent `PlayerWorld` scene instances, one inside each `SubViewport`. Both worlds receive the same race seed and therefore generate the same chunk sequence, but they never share physics, rendering, players, waves, or collision bodies.
 
-Keep physics shared and presentation separate:
+Keep seed parity and presentation isolation explicit:
 
-- The generated TileMapLayer geometry is the single collision source for players and waves.
-- Do not duplicate the level to make split-screen work.
-- Hide the other player sprite in each viewport for the MVP unless visibility improves the race.
+- Generate Player 1’s and Player 2’s course independently from the identical seed.
+- A player world contains exactly one player, one generated level, one wave container, one finish area, one camera, and one echo overlay.
+- Neither player, wave, reveal, nor boost can be observed or collide across viewports.
+- `race.tscn` owns only the seed, result state, countdown, rematch, and global UI.
 
 ### Procedural course generation
 
@@ -177,26 +183,25 @@ signal wall_jumped(position: Vector2, normal: Vector2)
 signal sonic_shouted(origin: Vector2, direction: Vector2)
 ```
 
+`Player` also owns the loudness state. Loudness is clamped to `0.0` through `100.0`, starts at `0.0`, and decays to `0.0` whenever its source actions stop. All rates and one-shot gains are exported tuning values. Running and wall movement add loudness continuously. Sonic Shout adds a one-shot loudness amount before it captures its wave strength.
+
 Store coyote time and jump buffering as short seconds-based timers. Apply the rebound boost as a single timed state with a visible multiplier and a reliable reset. Tune movement in a small movement-lab scene before it is used in generated chunks.
 
 ### Soundwave contract
 
-A soundwave has a scene with an `Area2D` or `CharacterBody2D`, collision shape, ring/trail children, owner id, direction, remaining bounce count, and lifetime. Spawn it through one narrow factory method or manager.
+A soundwave is a circular pulse, not a directional projectile. A pulse expands visibly from its owner in every direction while a bounded set of invisible radial physics rays carries the reflected return paths. The pulse scene has a ring/trail child, owner id, captured loudness, and lifetime. Spawn it through one narrow factory method or manager.
 
-On a solid TileMapLayer collision:
+When a player shouts or makes a footstep, capture that player’s loudness. Use it to scale the pulse’s visible radius and the eventual echolocation radius. Emit evenly spaced physics rays in all directions. Each ray reflects from solid TileMapLayer geometry and may return to the owner. Wall impacts produce bounce feedback only. They do not reveal terrain.
 
-1. Move to the impact point.
-2. Reflect velocity using the collision normal.
-3. Decrement the bounce count.
-4. Emit the bounce position and normal.
-5. Trigger a local reveal and ring/trail.
-6. Continue or expire when the bounce limit is exhausted.
+Only a ray with at least one completed bounce can activate its owner. The first reflected ray from a pulse to reach the owner triggers the owner-only edge reveal and boost. Other players never activate or receive its reveal.
 
-Only a wave with at least one completed bounce can boost its owner. Each wave may boost its owner once.
+### Darkness and echolocation reveal
 
-### Darkness and reveal
+At loudness `0`, the playable world is black except for each player’s own silhouette and essential UI. Each player silhouette must remain visible at all times, independent of loudness, wave state, and echo return. The level must not become visible merely because a wave bounced.
 
-Start with the simplest readable effect: low-lit level art with a dark `CanvasModulate` or `ColorRect` overlay per viewport, plus short-lived local reveal sprites/rings at wave impacts. Fade reveals over about 1.5 seconds. Do not begin with a custom per-tile shader.
+When a reflected wave reaches its owner, create a short-lived reveal centered on that player. It shows wall, floor, and platform **edges**, not a fully lit level. The radius, line thickness, and ring scale are derived from captured loudness. A low-loudness echo must still reveal at least half of the player’s viewport; a high-loudness echo should cover the full viewport. Keep the largest recent reveal visible for about four seconds before fading it out.
+
+Implement the first version with per-viewport dark overlays and edge sprites/lines that the returning wave activates. Keep the reveal system behind a small interface so that it can later become a shader-based edge mask if time permits. Do not let player one’s reveal appear in player two’s viewport.
 
 ## Ownership and 24-hour schedule
 
@@ -248,8 +253,8 @@ Merge in this order. Begin the next slice only after the prior one works from a 
 2. **Movement lab**: both input profiles can run, jump, coyote jump, buffered jump, wall slide, and wall jump.
 3. **Safe seed**: entering a seed produces the same connected flat placeholder course every time, and 30 generated seeds reach a finish.
 4. **Race shell**: two local players have independent top/bottom views; finish, winner, same-seed rematch, and new-seed rematch work.
-5. **Wave loop**: Sonic Shout bounces predictably, reveals impact areas, and expires cleanly.
-6. **Bounce Back**: a reflected wave boosts only its owner once and communicates that state with clear feedback.
+5. **Wave loop**: Sonic Shout raises loudness, emits a wave sized from its captured loudness, and reflects predictably without revealing terrain at a wall.
+6. **Bounce Back**: a reflected wave reaching its owner triggers an owner-only edge reveal and boost. Larger captured loudness produces a larger, more readable reveal.
 7. **Generated challenge**: gap, wall-jump, and bounce-reward chunks pass validation and do not create unwinnable courses.
 8. **Ship pass**: no errors over multiple complete races, keyboard input works under two players, and the Windows export starts outside the editor.
 
@@ -259,8 +264,8 @@ Watch two people play without explaining the intended strategy. Ask:
 
 - Can you immediately tell which keys are yours?
 - Does holding movement plus jumping and shouting work on this keyboard?
-- Can you see where to go after a shout?
-- Did you notice a wave come back and understand the boost?
+- Can you tell that running, shouting, and wall movement make your waves larger?
+- When a wave returns, can you see level edges without seeing the entire level?
 - Did any generated layout feel unfair, confusing, or impossible?
 - Is the winner clear and can you restart immediately?
 

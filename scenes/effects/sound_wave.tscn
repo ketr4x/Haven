@@ -1,17 +1,29 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/effects/sound_wave.gd" id="1_wave"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_wave"]
 radius = 11.0
 
+[sub_resource type="CircleShape2D" id="CircleShape2D_return_detector"]
+radius = 26.0
+
 [node name="SoundWave" type="CharacterBody2D"]
+visible = false
 collision_layer = 8
 collision_mask = 1
 script = ExtResource("1_wave")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_wave")
+
+[node name="ReturnDetector" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ReturnDetector"]
+shape = SubResource("CircleShape2D_return_detector")
 
 [node name="OuterRing" type="Polygon2D" parent="."]
 polygon = PackedVector2Array(14, 0, 9.89949, 9.89949, 0, 14, -9.89949, 9.89949, -14, 0, -9.89949, -9.89949, 0, -14, 9.89949, -9.89949)
@@ -20,3 +32,5 @@ color = Color(0.22, 0.9, 1, 0.9)
 [node name="Core" type="Polygon2D" parent="."]
 polygon = PackedVector2Array(6, 0, 4.24264, 4.24264, 0, 6, -4.24264, 4.24264, -6, 0, -4.24264, -4.24264, 0, -6, 4.24264, -4.24264)
 color = Color(0.92, 0.98, 1, 1)
+
+[connection signal="body_entered" from="ReturnDetector" to="." method="_on_return_detector_body_entered"]

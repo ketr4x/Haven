@@ -13,6 +13,11 @@ script = ExtResource("1_player")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_player")
 
+[node name="BoostAura" type="Polygon2D" parent="."]
+visible = false
+polygon = PackedVector2Array(-24, -30, 24, -30, 32, 0, 24, 30, -24, 30, -32, 0)
+color = Color(1, 0.8, 0.24, 0.52)
+
 [node name="BodyVisual" type="Polygon2D" parent="."]
 polygon = PackedVector2Array(-12, -18, 12, -18, 12, 18, -12, 18)
 color = Color(0.98, 0.98, 1, 1)
