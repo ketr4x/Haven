@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="10_finish"]
 [ext_resource type="PackedScene" path="res://scenes/effects/sound_wave.tscn" id="11_wave"]
 [ext_resource type="PackedScene" path="res://scenes/effects/reveal_ring.tscn" id="12_ring"]
+[ext_resource type="PackedScene" path="res://scenes/effects/echo_overlay.tscn" id="13_overlay"]
 
 [node name="Race" type="Control"]
 layout_mode = 3
@@ -94,6 +95,10 @@ render_target_update_mode = 4
 position_smoothing_enabled = true
 position_smoothing_speed = 12.0
 
+[node name="TopEchoCanvas" type="CanvasLayer" parent="Presentation/SplitScreen/TopContainer/TopViewport"]
+
+[node name="EchoOverlay" parent="Presentation/SplitScreen/TopContainer/TopViewport/TopEchoCanvas" instance=ExtResource("13_overlay")]
+
 [node name="Divider" type="ColorRect" parent="Presentation/SplitScreen"]
 layout_mode = 1
 anchors_preset = 10
@@ -127,6 +132,10 @@ render_target_update_mode = 4
 [node name="BottomCamera" type="Camera2D" parent="Presentation/SplitScreen/BottomContainer/BottomViewport"]
 position_smoothing_enabled = true
 position_smoothing_speed = 12.0
+
+[node name="BottomEchoCanvas" type="CanvasLayer" parent="Presentation/SplitScreen/BottomContainer/BottomViewport"]
+
+[node name="EchoOverlay" parent="Presentation/SplitScreen/BottomContainer/BottomViewport/BottomEchoCanvas" instance=ExtResource("13_overlay")]
 
 [node name="GlobalUi" type="CanvasLayer" parent="."]
 

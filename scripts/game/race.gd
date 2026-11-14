@@ -12,6 +12,8 @@ extends Control
 @onready var _bottom_viewport: SubViewport = $Presentation/SplitScreen/BottomContainer/BottomViewport
 @onready var _top_camera: Camera2D = $Presentation/SplitScreen/TopContainer/TopViewport/TopCamera
 @onready var _bottom_camera: Camera2D = $Presentation/SplitScreen/BottomContainer/BottomViewport/BottomCamera
+@onready var _top_echo_overlay: EchoOverlay = $Presentation/SplitScreen/TopContainer/TopViewport/TopEchoCanvas/EchoOverlay
+@onready var _bottom_echo_overlay: EchoOverlay = $Presentation/SplitScreen/BottomContainer/BottomViewport/BottomEchoCanvas/EchoOverlay
 @onready var _seed_label: Label = $GlobalUi/Seed
 @onready var _winner_label: Label = $GlobalUi/Winner
 
@@ -43,22 +45,24 @@ func _process(_delta: float) -> void:
 	_bottom_camera.position = _player_two.global_position
 
 
-func _on_player_shouted(origin: Vector2, direction: Vector2, player: RezonansPlayer) -> void:
+func _on_player_shouted(origin: Vector2, direction: Vector2, loudness: float, player: RezonansPlayer) -> void:
 	var wave := sound_wave_scene.instantiate() as SoundWave
 	_waves.add_child(wave)
-	wave.setup(player, origin + direction * 24.0, direction)
+	wave.setup(player, origin + direction * 24.0, direction, loudness)
 	wave.bounced.connect(_on_wave_bounced)
 	wave.returned_to_owner.connect(_on_wave_returned)
 
 
-func _on_wave_bounced(position: Vector2, _normal: Vector2, _bounce_count: int) -> void:
-	var ring := reveal_ring_scene.instantiate() as RevealRing
-	_waves.add_child(ring)
-	ring.global_position = position
+func _on_wave_bounced(_position: Vector2, _normal: Vector2, _bounce_count: int) -> void:
+	pass
 
 
-func _on_wave_returned(player: RezonansPlayer) -> void:
+func _on_wave_returned(player: RezonansPlayer, captured_loudness: float) -> void:
 	player.apply_rebound_boost()
+	if player == _player_one:
+		_top_echo_overlay.trigger(captured_loudness)
+	else:
+		_bottom_echo_overlay.trigger(captured_loudness)
 
 
 func _on_course_generated(seed: int, _signature: String) -> void:

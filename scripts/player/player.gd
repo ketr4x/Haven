@@ -3,7 +3,7 @@ extends CharacterBody2D
 
 signal landed(position: Vector2)
 signal wall_jumped(position: Vector2, normal: Vector2)
-signal sonic_shouted(origin: Vector2, direction: Vector2)
+signal sonic_shouted(origin: Vector2, direction: Vector2, loudness: float)
 signal rebound_boost_started
 signal rebound_boost_ended
 
@@ -28,6 +28,13 @@ signal rebound_boost_ended
 @export_category("Sonic Shout")
 @export var shout_cooldown: float = 0.45
 
+@export_category("Echolocation")
+@export_range(1.0, 100.0) var max_loudness: float = 100.0
+@export var running_loudness_per_second: float = 24.0
+@export var wall_loudness_per_second: float = 36.0
+@export var shout_loudness_gain: float = 42.0
+@export var idle_loudness_decay_per_second: float = 18.0
+
 @export_category("Rebound Boost")
 @export var rebound_boost_duration: float = 1.4
 @export var rebound_speed_multiplier: float = 1.35
@@ -40,6 +47,7 @@ signal rebound_boost_ended
 @onready var _boost_aura: Polygon2D = $BoostAura
 
 var facing_direction: float = 1.0
+var loudness: float = 0.0
 var _coyote_time_remaining: float = 0.0
 var _jump_buffer_remaining: float = 0.0
 var _shout_cooldown_remaining: float = 0.0
@@ -53,6 +61,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_rebound_boost(delta)
+	_update_loudness(delta)
 	_shout_cooldown_remaining = maxf(0.0, _shout_cooldown_remaining - delta)
 	_update_jump_buffer(delta)
 	_update_horizontal_velocity(delta)
@@ -63,6 +72,22 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_update_ground_state(delta)
 	_emit_shout_if_requested()
+
+
+func _update_loudness(delta: float) -> void:
+	var gain := 0.0
+	if absf(velocity.x) > 30.0:
+		gain += running_loudness_per_second * delta
+	if is_on_wall_only() and not is_on_floor():
+		gain += wall_loudness_per_second * delta
+	if is_zero_approx(gain):
+		loudness = maxf(0.0, loudness - idle_loudness_decay_per_second * delta)
+	else:
+		loudness = minf(max_loudness, loudness + gain)
+
+
+func _add_loudness(amount: float) -> void:
+	loudness = clampf(loudness + amount, 0.0, max_loudness)
 
 
 func apply_rebound_boost() -> void:
@@ -147,4 +172,5 @@ func _update_ground_state(delta: float) -> void:
 func _emit_shout_if_requested() -> void:
 	if Input.is_action_just_pressed(shout_action) and is_zero_approx(_shout_cooldown_remaining):
 		_shout_cooldown_remaining = shout_cooldown
-		sonic_shouted.emit(global_position, Vector2(facing_direction, 0.0))
+		_add_loudness(shout_loudness_gain)
+		sonic_shouted.emit(global_position, Vector2(facing_direction, 0.0), loudness)

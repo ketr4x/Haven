@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/effects/echo_overlay.gd" id="1_overlay"]
+[ext_resource type="Shader" path="res://assets/shaders/echolocation_overlay.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_overlay"]
+shader = ExtResource("2_shader")
+shader_parameter/reveal_radius = 0.0
+shader_parameter/reveal_strength = 0.0
+shader_parameter/aspect_ratio = 1.7777778
+
+[node name="EchoOverlay" type="ColorRect"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("ShaderMaterial_overlay")
+color = Color(1, 1, 1, 1)
+script = ExtResource("1_overlay")
