@@ -50,7 +50,7 @@ func _initialize() -> void:
 	finish_area._on_body_entered(player_one)
 	var winner_label := race.get_node("GlobalUi/ResultPanel/Winner") as Label
 	assert((race.get_node("GlobalUi/ResultPanel") as Control).visible)
-	assert(winner_label.text == "PLAYER 1 WINS")
+	assert(winner_label.text == "WYGRYWA GRACZ 1")
 	assert(not player_one.is_physics_processing())
 	print("Race shell and start flow check passed.")
 	quit()

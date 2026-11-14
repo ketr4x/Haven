@@ -122,5 +122,5 @@ func _on_player_finished(player_number: int) -> void:
 	if _race_state != RaceState.RACING:
 		return
 
-	_winner_label.text = "PLAYER %d WINS" % player_number
+	_winner_label.text = "WYGRYWA GRACZ %d" % player_number
 	_set_race_state(RaceState.FINISHED)
