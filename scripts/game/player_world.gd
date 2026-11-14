@@ -43,6 +43,11 @@ func generate_course(seed: int) -> void:
 	_generator.generate_course(seed)
 
 
+func set_race_active(is_active: bool) -> void:
+	_player.set_physics_process(is_active)
+	_finish_area.monitoring = is_active
+
+
 func _on_footstep_emitted(origin: Vector2, direction: Vector2, loudness: float) -> void:
 	_on_player_pulsed(origin, direction, loudness * footstep_loudness_multiplier, 8, footstep_ring_scale)
 
