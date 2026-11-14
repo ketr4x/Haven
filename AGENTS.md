@@ -82,12 +82,28 @@ Use these actions in **Project Settings > Input Map**. Do not read physical keys
 
 Test the chosen keyboard in the first hour. If it ghosts when both players hold movement plus action keys, move Player 1’s shout to `F` or use an alternate tested layout. Display the final controls in the start screen.
 
+## Visual and art direction
+
+- **Aesthetic**: Low-bit pixel art with a dark, atmospheric mood. The world sits in near-darkness while player silhouettes, revealed terrain, and soundwaves pop with high contrast.
+- **Color palette (`Luap-40`)**: All new art, UI, particles, placeholder polygons, and shader tints must use colors from [`assets/palettes/luap_40.hex`](assets/palettes/luap_40.hex) rather than arbitrary RGB values:
+  - Dark backgrounds & deep shadows: `#1a1a1a`, `#331a33`, `#33291f`, `#363636`, `#403326`, `#433057`
+  - Muted terrain & midtones: `#464a73`, `#515151`, `#546799`, `#574639`, `#597080`, `#66294c`, `#6d6d6d`, `#733453`, `#735f4b`, `#888888`, `#8c3f52`
+  - Cool / cyan / blue accents (waves, reveals, cool highlights): `#6699cc`, `#6da18a`, `#82b5d9`, `#86bf8f`, `#a1d5e6`, `#b5d9a3`, `#c2f2f2`
+  - Warm / coral / rose accents (player contrast, alerts, boost): `#bd555f`, `#bf6979`, `#c4736c`, `#c98f8f`, `#d99f82`, `#d9b898`, `#d9b8ad`, `#b39374`
+  - Light & neutral highlights (text, sharp rims, flashes): `#a3a3a3`, `#bfbfbf`, `#dadada`, `#e0e6c3`, `#e6cca1`, `#e6d4c3`, `#f0ebc0`, `#f5f5f5`
+- **Typography**: Use `KiwiSoda` ([`assets/fonts/kiwi_soda.ttf`](assets/fonts/kiwi_soda.ttf)) for menus, HUD, and overlays. Keep pixel-aligned sizes for crisp rendering.
+- **Pixel crispness**: Keep `Nearest` texture filtering on pixel sprites, tilesets, and UI textures so low-bit assets never blur.
+- **Logo asset**: [`assets/art/rezonans_logo.png`](assets/art/rezonans_logo.png) is staged in `assets/art/` for future menu/title use; do not integrate it into active scenes yet.
+- **Post-processing (planned)**: Once core gameplay and art assets are in place, add a final CRT-style screen shader (scanlines, subtle phosphor bloom/aberration, and dark vignette) tuned so split-screen text and fast parkour cues remain crisp and legible.
+
 ## Project layout
 
 ```text
 assets/
   art/
   audio/
+  fonts/
+  palettes/
 scenes/
   effects/
   game/
