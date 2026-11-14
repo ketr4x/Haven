@@ -27,7 +27,7 @@ Local PvP is required. Party and Matchmaking may appear in the menu only as unav
 ### Required vertical slice
 
 - Two-player local keyboard input and top/bottom split-screen.
-- Coyote time, jump buffering, wall slide, wall jump, and directional Sonic Shout.
+- Coyote time, jump buffering, wall slide, wall jump, and radial Sonic Shout pulses.
 - Player loudness from 0 to 100, raised by running, Sonic Shout, and wall movement, then decaying while idle.
 - Waves whose physical size and return-reveal radius are proportional to captured loudness.
 - Predictable wave reflection and an edge-only echolocation reveal that activates only when a reflected wave reaches its owner.
@@ -172,17 +172,11 @@ Store coyote time and jump buffering as short seconds-based timers. Apply the re
 
 ### Soundwave contract
 
-A soundwave has a scene with an `Area2D` or `CharacterBody2D`, collision shape, ring/trail children, owner id, direction, captured loudness, remaining bounce count, and lifetime. Spawn it through one narrow factory method or manager.
+A soundwave is a circular pulse, not a directional projectile. A pulse expands visibly from its owner in every direction while a bounded set of invisible radial physics rays carries the reflected return paths. The pulse scene has a ring/trail child, owner id, captured loudness, and lifetime. Spawn it through one narrow factory method or manager.
 
-When a player shouts, capture that player’s loudness on the wave. Use it to scale the wave’s visible size and the eventual echolocation radius. On a solid TileMapLayer collision:
+When a player shouts or makes a footstep, capture that player’s loudness. Use it to scale the pulse’s visible radius and the eventual echolocation radius. Emit evenly spaced physics rays in all directions. Each ray reflects from solid TileMapLayer geometry and may return to the owner. Wall impacts produce bounce feedback only. They do not reveal terrain.
 
-1. Move to the impact point.
-2. Reflect velocity using the collision normal.
-3. Decrement the bounce count.
-4. Emit bounce feedback only: trail, ring, and sound. Do not reveal terrain yet.
-5. Continue or expire when the bounce limit is exhausted.
-
-Only a wave with at least one completed bounce can activate its owner. When it reaches its owner, it may boost that owner once and triggers an edge-only echolocation reveal proportional to captured loudness. Other players never activate or receive its reveal.
+Only a ray with at least one completed bounce can activate its owner. The first reflected ray from a pulse to reach the owner triggers the owner-only edge reveal and boost. Other players never activate or receive its reveal.
 
 ### Darkness and echolocation reveal
 

@@ -18,6 +18,8 @@ extends Control
 @onready var _winner_label: Label = $GlobalUi/Winner
 
 var _race_finished: bool = false
+var _next_pulse_id: int = 0
+var _activated_pulses: Dictionary = {}
 
 func _ready() -> void:
 	var shared_world := get_viewport().world_2d
@@ -26,10 +28,10 @@ func _ready() -> void:
 
 	_course_generator.course_generated.connect(_on_course_generated)
 	_finish_area.player_finished.connect(_on_player_finished)
-	_player_one.sonic_shouted.connect(_on_player_shouted.bind(_player_one))
-	_player_two.sonic_shouted.connect(_on_player_shouted.bind(_player_two))
-	_player_one.footstep_emitted.connect(_on_player_shouted.bind(_player_one))
-	_player_two.footstep_emitted.connect(_on_player_shouted.bind(_player_two))
+	_player_one.sonic_shouted.connect(_on_player_shouted.bind(_player_one, 16))
+	_player_two.sonic_shouted.connect(_on_player_shouted.bind(_player_two, 16))
+	_player_one.footstep_emitted.connect(_on_player_shouted.bind(_player_one, 8))
+	_player_two.footstep_emitted.connect(_on_player_shouted.bind(_player_two, 8))
 	_course_generator.generate_course()
 
 
@@ -47,19 +49,30 @@ func _process(_delta: float) -> void:
 	_bottom_camera.position = _player_two.global_position
 
 
-func _on_player_shouted(origin: Vector2, direction: Vector2, loudness: float, player: RezonansPlayer) -> void:
-	var wave := sound_wave_scene.instantiate() as SoundWave
-	_waves.add_child(wave)
-	wave.setup(player, origin + direction * 24.0, direction, loudness)
-	wave.bounced.connect(_on_wave_bounced)
-	wave.returned_to_owner.connect(_on_wave_returned)
+func _on_player_shouted(origin: Vector2, _direction: Vector2, loudness: float, player: RezonansPlayer, ray_count: int) -> void:
+	_next_pulse_id += 1
+	var pulse := reveal_ring_scene.instantiate() as RevealRing
+	_waves.add_child(pulse)
+	pulse.global_position = origin
+	pulse.configure(loudness)
+
+	for index in ray_count:
+		var direction := Vector2.from_angle(TAU * float(index) / float(ray_count))
+		var wave := sound_wave_scene.instantiate() as SoundWave
+		_waves.add_child(wave)
+		wave.setup(player, origin + direction * 24.0, direction, loudness, _next_pulse_id)
+		wave.returned_to_owner.connect(_on_wave_returned)
 
 
 func _on_wave_bounced(_position: Vector2, _normal: Vector2, _bounce_count: int) -> void:
 	pass
 
 
-func _on_wave_returned(player: RezonansPlayer, captured_loudness: float) -> void:
+func _on_wave_returned(player: RezonansPlayer, captured_loudness: float, pulse_id: int) -> void:
+	if _activated_pulses.has(pulse_id):
+		return
+
+	_activated_pulses[pulse_id] = true
 	player.apply_rebound_boost()
 	if player == _player_one:
 		_top_echo_overlay.trigger(captured_loudness)

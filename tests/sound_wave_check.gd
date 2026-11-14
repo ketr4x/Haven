@@ -14,7 +14,7 @@ func _initialize() -> void:
 	var wave := SOUND_WAVE.instantiate() as SoundWave
 	lab.add_child(wave)
 	wave.bounced.connect(_on_wave_bounced)
-	wave.setup(player, Vector2(540, 546), Vector2.RIGHT, 50.0)
+	wave.setup(player, Vector2(540, 546), Vector2.RIGHT, 50.0, 1)
 
 	for frame in 20:
 		await physics_frame

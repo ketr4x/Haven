@@ -2,7 +2,7 @@ class_name SoundWave
 extends CharacterBody2D
 
 signal bounced(position: Vector2, normal: Vector2, bounce_count: int)
-signal returned_to_owner(player: RezonansPlayer, captured_loudness: float)
+signal returned_to_owner(player: RezonansPlayer, captured_loudness: float, pulse_id: int)
 signal expired
 
 @export var speed: float = 760.0
@@ -11,12 +11,14 @@ signal expired
 
 var bounce_count: int = 0
 var captured_loudness: float = 0.0
+var pulse_id: int = 0
 var emitter: RezonansPlayer
 var _remaining_lifetime: float = 0.0
 var _has_returned: bool = false
 
-func setup(source: RezonansPlayer, origin: Vector2, direction: Vector2, initial_loudness: float) -> void:
+func setup(source: RezonansPlayer, origin: Vector2, direction: Vector2, initial_loudness: float, pulse_identifier: int) -> void:
 	emitter = source
+	pulse_id = pulse_identifier
 	captured_loudness = clampf(initial_loudness, 0.0, 100.0)
 	var size_multiplier := lerpf(0.55, 2.1, captured_loudness / 100.0)
 	scale = Vector2.ONE * size_multiplier
@@ -54,6 +56,6 @@ func _on_return_detector_body_entered(body: Node2D) -> void:
 		return
 
 	_has_returned = true
-	returned_to_owner.emit(emitter, captured_loudness)
+	returned_to_owner.emit(emitter, captured_loudness, pulse_id)
 	expired.emit()
 	queue_free()
