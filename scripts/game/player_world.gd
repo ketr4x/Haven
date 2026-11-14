@@ -13,6 +13,7 @@ signal player_finished(player_number: int)
 @export var sound_wave_scene: PackedScene
 @export var reveal_ring_scene: PackedScene
 @export_range(1.0, 100.0, 1.0) var intro_pulse_loudness: float = 60.0
+@export_range(20.0, 200.0, 5.0) var walking_echo_speed_threshold: float = 80.0
 @export_range(0.1, 1.0) var footstep_loudness_multiplier: float = 0.35
 @export_range(0.1, 1.0) var footstep_ring_scale: float = 0.45
 
@@ -41,6 +42,13 @@ func _ready() -> void:
 	_finish_area.player_finished.connect(_on_finish_area_player_finished)
 	_player.sonic_shouted.connect(_on_player_pulsed.bind(16, 1.0))
 	_player.footstep_emitted.connect(_on_footstep_emitted)
+
+
+func _process(_delta: float) -> void:
+	if _player.is_physics_processing() \
+		and _player.is_on_floor() \
+		and absf(_player.velocity.x) >= walking_echo_speed_threshold:
+		_echo_overlay.walking_preview(_player.loudness)
 
 
 func generate_course(seed: int) -> void:

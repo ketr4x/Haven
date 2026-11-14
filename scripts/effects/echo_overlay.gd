@@ -4,6 +4,9 @@ extends ColorRect
 @export_range(0.1, 10.0, 0.1) var reveal_duration: float = 4.0
 @export_range(0.1, 2.0, 0.05) var preview_duration: float = 0.55
 @export_range(0.0, 1.0, 0.05) var preview_strength: float = 0.45
+@export_range(0.1, 2.0, 0.05) var walking_reveal_duration: float = 0.45
+@export_range(0.0, 1.0, 0.05) var walking_reveal_strength: float = 0.35
+@export_range(0.1, 1.0, 0.05) var walking_radius_scale: float = 0.4
 
 var _time_remaining: float = 0.0
 var _active_duration: float = 0.0
@@ -26,12 +29,18 @@ func preview(captured_loudness: float) -> void:
 	_activate(captured_loudness, preview_duration, preview_strength)
 
 
+func walking_preview(captured_loudness: float) -> void:
+	if _peak_strength > walking_reveal_strength and _time_remaining > 0.0:
+		return
+	_activate(captured_loudness, walking_reveal_duration, walking_reveal_strength, walking_radius_scale)
+
+
 func trigger(captured_loudness: float) -> void:
 	_activate(captured_loudness, reveal_duration, 1.0)
 
 
-func _activate(captured_loudness: float, duration: float, strength: float) -> void:
-	var reveal_radius := lerpf(0.55, 1.35, clampf(captured_loudness, 0.0, 100.0) / 100.0)
+func _activate(captured_loudness: float, duration: float, strength: float, radius_scale: float = 1.0) -> void:
+	var reveal_radius := lerpf(0.55, 1.35, clampf(captured_loudness, 0.0, 100.0) / 100.0) * radius_scale
 	_radius = maxf(_radius, reveal_radius)
 	_active_duration = duration
 	_time_remaining = duration

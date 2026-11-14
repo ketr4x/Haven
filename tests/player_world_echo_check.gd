@@ -23,6 +23,15 @@ func _initialize() -> void:
 	player.rebound_boost_started.connect(_on_boost_started)
 	var overlay := world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
 	var overlay_material := overlay.material as ShaderMaterial
+	overlay.walking_preview(100.0)
+	assert(is_equal_approx(
+		float(overlay_material.get_shader_parameter("reveal_strength")),
+		overlay.walking_reveal_strength,
+	))
+	assert(is_equal_approx(
+		float(overlay_material.get_shader_parameter("reveal_radius")),
+		1.35 * overlay.walking_radius_scale,
+	))
 
 	world._on_player_pulsed(player.global_position, Vector2.RIGHT, 60.0, 16)
 	assert(is_equal_approx(

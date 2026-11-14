@@ -4,7 +4,7 @@
 
 **Rezonans** is a two-player horizontal split-screen parkour race in pitch darkness. Player 1 races left-to-right in the top viewport and Player 2 races right-to-left in the bottom viewport. Both receive the same generated geometry, mirrored horizontally for Player 2, and do not collide.
 
-Movement raises **loudness**, a player-owned value from 0 to 100. Loudness is the strength of that player’s echolocation. Running, Sonic Shout, and wall movement raise it. When a player is idle it decays to 0.
+Movement raises **loudness**, a player-owned value from 0 to 100. Loudness is the strength of that player’s echolocation. Running, Sonic Shout, and wall movement raise it. When a player is idle it decays to 0. Movement also maintains a small, player-centred edge reveal while the player is running. It refreshes continuously from current loudness, fades shortly after movement stops, and must resume as soon as the player runs again. Keep this walking reveal materially smaller than a Sonic Shout so shouting remains the strategic way to inspect a large area.
 
 Soundwaves reflect from solid geometry but do not start the sustained reveal at their impact point. An outgoing Sonic Shout gives a brief edge preview; a reflected wave activates the full echolocation reveal only when it returns to its owner. The resulting edge reveal and its radius are proportional to the wave’s captured loudness. Catching that returned wave also grants the temporary speed and jump boost.
 
