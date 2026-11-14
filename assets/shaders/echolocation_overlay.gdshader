@@ -4,6 +4,7 @@ uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_l
 uniform float reveal_radius : hint_range(0.0, 1.0) = 0.0;
 uniform float reveal_strength : hint_range(0.0, 1.0) = 0.0;
 uniform float aspect_ratio = 1.7777778;
+uniform vec4 player_color : source_color = vec4(1.0);
 
 float brightness(vec3 color) {
 	return dot(color, vec3(0.2126, 0.7152, 0.0722));
@@ -22,13 +23,8 @@ void fragment() {
 
 	vec3 edge_color = mix(vec3(0.15, 0.72, 1.0), vec3(0.9, 0.97, 1.0), edge);
 	vec3 source = texture(screen_texture, SCREEN_UV).rgb;
-	float cyan_player = step(0.72, source.b) * step(0.52, source.g);
-	float pink_player = step(0.72, source.r) * step(0.34, source.b) * (1.0 - step(0.7, source.g));
-	float player_pixel = max(cyan_player, pink_player);
-	float player_window = 1.0 - smoothstep(0.025, 0.06, distance_to_center);
+	float player_pixel = 1.0 - smoothstep(0.04, 0.1, distance(source, player_color.rgb));
 	vec3 echo = edge_color * edge * echo_area * reveal_strength;
-	echo = max(echo, source * max(player_pixel, player_window));
-	float reveal_alpha = 1.0 - echo_area * reveal_strength * 0.9;
-	reveal_alpha = min(reveal_alpha, 1.0 - player_window);
-	COLOR = vec4(echo, reveal_alpha);
+	echo = max(echo, source * player_pixel);
+	COLOR = vec4(echo, 1.0);
 }

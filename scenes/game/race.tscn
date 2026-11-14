@@ -88,6 +88,7 @@ right_action = &"p2_right"
 jump_action = &"p2_jump"
 shout_action = &"p2_shout"
 player_color = Color(0.509804, 0.709804, 0.85098, 1)
+mirror_course_horizontally = true
 
 [node name="GlobalUi" type="CanvasLayer" parent="."]
 
@@ -99,7 +100,7 @@ offset_bottom = 48.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 18
-text = "PLAYER 1"
+text = "GRACZ 1"
 
 [node name="PlayerTwoLabel" type="Label" parent="GlobalUi"]
 offset_left = 24.0
@@ -109,7 +110,7 @@ offset_bottom = 414.0
 theme_override_colors/font_color = Color(0.509804, 0.709804, 0.85098, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 18
-text = "PLAYER 2"
+text = "GRACZ 2"
 
 [node name="Seed" type="Label" parent="GlobalUi"]
 offset_left = 700.0
@@ -176,7 +177,7 @@ offset_bottom = 232.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 20
-text = "RACE BY ECHO"
+text = "WYŚCIG ECHA"
 horizontal_alignment = 1
 
 [node name="PlayerOneControls" type="Label" parent="GlobalUi/TitlePanel"]
@@ -188,7 +189,7 @@ offset_bottom = 410.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 24
-text = "PLAYER 1\nA / D  MOVE\nW  JUMP    S  SHOUT"
+text = "GRACZ 1\nA / D  RUCH\nW  SKOK    S  KRZYK"
 horizontal_alignment = 1
 
 [node name="PlayerTwoControls" type="Label" parent="GlobalUi/TitlePanel"]
@@ -200,7 +201,7 @@ offset_bottom = 410.0
 theme_override_colors/font_color = Color(0.509804, 0.709804, 0.85098, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 24
-text = "PLAYER 2\nLEFT / RIGHT  MOVE\nUP  JUMP    DOWN  SHOUT"
+text = "GRACZ 2\nLEWO / PRAWO  RUCH\nGÓRA  SKOK    DÓŁ  KRZYK"
 horizontal_alignment = 1
 
 [node name="Prompt" type="Label" parent="GlobalUi/TitlePanel"]
@@ -212,7 +213,7 @@ offset_bottom = 554.0
 theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 30
-text = "PRESS ANY MOVEMENT KEY"
+text = "NACIŚNIJ DOWOLNY KLAWISZ RUCHU"
 horizontal_alignment = 1
 
 [node name="Hint" type="Label" parent="GlobalUi/TitlePanel"]
@@ -224,7 +225,7 @@ offset_bottom = 598.0
 theme_override_colors/font_color = Color(0.635294, 0.635294, 0.635294, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 16
-text = "A reflected wave reveals edges and grants a burst of speed."
+text = "Odbita fala odsłania krawędzie i daje zryw prędkości."
 horizontal_alignment = 1
 
 [node name="PausePanel" type="Control" parent="GlobalUi"]
@@ -255,7 +256,7 @@ offset_bottom = 358.0
 theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 56
-text = "PAUSED"
+text = "PAUZA"
 horizontal_alignment = 1
 
 [node name="Hint" type="Label" parent="GlobalUi/PausePanel"]
@@ -267,7 +268,7 @@ offset_bottom = 404.0
 theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 20
-text = "ESC TO RESUME"
+text = "ESC  WRÓĆ DO GRY"
 horizontal_alignment = 1
 
 [node name="ResultPanel" type="Control" parent="GlobalUi"]
@@ -309,7 +310,7 @@ offset_bottom = 354.0
 theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 20
-text = "CATCH YOUR BOUNCED WAVE FOR A BOOST"
+text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
 horizontal_alignment = 1
 
 [node name="Actions" type="Label" parent="GlobalUi/ResultPanel"]
@@ -321,7 +322,7 @@ offset_bottom = 490.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 28
-text = "R  REMATCH        N  NEW COURSE"
+text = "R  REWANŻ        N  NOWA TRASA"
 horizontal_alignment = 1
 
 [node name="Luap40PostProcess" parent="." instance=ExtResource("4_palette_post_process")]

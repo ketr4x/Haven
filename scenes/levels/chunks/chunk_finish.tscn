@@ -32,4 +32,4 @@ color = Color(0.901961, 0.8, 0.631373, 0.8)
 position = Vector2(216, -192)
 theme_override_colors/font_color = Color(0.901961, 0.8, 0.631373, 1)
 theme_override_font_sizes/font_size = 20
-text = "FINISH"
+text = "META"

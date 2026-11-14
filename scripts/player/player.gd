@@ -2,6 +2,7 @@ class_name RezonansPlayer
 extends CharacterBody2D
 
 signal landed(position: Vector2)
+signal jumped(position: Vector2)
 signal wall_jumped(position: Vector2, normal: Vector2)
 signal sonic_shouted(origin: Vector2, direction: Vector2, loudness: float)
 signal footstep_emitted(origin: Vector2, direction: Vector2, loudness: float)
@@ -23,6 +24,7 @@ signal rebound_boost_ended
 @export var jump_velocity: float = -560.0
 @export var wall_slide_speed: float = 120.0
 @export var wall_jump_horizontal_speed: float = 340.0
+@export_range(0.05, 0.3, 0.01) var wall_jump_coyote_time: float = 0.16
 @export var coyote_time: float = 0.12
 @export var jump_buffer_time: float = 0.12
 
@@ -47,6 +49,7 @@ signal rebound_boost_ended
 
 @onready var _camera: Camera2D = $Camera2D
 @onready var _boost_aura: Polygon2D = $BoostAura
+@onready var _facing_marker: Polygon2D = $FacingMarker
 @onready var _landing_dust: CPUParticles2D = $LandingDust
 @onready var _wall_dust: CPUParticles2D = $WallDust
 @onready var _shout_sparks: CPUParticles2D = $ShoutSparks
@@ -55,6 +58,8 @@ signal rebound_boost_ended
 var facing_direction: float = 1.0
 var loudness: float = 0.0
 var _coyote_time_remaining: float = 0.0
+var _wall_jump_time_remaining: float = 0.0
+var _last_wall_normal: Vector2 = Vector2.ZERO
 var _jump_buffer_remaining: float = 0.0
 var _shout_cooldown_remaining: float = 0.0
 var _boost_time_remaining: float = 0.0
@@ -63,11 +68,19 @@ var _was_on_floor: bool = false
 
 func _ready() -> void:
 	_camera.enabled = camera_enabled
+	set_facing_direction(facing_direction)
 	_boost_aura.visible = false
 	_landing_dust.emitting = false
 	_wall_dust.emitting = false
 	_shout_sparks.emitting = false
 	_boost_trail.emitting = false
+
+
+func set_facing_direction(direction: float) -> void:
+	if is_zero_approx(direction):
+		return
+	facing_direction = signf(direction)
+	_facing_marker.scale.x = facing_direction
 
 
 func _physics_process(delta: float) -> void:
@@ -82,6 +95,7 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_update_ground_state(delta)
+	_update_wall_jump_state(delta)
 	_emit_footstep_if_running(delta)
 	_emit_shout_if_requested()
 
@@ -138,7 +152,7 @@ func _update_jump_buffer(delta: float) -> void:
 func _update_horizontal_velocity(delta: float) -> void:
 	var input_axis := Input.get_axis(left_action, right_action)
 	if not is_zero_approx(input_axis):
-		facing_direction = signf(input_axis)
+		set_facing_direction(input_axis)
 		_boost_trail.direction = Vector2(-facing_direction, -0.15).normalized()
 		var acceleration := ground_acceleration if is_on_floor() else air_acceleration
 		velocity.x = move_toward(velocity.x, input_axis * run_speed * _speed_multiplier(), acceleration * delta)
@@ -155,21 +169,22 @@ func _try_jump() -> void:
 	if is_zero_approx(_jump_buffer_remaining):
 		return
 
+	if _wall_jump_time_remaining > 0.0:
+		velocity = Vector2(_last_wall_normal.x * wall_jump_horizontal_speed, jump_velocity * _jump_multiplier())
+		set_facing_direction(_last_wall_normal.x)
+		_jump_buffer_remaining = 0.0
+		_wall_jump_time_remaining = 0.0
+		_wall_dust.position = Vector2(-_last_wall_normal.x * 12.0, 6.0)
+		_wall_dust.direction = Vector2(_last_wall_normal.x, -0.35).normalized()
+		_play_particle_burst(_wall_dust)
+		wall_jumped.emit(global_position, _last_wall_normal)
+		return
+
 	if is_on_floor() or _coyote_time_remaining > 0.0:
 		velocity.y = jump_velocity * _jump_multiplier()
 		_coyote_time_remaining = 0.0
 		_jump_buffer_remaining = 0.0
-		return
-
-	if is_on_wall_only():
-		var wall_normal := get_wall_normal()
-		velocity = Vector2(wall_normal.x * wall_jump_horizontal_speed, jump_velocity * _jump_multiplier())
-		facing_direction = signf(wall_normal.x)
-		_jump_buffer_remaining = 0.0
-		_wall_dust.position = Vector2(-wall_normal.x * 12.0, 6.0)
-		_wall_dust.direction = Vector2(wall_normal.x, -0.35).normalized()
-		_play_particle_burst(_wall_dust)
-		wall_jumped.emit(global_position, wall_normal)
+		jumped.emit(global_position)
 
 
 func _apply_wall_slide() -> void:
@@ -186,6 +201,14 @@ func _update_ground_state(delta: float) -> void:
 	else:
 		_coyote_time_remaining = maxf(0.0, _coyote_time_remaining - delta)
 	_was_on_floor = is_on_floor()
+
+
+func _update_wall_jump_state(delta: float) -> void:
+	if is_on_wall_only():
+		_last_wall_normal = get_wall_normal()
+		_wall_jump_time_remaining = wall_jump_coyote_time
+	else:
+		_wall_jump_time_remaining = maxf(0.0, _wall_jump_time_remaining - delta)
 
 
 func _emit_footstep_if_running(delta: float) -> void:

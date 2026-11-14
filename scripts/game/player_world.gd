@@ -9,15 +9,19 @@ signal player_finished(player_number: int)
 @export var jump_action: StringName = &"p1_jump"
 @export var shout_action: StringName = &"p1_shout"
 @export var player_color: Color = Color(1, 0.32, 0.62, 1)
+@export var mirror_course_horizontally: bool = false
 @export var sound_wave_scene: PackedScene
 @export var reveal_ring_scene: PackedScene
+@export_range(1.0, 100.0, 1.0) var intro_pulse_loudness: float = 60.0
+@export_range(20.0, 200.0, 5.0) var walking_echo_speed_threshold: float = 80.0
 @export_range(0.1, 1.0) var footstep_loudness_multiplier: float = 0.35
 @export_range(0.1, 1.0) var footstep_ring_scale: float = 0.45
 
 @onready var _generator: CourseGenerator = $CourseGenerator
 @onready var _player: RezonansPlayer = $Player
 @onready var _finish_area: FinishArea = $FinishArea
-@onready var _waves: Node2D = $Waves
+@onready var _audio_feedback: AudioFeedback = $AudioFeedback
+@onready var _waves: Node2D = $FeedbackCanvas/Waves
 @onready var _echo_overlay: EchoOverlay = $EchoCanvas/EchoOverlay
 
 var _next_pulse_id: int = 0
@@ -29,6 +33,8 @@ func _ready() -> void:
 	_player.jump_action = jump_action
 	_player.shout_action = shout_action
 	_player.modulate = player_color
+	_generator.mirror_horizontally = mirror_course_horizontally
+	_echo_overlay.set_player_color(player_color)
 	var camera := _player.get_node("Camera2D") as Camera2D
 	camera.enabled = true
 	camera.make_current()
@@ -36,7 +42,19 @@ func _ready() -> void:
 	_generator.course_generated.connect(_on_course_generated)
 	_finish_area.player_finished.connect(_on_finish_area_player_finished)
 	_player.sonic_shouted.connect(_on_player_pulsed.bind(16, 1.0))
+	_player.sonic_shouted.connect(_on_player_sonic_shouted)
 	_player.footstep_emitted.connect(_on_footstep_emitted)
+	_player.footstep_emitted.connect(_on_player_footstep_emitted)
+	_player.landed.connect(_on_player_landed)
+	_player.jumped.connect(_on_player_jumped)
+	_player.wall_jumped.connect(_on_player_wall_jumped)
+
+
+func _process(_delta: float) -> void:
+	if _player.is_physics_processing() \
+		and _player.is_on_floor() \
+		and absf(_player.velocity.x) >= walking_echo_speed_threshold:
+		_echo_overlay.walking_preview(_player.loudness)
 
 
 func generate_course(seed: int) -> void:
@@ -48,39 +66,72 @@ func set_race_active(is_active: bool) -> void:
 	_finish_area.monitoring = is_active
 
 
-func _on_footstep_emitted(origin: Vector2, direction: Vector2, loudness: float) -> void:
-	_on_player_pulsed(origin, direction, loudness * footstep_loudness_multiplier, 8, footstep_ring_scale)
+func emit_intro_pulse() -> void:
+	_on_player_pulsed(_player.global_position, Vector2(_player.facing_direction, 0.0), intro_pulse_loudness, 16)
+
+
+func _on_player_sonic_shouted(_origin: Vector2, _direction: Vector2, _loudness: float) -> void:
+	_audio_feedback.play_shout()
+
+
+func _on_player_footstep_emitted(_origin: Vector2, _direction: Vector2, _loudness: float) -> void:
+	_audio_feedback.play_footstep()
+
+
+func _on_player_landed(_position: Vector2) -> void:
+	_audio_feedback.play_landing()
+
+
+func _on_player_jumped(_position: Vector2) -> void:
+	_audio_feedback.play_jump()
+
+
+func _on_player_wall_jumped(_position: Vector2, _normal: Vector2) -> void:
+	_audio_feedback.play_wall_jump()
+
+
+func _on_footstep_emitted(origin: Vector2, _direction: Vector2, loudness: float) -> void:
+	# Footsteps show current loudness without granting a free echo return or boost.
+	_spawn_reveal_ring(origin, loudness * footstep_loudness_multiplier, footstep_ring_scale)
 
 
 func _on_player_pulsed(origin: Vector2, _direction: Vector2, loudness: float, ray_count: int, ring_scale: float = 1.0) -> void:
 	_next_pulse_id += 1
-	var pulse := reveal_ring_scene.instantiate() as RevealRing
-	_waves.add_child(pulse)
-	pulse.global_position = origin
-	pulse.configure(loudness, ring_scale)
+	_echo_overlay.preview(loudness)
+	var pulse := _spawn_reveal_ring(origin, loudness, ring_scale)
 
 	for index in ray_count:
 		var direction := Vector2.from_angle(TAU * float(index) / float(ray_count))
 		var wave := sound_wave_scene.instantiate() as SoundWave
 		_waves.add_child(wave)
-		wave.setup(_player, origin + direction * 24.0, direction, loudness, _next_pulse_id)
+		wave.setup(_player, origin + direction * 8.0, direction, loudness, _next_pulse_id)
 		wave.bounced.connect(pulse.add_bounce)
+		wave.bounced.connect(_audio_feedback.play_wave_bounce)
 		wave.returned_to_owner.connect(_on_wave_returned)
+
+
+func _spawn_reveal_ring(origin: Vector2, loudness: float, ring_scale: float) -> RevealRing:
+	var pulse := reveal_ring_scene.instantiate() as RevealRing
+	_waves.add_child(pulse)
+	pulse.global_position = origin
+	pulse.configure(loudness, ring_scale)
+	return pulse
 
 
 func _on_wave_returned(_owner: RezonansPlayer, loudness: float, pulse_id: int) -> void:
 	if _activated_pulses.has(pulse_id):
 		return
 	_activated_pulses[pulse_id] = true
+	_audio_feedback.play_echo_return()
 	_player.apply_rebound_boost()
 	_echo_overlay.trigger(loudness)
 
 
 func _on_course_generated(_seed: int, _signature: String) -> void:
-	var generator_origin := _generator.global_position
-	_player.global_position = generator_origin + _generator.player_spawn
+	_player.global_position = _generator.to_global(_generator.player_spawn)
 	_player.velocity = Vector2.ZERO
-	_finish_area.global_position = generator_origin + _generator.finish_position
+	_player.set_facing_direction(-1.0 if mirror_course_horizontally else 1.0)
+	_finish_area.global_position = _generator.to_global(_generator.finish_position)
 	_finish_area.monitoring = true
 	_activated_pulses.clear()
 	_clear_waves()
@@ -94,4 +145,5 @@ func _clear_waves() -> void:
 
 func _on_finish_area_player_finished(_finisher: RezonansPlayer) -> void:
 	_finish_area.set_deferred("monitoring", false)
+	_audio_feedback.play_finish()
 	player_finished.emit(player_number)

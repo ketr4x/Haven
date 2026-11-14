@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/player_world.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" path="res://scenes/effects/sound_wave.tscn" id="11_wave"]
 [ext_resource type="PackedScene" path="res://scenes/effects/reveal_ring.tscn" id="12_ring"]
 [ext_resource type="PackedScene" path="res://scenes/effects/echo_overlay.tscn" id="13_overlay"]
+[ext_resource type="PackedScene" path="res://scenes/effects/audio_feedback.tscn" id="14_audio"]
 
 [node name="PlayerWorld" type="Node2D"]
 script = ExtResource("1_world")
@@ -35,7 +36,7 @@ start_chunk = ExtResource("5_start")
 traversal_chunks = Array[PackedScene]([ExtResource("6_flat"), ExtResource("7_up"), ExtResource("8_down"), ExtResource("9_bridge"), ExtResource("10_gap"), ExtResource("11_wall_jump"), ExtResource("12_bounce_reward")])
 safe_fallback_chunk = ExtResource("6_flat")
 finish_chunk = ExtResource("13_finish")
-traversal_count = 5
+traversal_count = 15
 
 [node name="GeneratedChunks" type="Node2D" parent="CourseGenerator"]
 
@@ -44,8 +45,15 @@ camera_enabled = false
 
 [node name="FinishArea" parent="." instance=ExtResource("4_finish")]
 
-[node name="Waves" type="Node2D" parent="."]
+[node name="AudioFeedback" parent="." instance=ExtResource("14_audio")]
 
 [node name="EchoCanvas" type="CanvasLayer" parent="."]
+layer = 1
 
 [node name="EchoOverlay" parent="EchoCanvas" instance=ExtResource("13_overlay")]
+
+[node name="FeedbackCanvas" type="CanvasLayer" parent="."]
+layer = 2
+follow_viewport_enabled = true
+
+[node name="Waves" type="Node2D" parent="FeedbackCanvas"]
