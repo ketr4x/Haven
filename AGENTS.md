@@ -30,6 +30,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 
 ### Development conventions
 
+- Before starting work on a feature or subject, create and switch to a dedicated git branch named `feature/<subject>` (for example, `feature/jumping-overhaul`), and keep that work on the branch until it is ready to merge.
 - The AGENTS.md file should be edited with new ideas, adding done things and removing to-dos, as well as adding next steps.
 - Use the Godot Input Map actions rather than reading physical keys in gameplay code.
 - Use `snake_case` for files, methods, variables, signals, and new node names. Use `PascalCase` for `class_name` types.
