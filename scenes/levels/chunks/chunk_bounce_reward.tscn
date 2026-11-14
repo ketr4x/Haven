@@ -22,6 +22,9 @@ position = Vector2(192,0)
 collision_layer = 1
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Floor"]
 shape = SubResource("2")
+[node name="Visual" type="Polygon2D" parent="Floor"]
+polygon = PackedVector2Array(-192,-24,192,-24,192,24,-192,24)
+color = Color(0.2,0.25,0.43,1)
 [node name="Reflector" type="StaticBody2D" parent="."]
 position = Vector2(240,-96)
 collision_layer = 1
