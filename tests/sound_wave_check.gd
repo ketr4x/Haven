@@ -2,6 +2,7 @@ extends SceneTree
 
 const MOVEMENT_LAB := preload("res://scenes/game/movement_lab.tscn")
 const SOUND_WAVE := preload("res://scenes/effects/sound_wave.tscn")
+const REVEAL_RING := preload("res://scenes/effects/reveal_ring.tscn")
 
 var _bounce_count: int = 0
 
@@ -15,8 +16,6 @@ func _initialize() -> void:
 	lab.add_child(wave)
 	wave.bounced.connect(_on_wave_bounced)
 	wave.setup(player, Vector2(540, 546), Vector2.RIGHT, 50.0, 1)
-	var beam_trail := wave.get_node("BeamTrail") as Line2D
-	var starting_alpha := beam_trail.default_color.a
 
 	for frame in 20:
 		await physics_frame
@@ -24,8 +23,17 @@ func _initialize() -> void:
 	assert(_bounce_count == 1)
 	assert(wave.bounce_count == 1)
 	assert(wave.velocity.x < 0.0)
-	assert(beam_trail.points.size() > 2)
-	assert(beam_trail.default_color.a < starting_alpha)
+
+	var ring := REVEAL_RING.instantiate() as RevealRing
+	lab.add_child(ring)
+	ring.global_position = Vector2(400, 400)
+	ring.configure(100.0)
+	var wave_front := ring.get_node("WaveFront") as Line2D
+	assert(is_equal_approx(wave_front.points[0].length(), wave_front.points[32].length()))
+	ring.add_bounce(ring.global_position + Vector2.RIGHT * 100.0, Vector2.LEFT, 1)
+	ring._advance_impacts(0.1)
+	ring._update_outline(1.0)
+	assert(not is_equal_approx(wave_front.points[0].length(), wave_front.points[32].length()))
 	print("Sound wave check passed.")
 	quit()
 

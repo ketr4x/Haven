@@ -59,6 +59,7 @@ func _on_player_pulsed(origin: Vector2, _direction: Vector2, loudness: float, ra
 		var wave := sound_wave_scene.instantiate() as SoundWave
 		_waves.add_child(wave)
 		wave.setup(_player, origin + direction * 24.0, direction, loudness, _next_pulse_id)
+		wave.bounced.connect(pulse.add_bounce)
 		wave.returned_to_owner.connect(_on_wave_returned)
 
 
