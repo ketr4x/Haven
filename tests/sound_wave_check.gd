@@ -15,6 +15,8 @@ func _initialize() -> void:
 	lab.add_child(wave)
 	wave.bounced.connect(_on_wave_bounced)
 	wave.setup(player, Vector2(540, 546), Vector2.RIGHT, 50.0, 1)
+	var beam_trail := wave.get_node("BeamTrail") as Line2D
+	var starting_alpha := beam_trail.default_color.a
 
 	for frame in 20:
 		await physics_frame
@@ -22,6 +24,8 @@ func _initialize() -> void:
 	assert(_bounce_count == 1)
 	assert(wave.bounce_count == 1)
 	assert(wave.velocity.x < 0.0)
+	assert(beam_trail.points.size() > 2)
+	assert(beam_trail.default_color.a < starting_alpha)
 	print("Sound wave check passed.")
 	quit()
 

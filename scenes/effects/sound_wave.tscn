@@ -9,7 +9,6 @@ radius = 11.0
 radius = 26.0
 
 [node name="SoundWave" type="CharacterBody2D"]
-visible = false
 collision_layer = 8
 collision_mask = 1
 script = ExtResource("1_wave")
@@ -24,6 +23,12 @@ monitoring = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ReturnDetector"]
 shape = SubResource("CircleShape2D_return_detector")
+
+[node name="BeamTrail" type="Line2D" parent="."]
+top_level = true
+width = 2.0
+default_color = Color(0.3, 0.9, 1, 0.82)
+antialiased = true
 
 [node name="OuterRing" type="Polygon2D" parent="."]
 polygon = PackedVector2Array(14, 0, 9.89949, 9.89949, 0, 14, -9.89949, 9.89949, -14, 0, -9.89949, -9.89949, 0, -14, 9.89949, -9.89949)
