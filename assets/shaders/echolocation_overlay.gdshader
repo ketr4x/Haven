@@ -21,6 +21,9 @@ void fragment() {
 	float edge = smoothstep(0.02, 0.16, length(vec2(horizontal, vertical)));
 
 	vec3 edge_color = mix(vec3(0.15, 0.72, 1.0), vec3(0.9, 0.97, 1.0), edge);
+	vec3 source = texture(screen_texture, SCREEN_UV).rgb;
+	float signal_pixel = step(0.72, source.b) * step(0.52, source.g);
 	vec3 echo = edge_color * edge * echo_area * reveal_strength;
+	echo = max(echo, source * signal_pixel);
 	COLOR = vec4(echo, 1.0);
 }

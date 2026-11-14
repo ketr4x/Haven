@@ -28,6 +28,8 @@ func _ready() -> void:
 	_finish_area.player_finished.connect(_on_player_finished)
 	_player_one.sonic_shouted.connect(_on_player_shouted.bind(_player_one))
 	_player_two.sonic_shouted.connect(_on_player_shouted.bind(_player_two))
+	_player_one.footstep_emitted.connect(_on_player_shouted.bind(_player_one))
+	_player_two.footstep_emitted.connect(_on_player_shouted.bind(_player_two))
 	_course_generator.generate_course()
 
 

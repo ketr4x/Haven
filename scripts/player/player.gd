@@ -4,6 +4,7 @@ extends CharacterBody2D
 signal landed(position: Vector2)
 signal wall_jumped(position: Vector2, normal: Vector2)
 signal sonic_shouted(origin: Vector2, direction: Vector2, loudness: float)
+signal footstep_emitted(origin: Vector2, direction: Vector2, loudness: float)
 signal rebound_boost_started
 signal rebound_boost_ended
 
@@ -33,6 +34,7 @@ signal rebound_boost_ended
 @export var running_loudness_per_second: float = 24.0
 @export var wall_loudness_per_second: float = 36.0
 @export var shout_loudness_gain: float = 42.0
+@export var footstep_interval: float = 0.3
 @export var idle_loudness_decay_per_second: float = 18.0
 
 @export_category("Rebound Boost")
@@ -52,6 +54,7 @@ var _coyote_time_remaining: float = 0.0
 var _jump_buffer_remaining: float = 0.0
 var _shout_cooldown_remaining: float = 0.0
 var _boost_time_remaining: float = 0.0
+var _footstep_time_remaining: float = 0.0
 var _was_on_floor: bool = false
 
 func _ready() -> void:
@@ -71,6 +74,7 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_update_ground_state(delta)
+	_emit_footstep_if_running(delta)
 	_emit_shout_if_requested()
 
 
@@ -167,6 +171,17 @@ func _update_ground_state(delta: float) -> void:
 	else:
 		_coyote_time_remaining = maxf(0.0, _coyote_time_remaining - delta)
 	_was_on_floor = is_on_floor()
+
+
+func _emit_footstep_if_running(delta: float) -> void:
+	if not is_on_floor() or absf(velocity.x) < 80.0:
+		_footstep_time_remaining = 0.0
+		return
+
+	_footstep_time_remaining -= delta
+	if _footstep_time_remaining <= 0.0:
+		_footstep_time_remaining = footstep_interval
+		footstep_emitted.emit(global_position, Vector2(facing_direction, 0.0), loudness)
 
 
 func _emit_shout_if_requested() -> void:
