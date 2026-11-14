@@ -94,7 +94,12 @@ Test the chosen keyboard in the first hour. If it ghosts when both players hold 
 - **Typography**: Use `KiwiSoda` ([`assets/fonts/kiwi_soda.ttf`](assets/fonts/kiwi_soda.ttf)) for menus, HUD, and overlays. Keep pixel-aligned sizes for crisp rendering.
 - **Pixel crispness**: Keep `Nearest` texture filtering on pixel sprites, tilesets, and UI textures so low-bit assets never blur.
 - **Logo asset**: [`assets/art/rezonans_logo.png`](assets/art/rezonans_logo.png) is staged in `assets/art/` for future menu/title use; do not integrate it into active scenes yet.
-- **Post-processing (planned)**: Once core gameplay and art assets are in place, add a final CRT-style screen shader (scanlines, subtle phosphor bloom/aberration, and dark vignette) tuned so split-screen text and fast parkour cues remain crisp and legible.
+- **Player sprite sheet (staged only)**: [`assets/art/pierwszy_usmazony.png`](assets/art/pierwszy_usmazony.png) is a three-row animation sheet reserved for a later player-art pass. Do not integrate it into active scenes yet.
+  - Row 1 contains 9 idle frames. The full row is the idle animation.
+  - Row 2 contains 10 run frames, or walk frames when playback is slowed. The last frame is idle, and the animation always returns to it.
+  - Row 3 contains 8 slide frames. The first and last frames are idle; the 6 middle frames are the slide. The slide state must last exactly as long as this animation.
+- **Palette post-processing**: The final gameplay image is quantized to `Luap-40`. Keep this pass limited to palette mapping; do not add CRT effects to it.
+- **Post-processing (planned)**: Once core gameplay and art assets are in place, add a separate final CRT-style screen shader (scanlines, subtle phosphor bloom/aberration, and dark vignette) tuned so split-screen text and fast parkour cues remain crisp and legible.
 
 ## Project layout
 

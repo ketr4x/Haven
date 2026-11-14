@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="PackedScene" path="res://scenes/game/player_world.tscn" id="2_player_world"]
+[ext_resource type="PackedScene" path="res://scenes/effects/luap_40_post_process.tscn" id="3_palette_post_process"]
 
 [node name="Race" type="Control"]
 layout_mode = 3
@@ -124,3 +125,5 @@ offset_bottom = 370.0
 theme_override_colors/font_color = Color(1, 0.78, 0.3, 1)
 theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
+
+[node name="Luap40PostProcess" parent="." instance=ExtResource("3_palette_post_process")]
