@@ -24,6 +24,7 @@ signal rebound_boost_ended
 @export var jump_velocity: float = -560.0
 @export var wall_slide_speed: float = 120.0
 @export var wall_jump_horizontal_speed: float = 340.0
+@export_range(0.05, 0.3, 0.01) var wall_jump_coyote_time: float = 0.16
 @export var coyote_time: float = 0.12
 @export var jump_buffer_time: float = 0.12
 
@@ -57,6 +58,8 @@ signal rebound_boost_ended
 var facing_direction: float = 1.0
 var loudness: float = 0.0
 var _coyote_time_remaining: float = 0.0
+var _wall_jump_time_remaining: float = 0.0
+var _last_wall_normal: Vector2 = Vector2.ZERO
 var _jump_buffer_remaining: float = 0.0
 var _shout_cooldown_remaining: float = 0.0
 var _boost_time_remaining: float = 0.0
@@ -92,6 +95,7 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_update_ground_state(delta)
+	_update_wall_jump_state(delta)
 	_emit_footstep_if_running(delta)
 	_emit_shout_if_requested()
 
@@ -165,22 +169,22 @@ func _try_jump() -> void:
 	if is_zero_approx(_jump_buffer_remaining):
 		return
 
+	if _wall_jump_time_remaining > 0.0:
+		velocity = Vector2(_last_wall_normal.x * wall_jump_horizontal_speed, jump_velocity * _jump_multiplier())
+		set_facing_direction(_last_wall_normal.x)
+		_jump_buffer_remaining = 0.0
+		_wall_jump_time_remaining = 0.0
+		_wall_dust.position = Vector2(-_last_wall_normal.x * 12.0, 6.0)
+		_wall_dust.direction = Vector2(_last_wall_normal.x, -0.35).normalized()
+		_play_particle_burst(_wall_dust)
+		wall_jumped.emit(global_position, _last_wall_normal)
+		return
+
 	if is_on_floor() or _coyote_time_remaining > 0.0:
 		velocity.y = jump_velocity * _jump_multiplier()
 		_coyote_time_remaining = 0.0
 		_jump_buffer_remaining = 0.0
 		jumped.emit(global_position)
-		return
-
-	if is_on_wall_only():
-		var wall_normal := get_wall_normal()
-		velocity = Vector2(wall_normal.x * wall_jump_horizontal_speed, jump_velocity * _jump_multiplier())
-		set_facing_direction(wall_normal.x)
-		_jump_buffer_remaining = 0.0
-		_wall_dust.position = Vector2(-wall_normal.x * 12.0, 6.0)
-		_wall_dust.direction = Vector2(wall_normal.x, -0.35).normalized()
-		_play_particle_burst(_wall_dust)
-		wall_jumped.emit(global_position, wall_normal)
 
 
 func _apply_wall_slide() -> void:
@@ -197,6 +201,14 @@ func _update_ground_state(delta: float) -> void:
 	else:
 		_coyote_time_remaining = maxf(0.0, _coyote_time_remaining - delta)
 	_was_on_floor = is_on_floor()
+
+
+func _update_wall_jump_state(delta: float) -> void:
+	if is_on_wall_only():
+		_last_wall_normal = get_wall_normal()
+		_wall_jump_time_remaining = wall_jump_coyote_time
+	else:
+		_wall_jump_time_remaining = maxf(0.0, _wall_jump_time_remaining - delta)
 
 
 func _emit_footstep_if_running(delta: float) -> void:

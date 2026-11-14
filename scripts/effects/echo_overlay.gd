@@ -2,11 +2,12 @@ class_name EchoOverlay
 extends ColorRect
 
 @export_range(0.1, 10.0, 0.1) var reveal_duration: float = 6.0
-@export_range(0.1, 2.0, 0.05) var preview_duration: float = 0.9
+@export_range(0.1, 2.0, 0.05) var preview_duration: float = 1.8
 @export_range(0.0, 1.0, 0.05) var preview_strength: float = 0.45
-@export_range(0.1, 2.0, 0.05) var walking_reveal_duration: float = 1.2
+@export_range(0.5, 4.0, 0.1) var walking_reveal_duration: float = 3.0
 @export_range(0.0, 1.0, 0.05) var walking_reveal_strength: float = 0.35
 @export_range(0.1, 1.0, 0.05) var walking_radius_scale: float = 0.4
+@export_range(0.2, 1.0, 0.05) var fade_exponent: float = 0.6
 
 var _time_remaining: float = 0.0
 var _active_duration: float = 0.0
@@ -56,7 +57,8 @@ func _process(delta: float) -> void:
 		return
 
 	_time_remaining = maxf(0.0, _time_remaining - delta)
-	_set_reveal(_peak_strength * _time_remaining / _active_duration)
+	var fade_progress := _time_remaining / _active_duration
+	_set_reveal(_peak_strength * pow(fade_progress, fade_exponent))
 
 
 func _set_reveal(strength: float) -> void:
