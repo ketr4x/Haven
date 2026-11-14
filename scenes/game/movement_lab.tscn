@@ -1,0 +1,154 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/game/movement_lab.gd" id="1_lab"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(1280, 48)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_left_wall"]
+size = Vector2(48, 720)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_right_wall"]
+size = Vector2(48, 720)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_jump"]
+size = Vector2(40, 260)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
+size = Vector2(240, 32)
+
+[node name="MovementLab" type="Node2D"]
+script = ExtResource("1_lab")
+
+[node name="Background" type="Polygon2D" parent="."]
+z_index = -10
+position = Vector2(640, 360)
+polygon = PackedVector2Array(-640, -360, 640, -360, 640, 360, -640, 360)
+color = Color(0.025, 0.035, 0.075, 1)
+
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(640, 676)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Floor"]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="Visual" type="Polygon2D" parent="Floor"]
+polygon = PackedVector2Array(-640, -24, 640, -24, 640, 24, -640, 24)
+color = Color(0.19, 0.24, 0.42, 1)
+
+[node name="LeftWall" type="StaticBody2D" parent="."]
+position = Vector2(24, 360)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LeftWall"]
+shape = SubResource("RectangleShape2D_left_wall")
+
+[node name="Visual" type="Polygon2D" parent="LeftWall"]
+polygon = PackedVector2Array(-24, -360, 24, -360, 24, 360, -24, 360)
+color = Color(0.25, 0.31, 0.52, 1)
+
+[node name="RightWall" type="StaticBody2D" parent="."]
+position = Vector2(1256, 360)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RightWall"]
+shape = SubResource("RectangleShape2D_right_wall")
+
+[node name="Visual" type="Polygon2D" parent="RightWall"]
+polygon = PackedVector2Array(-24, -360, 24, -360, 24, 360, -24, 360)
+color = Color(0.25, 0.31, 0.52, 1)
+
+[node name="WallJumpWall" type="StaticBody2D" parent="."]
+position = Vector2(630, 546)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallJumpWall"]
+shape = SubResource("RectangleShape2D_wall_jump")
+
+[node name="Visual" type="Polygon2D" parent="WallJumpWall"]
+polygon = PackedVector2Array(-20, -130, 20, -130, 20, 130, -20, 130)
+color = Color(0.43, 0.29, 0.65, 1)
+
+[node name="PlatformOne" type="StaticBody2D" parent="."]
+position = Vector2(930, 516)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformOne"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Visual" type="Polygon2D" parent="PlatformOne"]
+polygon = PackedVector2Array(-120, -16, 120, -16, 120, 16, -120, 16)
+color = Color(0.2, 0.62, 0.65, 1)
+
+[node name="PlatformTwo" type="StaticBody2D" parent="."]
+position = Vector2(1060, 390)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformTwo"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Visual" type="Polygon2D" parent="PlatformTwo"]
+polygon = PackedVector2Array(-120, -16, 120, -16, 120, 16, -120, 16)
+color = Color(0.2, 0.62, 0.65, 1)
+
+[node name="PlayerOne" parent="." instance=ExtResource("2_player")]
+position = Vector2(220, 620)
+modulate = Color(1, 0.32, 0.62, 1)
+left_action = &"p1_left"
+right_action = &"p1_right"
+jump_action = &"p1_jump"
+shout_action = &"p1_shout"
+
+[node name="PlayerTwo" parent="." instance=ExtResource("2_player")]
+position = Vector2(360, 620)
+modulate = Color(0.25, 0.85, 1, 1)
+left_action = &"p2_left"
+right_action = &"p2_right"
+jump_action = &"p2_jump"
+shout_action = &"p2_shout"
+
+[node name="Interface" type="CanvasLayer" parent="."]
+
+[node name="Title" type="Label" parent="Interface"]
+offset_left = 40.0
+offset_top = 28.0
+offset_right = 800.0
+offset_bottom = 72.0
+theme_override_colors/font_color = Color(0.85, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 30
+text = "REZONANS  ·  MOVEMENT LAB"
+
+[node name="PlayerOneControls" type="Label" parent="Interface"]
+offset_left = 42.0
+offset_top = 86.0
+offset_right = 470.0
+offset_bottom = 148.0
+theme_override_colors/font_color = Color(1, 0.48, 0.7, 1)
+theme_override_font_sizes/font_size = 20
+text = "P1   A / D  move     W  jump     S  shout"
+
+[node name="PlayerTwoControls" type="Label" parent="Interface"]
+offset_left = 42.0
+offset_top = 120.0
+offset_right = 530.0
+offset_bottom = 182.0
+theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "P2   ← / →  move     ↑  jump     ↓  shout"
+
+[node name="Hint" type="Label" parent="Interface"]
+offset_left = 42.0
+offset_top = 202.0
+offset_right = 555.0
+offset_bottom = 232.0
+theme_override_colors/font_color = Color(0.68, 0.72, 0.86, 1)
+theme_override_font_sizes/font_size = 16
+text = "Test coyote jumps, jump buffering, wall slides, and wall jumps.  R restarts."

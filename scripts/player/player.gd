@@ -1,0 +1,100 @@
+class_name RezonansPlayer
+extends CharacterBody2D
+
+signal landed(position: Vector2)
+signal wall_jumped(position: Vector2, normal: Vector2)
+signal sonic_shouted(origin: Vector2, direction: Vector2)
+
+@export_category("Input")
+@export var left_action: StringName = &"p1_left"
+@export var right_action: StringName = &"p1_right"
+@export var jump_action: StringName = &"p1_jump"
+@export var shout_action: StringName = &"p1_shout"
+
+@export_category("Movement")
+@export var run_speed: float = 300.0
+@export var ground_acceleration: float = 2_400.0
+@export var air_acceleration: float = 1_500.0
+@export var ground_deceleration: float = 2_800.0
+@export var gravity: float = 1_600.0
+@export var jump_velocity: float = -560.0
+@export var wall_slide_speed: float = 120.0
+@export var wall_jump_horizontal_speed: float = 340.0
+@export var coyote_time: float = 0.12
+@export var jump_buffer_time: float = 0.12
+
+var facing_direction: float = 1.0
+var _coyote_time_remaining: float = 0.0
+var _jump_buffer_remaining: float = 0.0
+var _was_on_floor: bool = false
+
+func _physics_process(delta: float) -> void:
+	_update_jump_buffer(delta)
+	_update_horizontal_velocity(delta)
+	_apply_gravity(delta)
+	_try_jump()
+	_apply_wall_slide()
+
+	move_and_slide()
+	_update_ground_state(delta)
+	_emit_shout_if_requested()
+
+
+func _update_jump_buffer(delta: float) -> void:
+	if Input.is_action_just_pressed(jump_action):
+		_jump_buffer_remaining = jump_buffer_time
+	else:
+		_jump_buffer_remaining = maxf(0.0, _jump_buffer_remaining - delta)
+
+
+func _update_horizontal_velocity(delta: float) -> void:
+	var input_axis := Input.get_axis(left_action, right_action)
+	if not is_zero_approx(input_axis):
+		facing_direction = signf(input_axis)
+		var acceleration := ground_acceleration if is_on_floor() else air_acceleration
+		velocity.x = move_toward(velocity.x, input_axis * run_speed, acceleration * delta)
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, ground_deceleration * delta)
+
+
+func _apply_gravity(delta: float) -> void:
+	if not is_on_floor():
+		velocity.y += gravity * delta
+
+
+func _try_jump() -> void:
+	if is_zero_approx(_jump_buffer_remaining):
+		return
+
+	if is_on_floor() or _coyote_time_remaining > 0.0:
+		velocity.y = jump_velocity
+		_coyote_time_remaining = 0.0
+		_jump_buffer_remaining = 0.0
+		return
+
+	if is_on_wall_only():
+		var wall_normal := get_wall_normal()
+		velocity = Vector2(wall_normal.x * wall_jump_horizontal_speed, jump_velocity)
+		facing_direction = signf(wall_normal.x)
+		_jump_buffer_remaining = 0.0
+		wall_jumped.emit(global_position, wall_normal)
+
+
+func _apply_wall_slide() -> void:
+	if is_on_wall_only() and not is_on_floor() and velocity.y > wall_slide_speed:
+		velocity.y = wall_slide_speed
+
+
+func _update_ground_state(delta: float) -> void:
+	if is_on_floor():
+		_coyote_time_remaining = coyote_time
+		if not _was_on_floor:
+			landed.emit(global_position)
+	else:
+		_coyote_time_remaining = maxf(0.0, _coyote_time_remaining - delta)
+	_was_on_floor = is_on_floor()
+
+
+func _emit_shout_if_requested() -> void:
+	if Input.is_action_just_pressed(shout_action):
+		sonic_shouted.emit(global_position, Vector2(facing_direction, 0.0))
