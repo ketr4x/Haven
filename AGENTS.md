@@ -207,6 +207,14 @@ The programmer owns code and integration. The artist owns art source, palette, a
 6. Use imperative commit subjects: `Add jump buffer`, `Generate seeded chunk sequence`, `Tune wave bounce limit`.
 7. Record bugs with build/commit, seed, player slot, exact steps, expected result, actual result, and screenshot or clip.
 
+### Agent implementation cadence
+
+- The agent works on one small feature branch at a time, runs headless Godot validation, commits, and pushes it for a teammate to test.
+- A teammate confirms visual behavior, keyboard feel, and lack of merge conflicts before the agent merges that branch into `main`.
+- After the merge, begin the next feature from current `main`.
+- Update this document whenever a new agreed product, technical, ownership, or workflow direction affects future work.
+- Use side agents only for independent, bounded work that shortens the critical path, such as a focused code review or an isolated test-plan check. The primary agent remains responsible for integration and final validation.
+
 ### Godot merge safety
 
 - Assign one editor owner for every `.tscn`, `.tres`, TileSet, and `project.godot` file.
