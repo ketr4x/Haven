@@ -1,0 +1,38 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/generator/course_chunk.gd" id="1_chunk"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(320, 48)
+
+[node name="ChunkFinish" type="Node2D"]
+script = ExtResource("1_chunk")
+chunk_id = &"finish"
+
+[node name="EntryMarker" type="Marker2D" parent="."]
+
+[node name="ExitMarker" type="Marker2D" parent="."]
+position = Vector2(320, 0)
+
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(160, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Floor"]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="Visual" type="Polygon2D" parent="Floor"]
+polygon = PackedVector2Array(-160, -24, 160, -24, 160, 24, -160, 24)
+color = Color(0.8, 0.5, 0.18, 1)
+
+[node name="FinishGate" type="Polygon2D" parent="."]
+position = Vector2(220, -80)
+polygon = PackedVector2Array(-8, -80, 8, -80, 8, 0, 38, 0, 38, -80, 54, -80, 54, 18, -24, 18, -24, -80)
+color = Color(1, 0.74, 0.25, 0.8)
+
+[node name="Label" type="Label" parent="."]
+position = Vector2(148, -166)
+theme_override_colors/font_color = Color(1, 0.8, 0.4, 1)
+theme_override_font_sizes/font_size = 20
+text = "FINISH"

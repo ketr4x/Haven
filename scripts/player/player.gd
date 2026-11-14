@@ -23,10 +23,19 @@ signal sonic_shouted(origin: Vector2, direction: Vector2)
 @export var coyote_time: float = 0.12
 @export var jump_buffer_time: float = 0.12
 
+@export_category("Presentation")
+@export var camera_enabled: bool = false
+
+@onready var _camera: Camera2D = $Camera2D
+
 var facing_direction: float = 1.0
 var _coyote_time_remaining: float = 0.0
 var _jump_buffer_remaining: float = 0.0
 var _was_on_floor: bool = false
+
+func _ready() -> void:
+	_camera.enabled = camera_enabled
+
 
 func _physics_process(delta: float) -> void:
 	_update_jump_buffer(delta)
