@@ -1,22 +1,27 @@
 class_name EchoOverlay
 extends ColorRect
 
-@export_range(0.1, 10.0, 0.1) var reveal_duration: float = 6.0
-@export_range(0.1, 2.0, 0.05) var preview_duration: float = 1.8
-@export_range(0.0, 1.0, 0.05) var preview_strength: float = 0.45
-@export_range(0.5, 4.0, 0.1) var walking_reveal_duration: float = 3.0
-@export_range(0.0, 1.0, 0.05) var walking_reveal_strength: float = 0.35
-@export_range(0.1, 1.0, 0.05) var walking_radius_scale: float = 0.4
-@export_range(0.2, 1.0, 0.05) var fade_exponent: float = 0.6
+const SHADER_ECHO_LIMIT: int = 48
 
-var _time_remaining: float = 0.0
-var _active_duration: float = 0.0
-var _peak_strength: float = 0.0
-var _radius: float = 0.0
+@export_range(8, 48) var maximum_echoes: int = 48
+@export_range(0.5, 6.0, 0.05) var afterglow_duration: float = 3.0
+@export_range(16.0, 100.0, 1.0) var minimum_echo_radius: float = 42.0
+@export_range(32.0, 160.0, 1.0) var maximum_echo_radius: float = 116.0
+@export_range(8.0, 32.0, 1.0) var floor_band_offset: float = 18.0
+@export_range(2.0, 16.0, 1.0) var floor_band_half_height: float = 7.0
+@export_range(0.005, 0.1, 0.001) var edge_threshold: float = 0.02
+
+var _reveal_source: Node2D
+var _echoes: Array[Dictionary] = []
+var _hit_data: PackedVector4Array = PackedVector4Array()
+var _hit_normals: PackedVector2Array = PackedVector2Array()
 
 func _ready() -> void:
 	# Player worlds instance this overlay twice; uniforms must not cross viewport boundaries.
 	material = material.duplicate()
+	_hit_data.resize(SHADER_ECHO_LIMIT)
+	_hit_normals.resize(SHADER_ECHO_LIMIT)
+	_set_empty_echoes()
 
 
 func set_player_color(color: Color) -> void:
@@ -24,44 +29,110 @@ func set_player_color(color: Color) -> void:
 	shader_material.set_shader_parameter("player_color", color)
 
 
-func preview(captured_loudness: float) -> void:
-	if _peak_strength > preview_strength and _time_remaining > 0.0:
+func set_reveal_source(source: Node2D) -> void:
+	_reveal_source = source
+
+
+func register_hit(
+		world_position: Vector2,
+		normal: Vector2,
+		intensity: float,
+		tile_size: float = 0.0,
+) -> void:
+	var loudness_ratio := clampf(intensity, 0.0, 100.0) / 100.0
+	if loudness_ratio < 0.005:
 		return
-	_activate(captured_loudness, preview_duration, preview_strength)
+
+	# Negative radius encodes an exact square tile mask for the shader.
+	var reveal_radius := -tile_size if tile_size > 0.0 \
+		else lerpf(minimum_echo_radius, maximum_echo_radius, sqrt(loudness_ratio))
+	var echo := {
+		"position": world_position,
+		"normal": normal.normalized(),
+		"time": afterglow_duration,
+		"duration": afterglow_duration,
+		"radius": reveal_radius,
+		"strength": 1.0,
+	}
+	_merge_or_append_echo(echo)
+	_upload_shader_state()
 
 
-func walking_preview(captured_loudness: float) -> void:
-	if _peak_strength > walking_reveal_strength and _time_remaining > 0.0:
-		return
-	_activate(captured_loudness, walking_reveal_duration, walking_reveal_strength, walking_radius_scale)
+func get_active_echo_count() -> int:
+	return _echoes.size()
 
 
-func trigger(captured_loudness: float) -> void:
-	_activate(captured_loudness, reveal_duration, 1.0)
+func _merge_or_append_echo(new_echo: Dictionary) -> void:
+	for echo in _echoes:
+		var same_surface := (echo["normal"] as Vector2).dot(new_echo["normal"] as Vector2) > 0.72
+		var same_shape := signf(float(echo["radius"])) == signf(float(new_echo["radius"]))
+		var nearby := (echo["position"] as Vector2).distance_to(new_echo["position"] as Vector2) \
+			<= minimum_echo_radius * 0.85
+		if same_surface and same_shape and nearby:
+			echo["position"] = (echo["position"] as Vector2).lerp(new_echo["position"] as Vector2, 0.35)
+			echo["time"] = afterglow_duration
+			echo["duration"] = afterglow_duration
+			echo["radius"] = minf(float(echo["radius"]), float(new_echo["radius"])) \
+				if float(new_echo["radius"]) < 0.0 else maxf(float(echo["radius"]), float(new_echo["radius"]))
+			echo["strength"] = 1.0
+			return
 
-
-func _activate(captured_loudness: float, duration: float, strength: float, radius_scale: float = 1.0) -> void:
-	var reveal_radius := lerpf(0.55, 1.35, clampf(captured_loudness, 0.0, 100.0) / 100.0) * radius_scale
-	_radius = maxf(_radius, reveal_radius)
-	_active_duration = duration
-	_time_remaining = duration
-	_peak_strength = strength
-	_set_reveal(_peak_strength)
+	_echoes.append(new_echo)
+	var echo_limit := mini(maximum_echoes, SHADER_ECHO_LIMIT)
+	if _echoes.size() > echo_limit:
+		_echoes.remove_at(0)
 
 
 func _process(delta: float) -> void:
-	if is_zero_approx(_time_remaining):
-		_radius = 0.0
-		_peak_strength = 0.0
-		_set_reveal(0.0)
+	for index in range(_echoes.size() - 1, -1, -1):
+		var echo := _echoes[index]
+		echo["time"] = float(echo["time"]) - delta
+		if float(echo["time"]) <= 0.0:
+			_echoes.remove_at(index)
+	_upload_shader_state()
+
+
+func _upload_shader_state() -> void:
+	var shader_material := material as ShaderMaterial
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
 
-	_time_remaining = maxf(0.0, _time_remaining - delta)
-	var fade_progress := _time_remaining / _active_duration
-	_set_reveal(_peak_strength * pow(fade_progress, fade_exponent))
+	var canvas_transform := get_viewport().get_canvas_transform()
+	var echo_index := 0
+	for echo in _echoes:
+		var screen_position: Vector2 = canvas_transform * (echo["position"] as Vector2)
+		var screen_normal := (
+			canvas_transform.x * (echo["normal"] as Vector2).x
+			+ canvas_transform.y * (echo["normal"] as Vector2).y
+		).normalized()
+		var fade := clampf(float(echo["time"]) / float(echo["duration"]), 0.0, 1.0)
+		_hit_data[echo_index] = Vector4(
+			screen_position.x / viewport_size.x,
+			screen_position.y / viewport_size.y,
+			float(echo["radius"]),
+			float(echo["strength"]) * fade,
+		)
+		_hit_normals[echo_index] = screen_normal
+		echo_index += 1
+
+	var source_uv := Vector2(0.5, 0.5)
+	if is_instance_valid(_reveal_source):
+		var source_screen_position: Vector2 = canvas_transform * _reveal_source.global_position
+		source_uv = source_screen_position / viewport_size
+
+	shader_material.set_shader_parameter("viewport_size", viewport_size)
+	shader_material.set_shader_parameter("source_uv", source_uv)
+	shader_material.set_shader_parameter("floor_band_offset", floor_band_offset)
+	shader_material.set_shader_parameter("floor_band_half_height", floor_band_half_height)
+	shader_material.set_shader_parameter("edge_threshold", edge_threshold)
+	shader_material.set_shader_parameter("echo_hit_count", echo_index)
+	shader_material.set_shader_parameter("echo_hits", _hit_data)
+	shader_material.set_shader_parameter("echo_normals", _hit_normals)
 
 
-func _set_reveal(strength: float) -> void:
+func _set_empty_echoes() -> void:
 	var shader_material := material as ShaderMaterial
-	shader_material.set_shader_parameter("reveal_radius", _radius)
-	shader_material.set_shader_parameter("reveal_strength", strength)
+	shader_material.set_shader_parameter("echo_hit_count", 0)
+	shader_material.set_shader_parameter("echo_hits", _hit_data)
+	shader_material.set_shader_parameter("echo_normals", _hit_normals)

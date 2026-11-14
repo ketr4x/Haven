@@ -48,6 +48,8 @@ left_action = &"p1_left"
 right_action = &"p1_right"
 jump_action = &"p1_jump"
 shout_action = &"p1_shout"
+big_scream_minus_action = &"p1_big_scream_minus"
+big_scream_plus_action = &"p1_big_scream_plus"
 player_color = Color(0.74902, 0.411765, 0.47451, 1)
 
 [node name="Divider" type="ColorRect" parent="Presentation/SplitScreen"]
@@ -87,6 +89,8 @@ left_action = &"p2_left"
 right_action = &"p2_right"
 jump_action = &"p2_jump"
 shout_action = &"p2_shout"
+big_scream_minus_action = &"p2_big_scream_minus"
+big_scream_plus_action = &"p2_big_scream_plus"
 player_color = Color(0.509804, 0.709804, 0.85098, 1)
 mirror_course_horizontally = true
 
@@ -223,7 +227,7 @@ offset_bottom = 410.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 24
-text = "GRACZ 1\nA / D  RUCH\nW  SKOK    S  KRZYK"
+text = "GRACZ 1\nA / D  RUCH    W  SKOK    S  KRZYK\nQ  FALA+    E  FALA-"
 horizontal_alignment = 1
 
 [node name="PlayerTwoControls" type="Label" parent="GlobalUi/TitlePanel"]
@@ -235,7 +239,7 @@ offset_bottom = 410.0
 theme_override_colors/font_color = Color(0.509804, 0.709804, 0.85098, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 24
-text = "GRACZ 2\nLEWO / PRAWO  RUCH\nGÓRA  SKOK    DÓŁ  KRZYK"
+text = "GRACZ 2\nLEWO / PRAWO  RUCH    GÓRA  SKOK    DÓŁ  KRZYK\nPGUP  FALA+    PGDN  FALA-"
 horizontal_alignment = 1
 
 [node name="Prompt" type="Label" parent="GlobalUi/TitlePanel"]
@@ -259,7 +263,7 @@ offset_bottom = 598.0
 theme_override_colors/font_color = Color(0.635294, 0.635294, 0.635294, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 16
-text = "Odbita fala odsłania krawędzie i daje zryw prędkości."
+text = "SKOCZ W CHWILI POWROTU FALI, ABY ZŁAPAĆ ECHO-ZRYW."
 horizontal_alignment = 1
 
 [node name="PausePanel" type="Control" parent="GlobalUi"]
@@ -355,7 +359,7 @@ offset_bottom = 418.0
 theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 20
-text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
+text = "SKOCZ ±0,2 S OD POWROTU FALI, ABY ZŁAPAĆ ECHO-ZRYW"
 horizontal_alignment = 1
 
 [node name="Actions" type="Label" parent="GlobalUi/ResultPanel"]

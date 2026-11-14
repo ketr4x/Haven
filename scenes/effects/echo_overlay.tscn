@@ -5,9 +5,15 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_overlay"]
 shader = ExtResource("2_shader")
-shader_parameter/reveal_radius = 0.0
-shader_parameter/reveal_strength = 0.0
-shader_parameter/aspect_ratio = 1.7777778
+shader_parameter/viewport_size = Vector2(1280, 360)
+shader_parameter/source_uv = Vector2(0.5, 0.5)
+shader_parameter/floor_band_offset = 18.0
+shader_parameter/floor_band_half_height = 7.0
+shader_parameter/edge_threshold = 0.02
+shader_parameter/echo_hit_count = 0
+shader_parameter/background_color = Color(0, 0, 0, 1)
+shader_parameter/dim_floor_color = Color(0.32, 0.32, 0.32, 1)
+shader_parameter/echo_edge_color = Color(0.95, 0.95, 0.95, 1)
 
 [node name="EchoOverlay" type="ColorRect"]
 anchors_preset = 15
