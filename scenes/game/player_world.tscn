@@ -1,0 +1,47 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/game/player_world.gd" id="1_world"]
+[ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://scenes/game/finish_area.tscn" id="4_finish"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_start.tscn" id="5_start"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_flat.tscn" id="6_flat"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_step_up.tscn" id="7_up"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_step_down.tscn" id="8_down"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_bridge.tscn" id="9_bridge"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="10_finish"]
+[ext_resource type="PackedScene" path="res://scenes/effects/sound_wave.tscn" id="11_wave"]
+[ext_resource type="PackedScene" path="res://scenes/effects/reveal_ring.tscn" id="12_ring"]
+[ext_resource type="PackedScene" path="res://scenes/effects/echo_overlay.tscn" id="13_overlay"]
+
+[node name="PlayerWorld" type="Node2D"]
+script = ExtResource("1_world")
+sound_wave_scene = ExtResource("11_wave")
+reveal_ring_scene = ExtResource("12_ring")
+
+[node name="Background" type="Polygon2D" parent="."]
+z_index = -10
+position = Vector2(1280, 360)
+polygon = PackedVector2Array(-1280, -360, 1280, -360, 1280, 360, -1280, 360)
+color = Color(0.025, 0.035, 0.075, 1)
+
+[node name="CourseGenerator" type="Node2D" parent="."]
+position = Vector2(120, 650)
+script = ExtResource("2_generator")
+start_chunk = ExtResource("5_start")
+traversal_chunks = Array[PackedScene]([ExtResource("6_flat"), ExtResource("7_up"), ExtResource("8_down"), ExtResource("9_bridge")])
+finish_chunk = ExtResource("10_finish")
+traversal_count = 5
+
+[node name="GeneratedChunks" type="Node2D" parent="CourseGenerator"]
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+camera_enabled = false
+
+[node name="FinishArea" parent="." instance=ExtResource("4_finish")]
+
+[node name="Waves" type="Node2D" parent="."]
+
+[node name="EchoCanvas" type="CanvasLayer" parent="."]
+
+[node name="EchoOverlay" parent="EchoCanvas" instance=ExtResource("13_overlay")]

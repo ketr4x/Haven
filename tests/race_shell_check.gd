@@ -7,19 +7,19 @@ func _initialize() -> void:
 	root.add_child(race)
 	await physics_frame
 
-	var player_one := race.get_node("SharedSimulation/PlayerOne") as RezonansPlayer
-	var player_two := race.get_node("SharedSimulation/PlayerTwo") as RezonansPlayer
-	var finish_area := race.get_node("SharedSimulation/FinishArea") as FinishArea
-	var top_viewport := race.get_node("Presentation/SplitScreen/TopContainer/TopViewport") as SubViewport
-	var bottom_viewport := race.get_node("Presentation/SplitScreen/BottomContainer/BottomViewport") as SubViewport
+	var player_one_world := race.get_node("Presentation/SplitScreen/TopContainer/TopViewport/PlayerOneWorld") as PlayerWorld
+	var player_two_world := race.get_node("Presentation/SplitScreen/BottomContainer/BottomViewport/PlayerTwoWorld") as PlayerWorld
+	var player_one_generator := player_one_world.get_node("CourseGenerator") as CourseGenerator
+	var player_two_generator := player_two_world.get_node("CourseGenerator") as CourseGenerator
+	var finish_area := player_one_world.get_node("FinishArea") as FinishArea
+	var player_one := player_one_world.get_node("Player") as RezonansPlayer
 
-	assert(top_viewport.world_2d == root.get_viewport().world_2d)
-	assert(bottom_viewport.world_2d == root.get_viewport().world_2d)
-	assert(player_one.collision_layer == player_two.collision_layer)
-	assert((player_one.collision_mask & player_two.collision_layer) == 0)
+	assert(player_one_world != player_two_world)
+	assert(player_one_generator != player_two_generator)
+	assert(player_one_generator.seed_value == player_two_generator.seed_value)
+	assert(player_one_generator.course_signature == player_two_generator.course_signature)
 
 	finish_area._on_body_entered(player_one)
-
 	var winner_label := race.get_node("GlobalUi/Winner") as Label
 	assert(winner_label.text.begins_with("PLAYER 1 WINS!"))
 	print("Race shell check passed.")

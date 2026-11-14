@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" path="res://scenes/effects/sound_wave.tscn" id="11_wave"]
 [ext_resource type="PackedScene" path="res://scenes/effects/reveal_ring.tscn" id="12_ring"]
 [ext_resource type="PackedScene" path="res://scenes/effects/echo_overlay.tscn" id="13_overlay"]
+[ext_resource type="PackedScene" path="res://scenes/game/player_world.tscn" id="14_player_world"]
 
 [node name="Race" type="Control"]
 layout_mode = 3
@@ -92,10 +93,20 @@ transparent_bg = false
 render_target_update_mode = 4
 
 [node name="TopCamera" type="Camera2D" parent="Presentation/SplitScreen/TopContainer/TopViewport"]
+enabled = false
 position_smoothing_enabled = true
 position_smoothing_speed = 12.0
 
+[node name="PlayerOneWorld" parent="Presentation/SplitScreen/TopContainer/TopViewport" instance=ExtResource("14_player_world")]
+player_number = 1
+left_action = &"p1_left"
+right_action = &"p1_right"
+jump_action = &"p1_jump"
+shout_action = &"p1_shout"
+player_color = Color(1, 0.32, 0.62, 1)
+
 [node name="TopEchoCanvas" type="CanvasLayer" parent="Presentation/SplitScreen/TopContainer/TopViewport"]
+visible = false
 
 [node name="EchoOverlay" parent="Presentation/SplitScreen/TopContainer/TopViewport/TopEchoCanvas" instance=ExtResource("13_overlay")]
 
@@ -130,10 +141,20 @@ transparent_bg = false
 render_target_update_mode = 4
 
 [node name="BottomCamera" type="Camera2D" parent="Presentation/SplitScreen/BottomContainer/BottomViewport"]
+enabled = false
 position_smoothing_enabled = true
 position_smoothing_speed = 12.0
 
+[node name="PlayerTwoWorld" parent="Presentation/SplitScreen/BottomContainer/BottomViewport" instance=ExtResource("14_player_world")]
+player_number = 2
+left_action = &"p2_left"
+right_action = &"p2_right"
+jump_action = &"p2_jump"
+shout_action = &"p2_shout"
+player_color = Color(0.25, 0.85, 1, 1)
+
 [node name="BottomEchoCanvas" type="CanvasLayer" parent="Presentation/SplitScreen/BottomContainer/BottomViewport"]
+visible = false
 
 [node name="EchoOverlay" parent="Presentation/SplitScreen/BottomContainer/BottomViewport/BottomEchoCanvas" instance=ExtResource("13_overlay")]
 

@@ -126,13 +126,14 @@ Only instantiate runtime content in code: selected chunk scenes, waves, transien
 
 ### Split-screen race
 
-`race.tscn` owns one shared generated level and two players. Player bodies must exclude one another in their collision masks. Use two `SubViewport` nodes in vertically stacked `SubViewportContainer` nodes, each with one independent `Camera2D` following its assigned player.
+`race.tscn` owns two independent `PlayerWorld` scene instances, one inside each `SubViewport`. Both worlds receive the same race seed and therefore generate the same chunk sequence, but they never share physics, rendering, players, waves, or collision bodies.
 
-Keep physics shared and presentation separate:
+Keep seed parity and presentation isolation explicit:
 
-- The generated TileMapLayer geometry is the single collision source for players and waves.
-- Do not duplicate the level to make split-screen work.
-- Hide the other player sprite in each viewport for the MVP unless visibility improves the race.
+- Generate Player 1’s and Player 2’s course independently from the identical seed.
+- A player world contains exactly one player, one generated level, one wave container, one finish area, one camera, and one echo overlay.
+- Neither player, wave, reveal, nor boost can be observed or collide across viewports.
+- `race.tscn` owns only the seed, result state, countdown, rematch, and global UI.
 
 ### Procedural course generation
 
