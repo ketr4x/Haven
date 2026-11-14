@@ -2,6 +2,7 @@ class_name SoundWave
 extends CharacterBody2D
 
 signal bounced(position: Vector2, normal: Vector2, bounce_count: int)
+signal absorbed(position: Vector2)
 signal returned_to_owner(player: RezonansPlayer, captured_loudness: float, pulse_id: int)
 signal expired
 
@@ -39,9 +40,16 @@ func _physics_process(delta: float) -> void:
 
 	var collision := move_and_collide(velocity * delta)
 	if collision:
+		var collision_position := collision.get_position()
+		var collider := collision.get_collider() as Node
+		if collider and collider.is_in_group(&"sound_absorber"):
+			absorbed.emit(collision_position)
+			expired.emit()
+			queue_free()
+			return
+
 		bounce_count += 1
 		var normal := collision.get_normal()
-		var collision_position := collision.get_position()
 		velocity = velocity.bounce(normal)
 		global_position += normal * 0.5
 		bounced.emit(collision_position, normal, bounce_count)

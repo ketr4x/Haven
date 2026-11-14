@@ -2,7 +2,7 @@
 
 ## INFO
 
-Rezonans is a local two-player, horizontal split-screen parkour race built with Godot 4.7 Forward+. The entry scene is `scenes/game/race.tscn`. Player 1 plays in the top viewport with `A`/`D` to move, `W` to jump, and `S` to shout. Player 2 plays in the bottom viewport with the arrow keys: left/right to move, up to jump, and down to shout. `R` restarts the current seed, `N` increments the seed and generates a new course, and `Escape` pauses during a race.
+Rezonans is a local two-player, horizontal split-screen parkour race built with Godot 4.7 Forward+. The entry scene is `scenes/game/race.tscn`. Player 1 plays in the top viewport with `A`/`D` to move, `W` to jump, and `S` to shout. Player 2 plays in the bottom viewport with the arrow keys: left/right to move, up to jump, and down to shout. `R` and `N` both generate a new random course, and `Escape` pauses during a race.
 
 The game’s player-facing text is in Polish. Use Polish for new UI copy, prompts, and other text shown to players. Keep source code, identifiers, comments, and project documentation in English.
 
@@ -26,7 +26,7 @@ scripts/player/         Player movement, loudness, and boost behavior
 tests/                  SceneTree checks for race, waves, echo, and generation
 ```
 
-Course chunks are scene instances described by `CourseChunk`. A chunk has entry and exit markers, terrain cells on a 48 × 48 grid, width and difficulty metadata, and optional player-spawn or finish markers. `CourseGenerator` places a start chunk, a configurable number of compatible traversal chunks, and a finish chunk. It uses a seeded `RandomNumberGenerator` for traversal selection.
+Course chunks are scene instances described by `CourseChunk`. A chunk has entry and exit markers, terrain cells on a 48 × 48 grid, width and difficulty metadata, and optional player-spawn or finish markers. Chunks may also declare terrain features and a number of dead-end branches. `CourseGenerator` places a start chunk, a configurable number of compatible traversal chunks, and a finish chunk. It uses a seeded `RandomNumberGenerator` for traversal selection.
 
 ### Development conventions
 
@@ -58,15 +58,18 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - The Input Map defines both players' movement, jump, and shout actions, plus restart, new-course, and pause actions.
 - `race.tscn` presents independent top and bottom `SubViewport` player worlds.
 - The race has title, three-second countdown, racing, paused, and finished states. A player entering the finish area wins.
-- The race retains an integer seed. Restart reuses it, and the new-course action increments it. Both player worlds generate courses from that same seed. Player 2 receives a horizontal reflection of the same chunk sequence.
+- The race generates a fresh random integer seed for its first course and for every `R` or `N` request. Both player worlds receive that same seed, so their generated routes stay equivalent while Player 2's course is horizontally reflected.
 - The player supports horizontal acceleration and deceleration, gravity, coyote time, jump buffering, wall sliding, wall jumping, landing particles, and exported tuning values.
 - Players have loudness clamped from 0 to 100. Running and wall contact add loudness; idle decay reduces it. Shouts add loudness before emitting their pulse. Running also emits footsteps.
 - Shouts create visible reveal rings and radial `SoundWave` rays. Footsteps create a smaller visible ring. Rays bounce from collision geometry, expire after a lifetime or bounce limit, and may return only after at least one bounce.
 - The first returned ray for a pulse activates only its emitting player, triggering that viewport's echo overlay and the player's temporary speed and jump boost. Sonic Shouts provide a brief preview, and movement refreshes a smaller reveal.
 - Scene-owned audio feedback plays distinct cues for footsteps, jumps, wall jumps, landings, shouts, wave bounces, returned waves, and finishes.
 - The project includes a Luap-40 lookup texture and post-process scene, an echo overlay shader, a sound-wave ring shader asset (the active reveal ring currently uses `Line2D`), a terrain TileSet, a font, and staged logo and player-sheet artwork.
-- Course generation selects traversal chunks deterministically, requires a safe landing flag, checks basic grid geometry and width metadata, limits difficulty changes to one tier, aligns chunk markers, and uses a fallback chunk when no traversal candidate is compatible.
-- SceneTree checks exist for the race shell, deterministic generation, sound-wave behavior, and the owner-local echo path.
+- Course generation selects traversal chunks deterministically, requires a safe landing flag, checks basic grid geometry and width metadata, limits difficulty changes to one tier, aligns chunk markers, caps noise-foam and branching-path frequency, and uses a fallback chunk when no traversal candidate is compatible.
+- Noise foam is a dark, porous collision surface that absorbs waves instead of reflecting them.
+- The traversal set includes sixteen static, 16-cell-wide stacked-path structures. Each has separate lower, middle, and upper platforms with gaps for jumping between paths, plus canopy, channels, crossing, fork, gallery, ladder, overlook, switchback, and dead-end layouts. The arcade, gap, and well structures use two-tile-thick floors. Every course includes a wall-jump structure: the tower or gauntlet uses opposing static walls and floating ledges for side-to-side climbing. Generation caps branching-path chunks and total dead-end branches per course.
+- Every generated course has a tile-aligned roof above its highest terrain and a fall boundary below its lowest terrain. Falling below the boundary pauses that player briefly, then respawns them at the course start.
+- SceneTree checks exist for the race shell, deterministic generation, sound-wave behavior, terrain features, fall resets, and the owner-local echo path.
 - The current runnable visual scenes, `race.tscn`, `movement_lab.tscn`, and `generator_lab.tscn`, instance the Luap-40 post-process scene.
 
 ## TO DO
@@ -77,12 +80,13 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Add or verify real traversal validation. The current generator does not test reachability, jump envelopes, chunk overlap, connection safety, or landing safety beyond the chunk metadata and grid checks.
 - Use the existing `allows_wall_jump` and `requires_shout` chunk metadata in generator compatibility or validation. They are declared but are not read by `CourseGenerator`.
 - Verify that all configured course chunks allow a player to reach the finish. The generator currently assembles chunks but has no pathfinding or traversal simulation.
-- Validate the existing authored chunk set before expanding it. The generator references start, traversal, fallback, and finish chunk scenes, including gap, wall-jump, and bounce-reward layouts.
+- Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
 - Add a committed export preset and test an exported build. No export preset is tracked in this repository.
 - Integrate the staged logo and player sprite sheet only when the corresponding menu and animation work is implemented. They are present in `assets/art/` but are not referenced by the active scenes.
 
 ## NEXT STEPS
 
-**Make the core loop readable.** Add a per-player loudness indicator and a visible boost-duration cue. Test whether players can tell that loudness affects their wave and that a returned wave causes the boost.
+**Make the core loop readable.** Add a per-player loudness indicator and a visible boost-duration cue. Test whether players can tell that loudness affects their wave, noise foam blocks it, and a returned wave causes the boost.
+**Playtest terrain features.** Tune foam placement and the readability of branching platform choices while both players race through the same seed.
 **Playtest the new cues.** Verify that the movement, wave, boost, landing, and finish sounds stay distinct and balanced for two simultaneous players.

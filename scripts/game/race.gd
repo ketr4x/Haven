@@ -8,7 +8,6 @@ enum RaceState {
 	FINISHED,
 }
 
-@export var initial_seed: int = 12_345
 @export_range(1.0, 5.0, 0.1) var countdown_duration: float = 3.0
 
 @onready var _player_one_world: PlayerWorld = $Presentation/SplitScreen/TopContainer/TopViewport/PlayerOneWorld
@@ -21,6 +20,7 @@ enum RaceState {
 @onready var _result_panel: Control = $GlobalUi/ResultPanel
 
 var _seed: int = 0
+var _seed_random: RandomNumberGenerator = RandomNumberGenerator.new()
 var _race_state: RaceState = RaceState.TITLE
 var _countdown_remaining: float = 0.0
 
@@ -28,8 +28,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_player_one_world.player_finished.connect(_on_player_finished)
 	_player_two_world.player_finished.connect(_on_player_finished)
-	_seed = initial_seed
-	_generate_race(_seed)
+	_seed_random.randomize()
+	_generate_race(_next_random_seed())
 	_set_race_state(RaceState.TITLE)
 
 
@@ -51,11 +51,11 @@ func _input(event: InputEvent) -> void:
 
 	if _race_state in [RaceState.RACING, RaceState.PAUSED, RaceState.FINISHED]:
 		if event.is_action_pressed(&"restart"):
-			_restart_course(false)
+			_restart_course()
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"new_seed"):
-			_restart_course(true)
+			_restart_course()
 			get_viewport().set_input_as_handled()
 			return
 
@@ -73,11 +73,17 @@ func _generate_race(seed: int) -> void:
 	_player_two_world.generate_course(_seed)
 
 
-func _restart_course(use_new_seed: bool) -> void:
+func _restart_course() -> void:
 	get_tree().paused = false
-	var next_seed := _seed + 1 if use_new_seed else _seed
-	_generate_race(next_seed)
+	_generate_race(_next_random_seed())
 	_set_race_state(RaceState.TITLE)
+
+
+func _next_random_seed() -> int:
+	var next_seed := _seed_random.randi_range(1, 2_147_483_647)
+	while next_seed == _seed:
+		next_seed = _seed_random.randi_range(1, 2_147_483_647)
+	return next_seed
 
 
 func _start_countdown() -> void:

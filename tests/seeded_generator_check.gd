@@ -11,6 +11,11 @@ func _initialize() -> void:
 
 	var generator := lab.get_node("CourseGenerator") as CourseGenerator
 	var chunks := generator.get_node("GeneratedChunks")
+	var roof := generator.get_node("Roof") as TileMapLayer
+	assert(roof.tile_set.resource_path == TERRAIN_TILESET)
+	assert(not roof.get_used_cells().is_empty())
+	assert(generator.fall_death_y > 0.0)
+	generator.generate_course(12_345)
 	var first_signature := generator.course_signature
 
 	generator.generate_course(12_345)
@@ -18,7 +23,7 @@ func _initialize() -> void:
 	assert(chunks.get_child_count() == 7)
 	assert((chunks.get_child(0) as CourseChunk).chunk_id == &"start")
 	assert((chunks.get_child(chunks.get_child_count() - 1) as CourseChunk).chunk_id == &"finish")
-	_assert_chunk_terrain_uses_common_grid(chunks)
+	_assert_chunk_terrain_uses_common_grid(chunks, generator)
 
 	var signatures: Dictionary = {}
 	for seed in range(1, 31):
@@ -26,7 +31,7 @@ func _initialize() -> void:
 		assert(chunks.get_child_count() == 7)
 		assert((chunks.get_child(0) as CourseChunk).chunk_id == &"start")
 		assert((chunks.get_child(chunks.get_child_count() - 1) as CourseChunk).chunk_id == &"finish")
-		_assert_chunk_terrain_uses_common_grid(chunks)
+		_assert_chunk_terrain_uses_common_grid(chunks, generator)
 		signatures[generator.course_signature] = true
 
 	await physics_frame
@@ -39,9 +44,13 @@ func _initialize() -> void:
 	quit()
 
 
-func _assert_chunk_terrain_uses_common_grid(chunks: Node) -> void:
+func _assert_chunk_terrain_uses_common_grid(chunks: Node, generator: CourseGenerator) -> void:
+	var feature_counts: Dictionary = {}
 	for chunk_node in chunks.get_children():
 		var chunk := chunk_node as CourseChunk
+		for feature in chunk.terrain_features:
+			feature_counts[feature] = int(feature_counts.get(feature, 0)) + 1
+		feature_counts[&"dead_end_paths"] = int(feature_counts.get(&"dead_end_paths", 0)) + chunk.dead_end_paths
 		assert(chunk.has_valid_grid_geometry())
 		var terrain := chunk.get_node_or_null("Terrain") as TileMapLayer
 		assert(terrain != null)
@@ -51,7 +60,12 @@ func _assert_chunk_terrain_uses_common_grid(chunks: Node) -> void:
 		assert(terrain.get_used_cells().size() == chunk.terrain_cells.size())
 		for cell in chunk.terrain_cells:
 			assert(terrain.get_cell_source_id(cell) == 0)
-		assert(chunk.find_children("*", "StaticBody2D", true, false).is_empty())
+		for body in chunk.find_children("*", "StaticBody2D", true, false):
+			assert(body.is_in_group(&"sound_absorber"))
+	assert(int(feature_counts.get(&"noise_foam", 0)) <= generator.max_noise_foam_chunks)
+	assert(int(feature_counts.get(&"branching_paths", 0)) <= generator.max_branching_path_chunks)
+	assert(int(feature_counts.get(&"wall_climb", 0)) >= generator.min_wall_climb_chunks)
+	assert(int(feature_counts.get(&"dead_end_paths", 0)) <= generator.max_dead_end_paths)
 
 
 func _assert_tile_collision_matches_cell(chunk: CourseChunk) -> void:

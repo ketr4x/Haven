@@ -8,6 +8,9 @@ extends Node2D
 @export var max_width: float = 384.0
 @export var allows_wall_jump: bool = false
 @export var requires_shout: bool = false
+@export var terrain_features: Array[StringName] = []
+@export_range(1, 4) var floor_depth_cells: int = 1
+@export_range(0, 4) var dead_end_paths: int = 0
 @export var has_safe_landing: bool = true
 @export var mirror_horizontally: bool = false
 @export var grid_size: Vector2i = Vector2i(48, 48)
@@ -28,6 +31,8 @@ func _mirror_markers_and_decorations() -> void:
 	for child in get_children():
 		if child is Marker2D:
 			child.position.x = -child.position.x
+		elif child.has_method("apply_horizontal_mirror"):
+			child.call("apply_horizontal_mirror", true)
 		elif child is Polygon2D:
 			child.position.x = -child.position.x
 			child.scale.x = -child.scale.x
@@ -65,8 +70,9 @@ func has_valid_grid_geometry() -> bool:
 	if not _is_grid_position(player_spawn_position()) or not _is_grid_position(finish_marker_position()):
 		return false
 	var max_cell_x := int(path_width() / grid_size.x) - 1
+	var max_cell_y := floor_depth_cells - 1
 	for cell in terrain_cells:
-		if cell.x < 0 or cell.x > max_cell_x or cell.y > 0:
+		if cell.x < 0 or cell.x > max_cell_x or cell.y > max_cell_y:
 			return false
 	return true
 

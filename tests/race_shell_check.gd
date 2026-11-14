@@ -24,6 +24,11 @@ func _initialize() -> void:
 	assert(player_one_generator != player_two_generator)
 	assert(player_one_generator.seed_value == player_two_generator.seed_value)
 	assert(player_one_generator.course_signature == player_two_generator.course_signature)
+	var initial_seed := player_one_generator.seed_value
+	race._restart_course()
+	assert(player_one_generator.seed_value != initial_seed)
+	assert(player_one_generator.seed_value == player_two_generator.seed_value)
+	assert(player_one_generator.course_signature == player_two_generator.course_signature)
 	assert(player_one_generator.get_node("GeneratedChunks").get_child_count() == 17)
 	assert(player_two_generator.get_node("GeneratedChunks").get_child_count() == 17)
 	assert(not player_one_generator.mirror_horizontally)

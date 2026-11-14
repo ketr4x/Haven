@@ -23,7 +23,11 @@ func configure(captured_loudness: float, expansion_multiplier: float = 1.0) -> v
 
 
 func add_bounce(position: Vector2, _normal: Vector2, _bounce_count: int) -> void:
-	_impacts.append({"angle": to_local(position).angle(), "age": 0.0})
+	_impacts.append({"angle": to_local(position).angle(), "age": 0.0, "strength": 1.0})
+
+
+func add_absorption(position: Vector2) -> void:
+	_impacts.append({"angle": to_local(position).angle(), "age": 0.0, "strength": 1.45})
 
 
 func _process(delta: float) -> void:
@@ -62,7 +66,8 @@ func _warped_radius(angle: float, radius: float) -> float:
 		var angle_delta := absf(wrapf(angle - float(impact["angle"]), -PI, PI))
 		var local_weight := exp(-pow(angle_delta / 0.42, 2.0))
 		var impact_progress := impact_age / impact_duration
-		var dent := -radius * impact_warp_ratio * local_weight * sin(impact_progress * PI)
+		var impact_strength := float(impact.get("strength", 1.0))
+		var dent := -radius * impact_warp_ratio * impact_strength * local_weight * sin(impact_progress * PI)
 		var rebound := radius * 0.1 * local_weight * sin(impact_age * 28.0 - angle_delta * 14.0) * exp(-impact_age * 5.0)
 		warped_radius += dent + rebound
 	return maxf(radius * 0.35, warped_radius)
