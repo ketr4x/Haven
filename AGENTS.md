@@ -59,7 +59,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - The Godot project is configured for Forward+ and launches `scenes/game/race.tscn`.
 - The Input Map defines both players' movement, jump, and shout actions, plus restart, new-course, and pause actions.
 - `race.tscn` presents independent top and bottom `SubViewport` player worlds.
-- The race has title, three-second countdown, racing, paused, and finished states. A player entering the finish area wins.
+- The race has title, three-second countdown, racing, paused, and finished states. Each player has a timer that freezes on their finish, and the race remains active until both players finish so the result panel can show both times.
 - The race generates a fresh random integer seed for its first course and for every `R` or `N` request. Both player worlds receive that same seed, so their generated routes stay equivalent while Player 2's course is horizontally reflected.
 - The player supports horizontal acceleration and deceleration, gravity, coyote time, jump buffering, wall sliding, wall jumping, landing particles, and exported tuning values.
 - Players have loudness clamped from 0 to 100. Running and wall contact add loudness; idle decay reduces it. Shouts add loudness before emitting their pulse. Running also emits footsteps.
@@ -77,7 +77,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 ## TO DO
 
 - Playtest the two-player keyboard layout in Godot, including movement plus jump or shout combinations, to identify keyboard ghosting.
-- Define simultaneous-finish behavior. The current winner is the first player whose finish signal reaches the race controller.
+- Define simultaneous-finish behavior. Matching finish times currently award the win to Player 1.
 - Confirm whether a rematch should return to the title state, as it currently does, or start immediately.
 - Add or verify real traversal validation. The current generator does not test reachability, jump envelopes, chunk overlap, connection safety, or landing safety beyond the chunk metadata and grid checks.
 - Use the existing `allows_wall_jump` and `requires_shout` chunk metadata in generator compatibility or validation. They are declared but are not read by `CourseGenerator`.
