@@ -211,6 +211,10 @@ When a player shouts, capture that player’s loudness and use it to scale the p
 
 Only a ray with at least one completed bounce can activate its owner. The first reflected ray from a pulse to reach the owner triggers the owner-only full reveal and boost. Other players never activate or receive its reveal.
 
+### Gameplay audio feedback
+
+Use short, quiet synthesized sounds to clarify actions without masking the race: footsteps while running, a separate cue for ground jumps and wall jumps, landing impacts, Sonic Shout, throttled wave-to-wall bounces, returned-wave boosts, and the finish. Both players receive the same cue types at the same volumes. Limit wall-bounce cues so one radial pulse cannot become a burst of overlapping sounds. Keep all audio as scene-owned `AudioStreamPlayer` nodes with assets under `assets/audio/`; do not create audio player nodes in code.
+
 ### Darkness and echolocation reveal
 
 At loudness `0`, the playable world is black except for each player’s own silhouette, active soundwaves, and essential UI. Each player silhouette must remain visible at all times, independent of loudness, wave state, and echo return. The darkness mask must identify the exact configured player color rather than a broad cyan or pink range, because terrain shares the Luap-40 accent colors. The level must not become visible merely because a wave bounced or because terrain matches a player color family.

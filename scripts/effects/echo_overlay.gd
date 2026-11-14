@@ -1,10 +1,10 @@
 class_name EchoOverlay
 extends ColorRect
 
-@export_range(0.1, 10.0, 0.1) var reveal_duration: float = 4.0
-@export_range(0.1, 2.0, 0.05) var preview_duration: float = 0.55
+@export_range(0.1, 10.0, 0.1) var reveal_duration: float = 6.0
+@export_range(0.1, 2.0, 0.05) var preview_duration: float = 0.9
 @export_range(0.0, 1.0, 0.05) var preview_strength: float = 0.45
-@export_range(0.1, 2.0, 0.05) var walking_reveal_duration: float = 0.45
+@export_range(0.1, 2.0, 0.05) var walking_reveal_duration: float = 1.2
 @export_range(0.0, 1.0, 0.05) var walking_reveal_strength: float = 0.35
 @export_range(0.1, 1.0, 0.05) var walking_radius_scale: float = 0.4
 

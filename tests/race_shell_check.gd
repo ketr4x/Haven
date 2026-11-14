@@ -93,6 +93,9 @@ func _initialize() -> void:
 	assert((race.get_node("GlobalUi/ResultPanel") as Control).visible)
 	assert(winner_label.text == "WYGRYWA GRACZ 1")
 	assert(not player_one.is_physics_processing())
+	race.queue_free()
+	for frame in 60:
+		await process_frame
 	print("Race shell and start flow check passed.")
 	quit()
 

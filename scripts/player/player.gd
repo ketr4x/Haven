@@ -2,6 +2,7 @@ class_name RezonansPlayer
 extends CharacterBody2D
 
 signal landed(position: Vector2)
+signal jumped(position: Vector2)
 signal wall_jumped(position: Vector2, normal: Vector2)
 signal sonic_shouted(origin: Vector2, direction: Vector2, loudness: float)
 signal footstep_emitted(origin: Vector2, direction: Vector2, loudness: float)
@@ -168,6 +169,7 @@ func _try_jump() -> void:
 		velocity.y = jump_velocity * _jump_multiplier()
 		_coyote_time_remaining = 0.0
 		_jump_buffer_remaining = 0.0
+		jumped.emit(global_position)
 		return
 
 	if is_on_wall_only():

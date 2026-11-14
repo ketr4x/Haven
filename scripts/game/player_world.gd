@@ -20,6 +20,7 @@ signal player_finished(player_number: int)
 @onready var _generator: CourseGenerator = $CourseGenerator
 @onready var _player: RezonansPlayer = $Player
 @onready var _finish_area: FinishArea = $FinishArea
+@onready var _audio_feedback: AudioFeedback = $AudioFeedback
 @onready var _waves: Node2D = $FeedbackCanvas/Waves
 @onready var _echo_overlay: EchoOverlay = $EchoCanvas/EchoOverlay
 
@@ -41,7 +42,12 @@ func _ready() -> void:
 	_generator.course_generated.connect(_on_course_generated)
 	_finish_area.player_finished.connect(_on_finish_area_player_finished)
 	_player.sonic_shouted.connect(_on_player_pulsed.bind(16, 1.0))
+	_player.sonic_shouted.connect(_on_player_sonic_shouted)
 	_player.footstep_emitted.connect(_on_footstep_emitted)
+	_player.footstep_emitted.connect(_on_player_footstep_emitted)
+	_player.landed.connect(_on_player_landed)
+	_player.jumped.connect(_on_player_jumped)
+	_player.wall_jumped.connect(_on_player_wall_jumped)
 
 
 func _process(_delta: float) -> void:
@@ -64,6 +70,26 @@ func emit_intro_pulse() -> void:
 	_on_player_pulsed(_player.global_position, Vector2(_player.facing_direction, 0.0), intro_pulse_loudness, 16)
 
 
+func _on_player_sonic_shouted(_origin: Vector2, _direction: Vector2, _loudness: float) -> void:
+	_audio_feedback.play_shout()
+
+
+func _on_player_footstep_emitted(_origin: Vector2, _direction: Vector2, _loudness: float) -> void:
+	_audio_feedback.play_footstep()
+
+
+func _on_player_landed(_position: Vector2) -> void:
+	_audio_feedback.play_landing()
+
+
+func _on_player_jumped(_position: Vector2) -> void:
+	_audio_feedback.play_jump()
+
+
+func _on_player_wall_jumped(_position: Vector2, _normal: Vector2) -> void:
+	_audio_feedback.play_wall_jump()
+
+
 func _on_footstep_emitted(origin: Vector2, _direction: Vector2, loudness: float) -> void:
 	# Footsteps show current loudness without granting a free echo return or boost.
 	_spawn_reveal_ring(origin, loudness * footstep_loudness_multiplier, footstep_ring_scale)
@@ -80,6 +106,7 @@ func _on_player_pulsed(origin: Vector2, _direction: Vector2, loudness: float, ra
 		_waves.add_child(wave)
 		wave.setup(_player, origin + direction * 8.0, direction, loudness, _next_pulse_id)
 		wave.bounced.connect(pulse.add_bounce)
+		wave.bounced.connect(_audio_feedback.play_wave_bounce)
 		wave.returned_to_owner.connect(_on_wave_returned)
 
 
@@ -95,6 +122,7 @@ func _on_wave_returned(_owner: RezonansPlayer, loudness: float, pulse_id: int) -
 	if _activated_pulses.has(pulse_id):
 		return
 	_activated_pulses[pulse_id] = true
+	_audio_feedback.play_echo_return()
 	_player.apply_rebound_boost()
 	_echo_overlay.trigger(loudness)
 
@@ -117,4 +145,5 @@ func _clear_waves() -> void:
 
 func _on_finish_area_player_finished(_finisher: RezonansPlayer) -> void:
 	_finish_area.set_deferred("monitoring", false)
+	_audio_feedback.play_finish()
 	player_finished.emit(player_number)

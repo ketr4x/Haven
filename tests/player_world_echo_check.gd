@@ -23,6 +23,10 @@ func _initialize() -> void:
 	player.rebound_boost_started.connect(_on_boost_started)
 	var overlay := world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
 	var overlay_material := overlay.material as ShaderMaterial
+	var audio_feedback := world.get_node("AudioFeedback") as AudioFeedback
+	assert(audio_feedback.get_node("Shout") is AudioStreamPlayer)
+	assert(audio_feedback.get_node("WaveBounce") is AudioStreamPlayer)
+	assert(audio_feedback.get_node("EchoReturn") is AudioStreamPlayer)
 	overlay.walking_preview(100.0)
 	assert(is_equal_approx(
 		float(overlay_material.get_shader_parameter("reveal_strength")),
@@ -45,6 +49,9 @@ func _initialize() -> void:
 
 	assert(_boost_started)
 	assert(float(overlay_material.get_shader_parameter("reveal_strength")) > 0.0)
+	world.queue_free()
+	for frame in 60:
+		await process_frame
 	print("Player world echo check passed.")
 	quit()
 
