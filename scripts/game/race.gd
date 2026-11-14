@@ -6,6 +6,8 @@ extends Control
 @onready var _finish_area: FinishArea = $SharedSimulation/FinishArea
 @onready var _top_viewport: SubViewport = $SplitScreen/TopContainer/TopViewport
 @onready var _bottom_viewport: SubViewport = $SplitScreen/BottomContainer/BottomViewport
+@onready var _top_camera: Camera2D = $SplitScreen/TopContainer/TopViewport/TopCamera
+@onready var _bottom_camera: Camera2D = $SplitScreen/BottomContainer/BottomViewport/BottomCamera
 @onready var _seed_label: Label = $GlobalUi/Seed
 @onready var _winner_label: Label = $GlobalUi/Winner
 
@@ -15,7 +17,6 @@ func _ready() -> void:
 	var shared_world := get_viewport().world_2d
 	_top_viewport.world_2d = shared_world
 	_bottom_viewport.world_2d = shared_world
-	_assign_cameras()
 
 	_course_generator.course_generated.connect(_on_course_generated)
 	_finish_area.player_finished.connect(_on_player_finished)
@@ -31,13 +32,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _assign_cameras() -> void:
-	var player_one_camera := _player_one.get_node("Camera2D") as Camera2D
-	var player_two_camera := _player_two.get_node("Camera2D") as Camera2D
-	player_one_camera.custom_viewport = _top_viewport
-	player_two_camera.custom_viewport = _bottom_viewport
-	player_one_camera.make_current()
-	player_two_camera.make_current()
+func _process(_delta: float) -> void:
+	_top_camera.position = _player_one.global_position
+	_bottom_camera.position = _player_two.global_position
 
 
 func _on_course_generated(seed: int, _signature: String) -> void:

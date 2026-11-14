@@ -45,7 +45,7 @@ left_action = &"p1_left"
 right_action = &"p1_right"
 jump_action = &"p1_jump"
 shout_action = &"p1_shout"
-camera_enabled = true
+camera_enabled = false
 
 [node name="PlayerTwo" parent="SharedSimulation" instance=ExtResource("3_player")]
 modulate = Color(0.25, 0.85, 1, 1)
@@ -53,7 +53,7 @@ left_action = &"p2_left"
 right_action = &"p2_right"
 jump_action = &"p2_jump"
 shout_action = &"p2_shout"
-camera_enabled = true
+camera_enabled = false
 
 [node name="FinishArea" parent="SharedSimulation" instance=ExtResource("4_finish_area")]
 
@@ -81,6 +81,10 @@ handle_input_locally = false
 size = Vector2i(1280, 358)
 transparent_bg = false
 render_target_update_mode = 4
+
+[node name="TopCamera" type="Camera2D" parent="SplitScreen/TopContainer/TopViewport"]
+position_smoothing_enabled = true
+position_smoothing_speed = 12.0
 
 [node name="Divider" type="ColorRect" parent="SplitScreen"]
 layout_mode = 1
@@ -111,6 +115,10 @@ handle_input_locally = false
 size = Vector2i(1280, 358)
 transparent_bg = false
 render_target_update_mode = 4
+
+[node name="BottomCamera" type="Camera2D" parent="SplitScreen/BottomContainer/BottomViewport"]
+position_smoothing_enabled = true
+position_smoothing_speed = 12.0
 
 [node name="GlobalUi" type="CanvasLayer" parent="."]
 
