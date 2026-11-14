@@ -35,7 +35,7 @@ start_chunk = ExtResource("5_start")
 traversal_chunks = Array[PackedScene]([ExtResource("6_flat"), ExtResource("7_up"), ExtResource("8_down"), ExtResource("9_bridge"), ExtResource("10_gap"), ExtResource("11_wall_jump"), ExtResource("12_bounce_reward")])
 safe_fallback_chunk = ExtResource("6_flat")
 finish_chunk = ExtResource("13_finish")
-traversal_count = 5
+traversal_count = 15
 
 [node name="GeneratedChunks" type="Node2D" parent="CourseGenerator"]
 
@@ -44,8 +44,13 @@ camera_enabled = false
 
 [node name="FinishArea" parent="." instance=ExtResource("4_finish")]
 
-[node name="Waves" type="Node2D" parent="."]
-
 [node name="EchoCanvas" type="CanvasLayer" parent="."]
+layer = 1
 
 [node name="EchoOverlay" parent="EchoCanvas" instance=ExtResource("13_overlay")]
+
+[node name="FeedbackCanvas" type="CanvasLayer" parent="."]
+layer = 2
+follow_viewport_enabled = true
+
+[node name="Waves" type="Node2D" parent="FeedbackCanvas"]

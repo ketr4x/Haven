@@ -11,6 +11,11 @@ func _ready() -> void:
 	material = material.duplicate()
 
 
+func set_player_color(color: Color) -> void:
+	var shader_material := material as ShaderMaterial
+	shader_material.set_shader_parameter("player_color", color)
+
+
 func trigger(captured_loudness: float) -> void:
 	var reveal_radius := lerpf(0.55, 1.35, clampf(captured_loudness, 0.0, 100.0) / 100.0)
 	_radius = maxf(_radius, reveal_radius)

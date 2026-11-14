@@ -88,6 +88,7 @@ right_action = &"p2_right"
 jump_action = &"p2_jump"
 shout_action = &"p2_shout"
 player_color = Color(0.509804, 0.709804, 0.85098, 1)
+mirror_course_horizontally = true
 
 [node name="GlobalUi" type="CanvasLayer" parent="."]
 

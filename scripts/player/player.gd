@@ -47,6 +47,7 @@ signal rebound_boost_ended
 
 @onready var _camera: Camera2D = $Camera2D
 @onready var _boost_aura: Polygon2D = $BoostAura
+@onready var _facing_marker: Polygon2D = $FacingMarker
 @onready var _landing_dust: CPUParticles2D = $LandingDust
 @onready var _wall_dust: CPUParticles2D = $WallDust
 @onready var _shout_sparks: CPUParticles2D = $ShoutSparks
@@ -63,11 +64,19 @@ var _was_on_floor: bool = false
 
 func _ready() -> void:
 	_camera.enabled = camera_enabled
+	set_facing_direction(facing_direction)
 	_boost_aura.visible = false
 	_landing_dust.emitting = false
 	_wall_dust.emitting = false
 	_shout_sparks.emitting = false
 	_boost_trail.emitting = false
+
+
+func set_facing_direction(direction: float) -> void:
+	if is_zero_approx(direction):
+		return
+	facing_direction = signf(direction)
+	_facing_marker.scale.x = facing_direction
 
 
 func _physics_process(delta: float) -> void:
@@ -138,7 +147,7 @@ func _update_jump_buffer(delta: float) -> void:
 func _update_horizontal_velocity(delta: float) -> void:
 	var input_axis := Input.get_axis(left_action, right_action)
 	if not is_zero_approx(input_axis):
-		facing_direction = signf(input_axis)
+		set_facing_direction(input_axis)
 		_boost_trail.direction = Vector2(-facing_direction, -0.15).normalized()
 		var acceleration := ground_acceleration if is_on_floor() else air_acceleration
 		velocity.x = move_toward(velocity.x, input_axis * run_speed * _speed_multiplier(), acceleration * delta)
@@ -164,7 +173,7 @@ func _try_jump() -> void:
 	if is_on_wall_only():
 		var wall_normal := get_wall_normal()
 		velocity = Vector2(wall_normal.x * wall_jump_horizontal_speed, jump_velocity * _jump_multiplier())
-		facing_direction = signf(wall_normal.x)
+		set_facing_direction(wall_normal.x)
 		_jump_buffer_remaining = 0.0
 		_wall_dust.position = Vector2(-wall_normal.x * 12.0, 6.0)
 		_wall_dust.direction = Vector2(wall_normal.x, -0.35).normalized()

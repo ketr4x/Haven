@@ -7,7 +7,7 @@ signal course_generated(seed: int, signature: String)
 @export var traversal_chunks: Array[PackedScene]
 @export var safe_fallback_chunk: PackedScene
 @export var finish_chunk: PackedScene
-@export_range(1, 8) var traversal_count: int = 5
+@export_range(1, 24) var traversal_count: int = 5
 @export var seed_value: int = 12_345
 
 @onready var _generated_chunks: Node2D = $GeneratedChunks

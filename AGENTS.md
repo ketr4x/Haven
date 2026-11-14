@@ -2,13 +2,13 @@
 
 ## Project brief
 
-**Rezonans** is a two-player horizontal split-screen parkour race in pitch darkness. Player 1 races in the top viewport and Player 2 races in the bottom viewport. Both use the same generated course and do not collide.
+**Rezonans** is a two-player horizontal split-screen parkour race in pitch darkness. Player 1 races left-to-right in the top viewport and Player 2 races right-to-left in the bottom viewport. Both receive the same generated geometry, mirrored horizontally for Player 2, and do not collide.
 
 Movement raises **loudness**, a player-owned value from 0 to 100. Loudness is the strength of that player’s echolocation. Running, Sonic Shout, and wall movement raise it. When a player is idle it decays to 0.
 
 Soundwaves reflect from solid geometry but do not reveal terrain at their impact point. A reflected wave activates echolocation only when it returns to its owner. The resulting edge reveal and its radius are proportional to the wave’s captured loudness. Catching that returned wave also grants the temporary speed and jump boost.
 
-The 24-hour Haven build targets **Windows PC** with the Godot 4.x Forward+ renderer. It must be playable locally by two people on one keyboard. Peer voters are likely to play for five minutes or less. The game must therefore get them into a clear race in under 15 seconds, show the Sonic Shout in the first 20 seconds, and let them finish a satisfying race in 60 to 90 seconds. The game generates a new fair course each run from a seed. Art may begin as deliberately readable placeholders and be replaced with hand-made pixel art when the playable loop is stable.
+The 24-hour Haven build targets **Windows PC** with the Godot 4.x Forward+ renderer. It must be playable locally by two people on one keyboard. Peer voters are likely to play for five minutes or less. The game must therefore get them into a clear race in under 15 seconds, show the Sonic Shout in the first 20 seconds, and let them finish a satisfying race in 180 to 270 seconds. The game generates a new fair course each run from a seed. Art may begin as deliberately readable placeholders and be replaced with hand-made pixel art when the playable loop is stable.
 
 Local PvP is required. Party and Matchmaking may appear in the menu only as unavailable options. Do not build a backend, fake online play, or sacrifice the local race for networking.
 
@@ -16,7 +16,7 @@ Local PvP is required. Party and Matchmaking may appear in the menu only as unav
 
 1. Deliver the first playable race in under 15 seconds with no account, lobby, or long instructions.
 2. Make the Sonic Shout look and sound striking in the first 20 seconds.
-3. Let a first race finish in 60 to 90 seconds, then offer an instant rematch.
+3. Let a first race finish in 180 to 270 seconds, then offer an instant rematch.
 4. Make the loudness-to-echolocation relationship readable: louder actions create larger waves and a larger returned-wave reveal.
 5. Responsive movement and fair generated courses come before art polish.
 6. Procedural generation must use small authored chunks and validation, not unrestricted random terrain.
@@ -52,10 +52,10 @@ The opening must work for people who will never read a README:
 1. **0–5 seconds:** title card shows both control schemes beside a prominent `Press any movement key` prompt.
 2. **5–8 seconds:** a three-second countdown begins as soon as both players move or the first player presses a key.
 3. **8–30 seconds:** the start chunk presents a wall or corridor where a Sonic Shout immediately produces a visible large wave. When it returns, show a strong edge flash, ring, boost aura, and bounce sound.
-4. **30–90 seconds:** one clean race uses a gap, a wall-jump route, and one obvious returned-wave shortcut. Never require the boost to finish.
+4. **30–270 seconds:** one clean race uses repeated gaps, wall-jump routes, and obvious returned-wave shortcuts. Never require the boost to finish.
 5. **Finish:** show the winner, a one-line “Catch your bounced wave for a boost” reminder, and large `Rematch` / `New course` actions.
 
-The first generated chunk must always be a curated tutorial-start chunk. Randomization begins after that. Use the same 60–90 second target length for every valid seed.
+The first generated chunk must always be a curated tutorial-start chunk. Randomization begins after that. Use the same 180–270 second target length for every valid seed.
 
 ## Technology and conventions
 
@@ -156,11 +156,13 @@ Only instantiate runtime content in code: selected chunk scenes, waves, transien
 
 ### Split-screen race
 
-`race.tscn` owns two independent `PlayerWorld` scene instances, one inside each `SubViewport`. Both worlds receive the same race seed and therefore generate the same chunk sequence, but they never share physics, rendering, players, waves, or collision bodies.
+`race.tscn` owns two independent `PlayerWorld` scene instances, one inside each `SubViewport`. Both worlds receive the same race seed and therefore generate the same chunk sequence. Player 1 runs that geometry left-to-right; Player 2 receives an exact horizontal mirror and runs right-to-left. They never share physics, rendering, players, waves, or collision bodies.
 
 Keep seed parity and presentation isolation explicit:
 
-- Generate Player 1’s and Player 2’s course independently from the identical seed.
+- Generate Player 1’s and Player 2’s course independently from the identical seed and identical chunk sequence.
+- Mirror Player 2’s complete course horizontally. Player 1 must travel left-to-right and Player 2 right-to-left.
+- Difficulty parity is strict: both courses must have the same geometry, distances, collision shapes, chunk order, and required actions after reflection. Never give one viewport an easier seed, shortcut, or obstacle variant.
 - A player world contains exactly one player, one generated level, one wave container, one finish area, one camera, and one echo overlay.
 - Neither player, wave, reveal, nor boost can be observed or collide across viewports.
 - `race.tscn` owns only the seed, result state, countdown, rematch, and global UI.
@@ -172,7 +174,7 @@ Every run has an integer `seed` retained by the race manager for reproducible QA
 Start with a fixed recipe:
 
 ```text
-start chunk -> 4 to 6 traversal chunks -> finish chunk
+start chunk -> 15 traversal chunks -> finish chunk
 ```
 
 A chunk scene needs entry and exit `Marker2D` positions and exported metadata such as:
@@ -205,17 +207,17 @@ Store coyote time and jump buffering as short seconds-based timers. Apply the re
 
 A soundwave is a circular pulse, not a directional projectile. A pulse expands visibly from its owner in every direction while a bounded set of invisible radial physics rays carries the reflected return paths. The pulse scene has a ring/trail child, owner id, captured loudness, and lifetime. Spawn it through one narrow factory method or manager.
 
-When a player shouts or makes a footstep, capture that player’s loudness. Use it to scale the pulse’s visible radius and the eventual echolocation radius. Emit evenly spaced physics rays in all directions. Each ray reflects from solid TileMapLayer geometry and may return to the owner. Wall impacts produce bounce feedback only. They do not reveal terrain.
+When a player shouts, capture that player’s loudness and use it to scale the pulse’s visible radius and eventual echolocation radius. Emit evenly spaced physics rays in all directions. Each ray reflects from solid TileMapLayer geometry and may return to the owner. Wall impacts produce bounce feedback only. They do not reveal terrain. Footsteps emit a small visible loudness ring but no physics rays, reveal, or boost; this keeps Sonic Shout as the deliberate echolocation action.
 
 Only a ray with at least one completed bounce can activate its owner. The first reflected ray from a pulse to reach the owner triggers the owner-only edge reveal and boost. Other players never activate or receive its reveal.
 
 ### Darkness and echolocation reveal
 
-At loudness `0`, the playable world is black except for each player’s own silhouette and essential UI. Each player silhouette must remain visible at all times, independent of loudness, wave state, and echo return. The level must not become visible merely because a wave bounced.
+At loudness `0`, the playable world is black except for each player’s own silhouette, active soundwaves, and essential UI. Each player silhouette must remain visible at all times, independent of loudness, wave state, and echo return. The darkness mask must identify the exact configured player color rather than a broad cyan or pink range, because terrain shares the Luap-40 accent colors. The level must not become visible merely because a wave bounced or because terrain matches a player color family.
 
 When a reflected wave reaches its owner, create a short-lived reveal centered on that player. It shows wall, floor, and platform **edges**, not a fully lit level. The radius, line thickness, and ring scale are derived from captured loudness. A low-loudness echo must still reveal at least half of the player’s viewport; a high-loudness echo should cover the full viewport. Keep the largest recent reveal visible for about four seconds before fading it out.
 
-Implement the first version with per-viewport dark overlays and edge sprites/lines that the returning wave activates. Keep the reveal system behind a small interface so that it can later become a shader-based edge mask if time permits. Do not let player one’s reveal appear in player two’s viewport.
+Implement the first version with per-viewport dark overlays and edge sprites/lines that the returning wave activates. Keep the darkness overlay opaque over terrain during a reveal; draw computed edges into black instead of lowering the overlay alpha and exposing the source image. Render soundwave feedback on a separate per-viewport canvas above the darkness overlay. Keep the reveal system behind a small interface so that it can later become a shader-based edge mask if time permits. Do not let player one’s reveal appear in player two’s viewport.
 
 ## Ownership and 24-hour schedule
 

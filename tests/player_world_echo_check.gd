@@ -13,9 +13,10 @@ func _initialize() -> void:
 
 	var generator := world.get_node("CourseGenerator") as CourseGenerator
 	var player := world.get_node("Player") as RezonansPlayer
-	assert(player.global_position == generator.global_position + generator.player_spawn)
+	assert(player.global_position == generator.to_global(generator.player_spawn))
 	world._on_footstep_emitted(player.global_position, Vector2.RIGHT, 100.0)
-	var footstep_ring := world.get_node("Waves").get_child(0) as RevealRing
+	assert(world.get_node("FeedbackCanvas/Waves").get_child_count() == 1)
+	var footstep_ring := world.get_node("FeedbackCanvas/Waves").get_child(0) as RevealRing
 	assert(footstep_ring.end_scale < 4.0)
 	assert(footstep_ring.duration < 0.25)
 	world._clear_waves()
