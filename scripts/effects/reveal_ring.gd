@@ -6,10 +6,11 @@ extends Node2D
 
 var _elapsed: float = 0.0
 
-func configure(captured_loudness: float) -> void:
+func configure(captured_loudness: float, expansion_multiplier: float = 1.0) -> void:
 	var loudness_ratio := clampf(captured_loudness, 0.0, 100.0) / 100.0
-	duration = lerpf(0.4, 0.8, loudness_ratio)
-	end_scale = lerpf(5.0, 16.0, loudness_ratio)
+	var visual_scale := clampf(expansion_multiplier, 0.1, 1.0)
+	duration = lerpf(0.4, 0.8, loudness_ratio) * visual_scale
+	end_scale = lerpf(5.0, 16.0, loudness_ratio) * visual_scale
 
 
 func _process(delta: float) -> void:

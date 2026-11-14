@@ -11,6 +11,8 @@ signal player_finished(player_number: int)
 @export var player_color: Color = Color(1, 0.32, 0.62, 1)
 @export var sound_wave_scene: PackedScene
 @export var reveal_ring_scene: PackedScene
+@export_range(0.1, 1.0) var footstep_loudness_multiplier: float = 0.35
+@export_range(0.1, 1.0) var footstep_ring_scale: float = 0.45
 
 @onready var _generator: CourseGenerator = $CourseGenerator
 @onready var _player: RezonansPlayer = $Player
@@ -33,20 +35,24 @@ func _ready() -> void:
 
 	_generator.course_generated.connect(_on_course_generated)
 	_finish_area.player_finished.connect(_on_finish_area_player_finished)
-	_player.sonic_shouted.connect(_on_player_pulsed.bind(16))
-	_player.footstep_emitted.connect(_on_player_pulsed.bind(8))
+	_player.sonic_shouted.connect(_on_player_pulsed.bind(16, 1.0))
+	_player.footstep_emitted.connect(_on_footstep_emitted)
 
 
 func generate_course(seed: int) -> void:
 	_generator.generate_course(seed)
 
 
-func _on_player_pulsed(origin: Vector2, _direction: Vector2, loudness: float, ray_count: int) -> void:
+func _on_footstep_emitted(origin: Vector2, direction: Vector2, loudness: float) -> void:
+	_on_player_pulsed(origin, direction, loudness * footstep_loudness_multiplier, 8, footstep_ring_scale)
+
+
+func _on_player_pulsed(origin: Vector2, _direction: Vector2, loudness: float, ray_count: int, ring_scale: float = 1.0) -> void:
 	_next_pulse_id += 1
 	var pulse := reveal_ring_scene.instantiate() as RevealRing
 	_waves.add_child(pulse)
 	pulse.global_position = origin
-	pulse.configure(loudness)
+	pulse.configure(loudness, ring_scale)
 
 	for index in ray_count:
 		var direction := Vector2.from_angle(TAU * float(index) / float(ray_count))
