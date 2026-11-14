@@ -8,7 +8,10 @@
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_step_up.tscn" id="6_step_up"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_step_down.tscn" id="7_step_down"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_bridge.tscn" id="8_bridge"]
-[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="9_finish"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_gap.tscn" id="9_gap"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_wall_jump.tscn" id="10_wall_jump"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_bounce_reward.tscn" id="11_bounce_reward"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="12_finish"]
 
 [node name="GeneratorLab" type="Node2D"]
 script = ExtResource("1_lab")
@@ -23,8 +26,9 @@ color = Color(0.025, 0.035, 0.075, 1)
 position = Vector2(120, 650)
 script = ExtResource("2_generator")
 start_chunk = ExtResource("4_start")
-traversal_chunks = Array[PackedScene]([ExtResource("5_flat"), ExtResource("6_step_up"), ExtResource("7_step_down"), ExtResource("8_bridge")])
-finish_chunk = ExtResource("9_finish")
+traversal_chunks = Array[PackedScene]([ExtResource("5_flat"), ExtResource("6_step_up"), ExtResource("7_step_down"), ExtResource("8_bridge"), ExtResource("9_gap"), ExtResource("10_wall_jump"), ExtResource("11_bounce_reward")])
+safe_fallback_chunk = ExtResource("5_flat")
+finish_chunk = ExtResource("12_finish")
 traversal_count = 5
 seed_value = 12345
 
