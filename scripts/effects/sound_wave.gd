@@ -44,6 +44,10 @@ func _physics_process(delta: float) -> void:
 		if bounce_count >= max_bounces:
 			expired.emit()
 			queue_free()
+			return
+
+	if bounce_count > 0 and emitter and global_position.distance_to(emitter.global_position) <= 42.0 * scale.x:
+		_return_to_owner()
 
 
 func _process(_delta: float) -> void:
@@ -53,6 +57,13 @@ func _process(_delta: float) -> void:
 
 func _on_return_detector_body_entered(body: Node2D) -> void:
 	if _has_returned or bounce_count == 0 or body != emitter:
+		return
+
+	_return_to_owner()
+
+
+func _return_to_owner() -> void:
+	if _has_returned:
 		return
 
 	_has_returned = true

@@ -25,5 +25,6 @@ void fragment() {
 	float signal_pixel = step(0.72, source.b) * step(0.52, source.g);
 	vec3 echo = edge_color * edge * echo_area * reveal_strength;
 	echo = max(echo, source * signal_pixel);
-	COLOR = vec4(echo, 1.0);
+	float reveal_alpha = 1.0 - echo_area * reveal_strength * 0.9;
+	COLOR = vec4(echo, reveal_alpha);
 }
