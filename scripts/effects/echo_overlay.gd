@@ -6,6 +6,11 @@ extends ColorRect
 var _time_remaining: float = 0.0
 var _radius: float = 0.0
 
+func _ready() -> void:
+	# Player worlds instance this overlay twice; uniforms must not cross viewport boundaries.
+	material = material.duplicate()
+
+
 func trigger(captured_loudness: float) -> void:
 	var reveal_radius := lerpf(0.55, 1.35, clampf(captured_loudness, 0.0, 100.0) / 100.0)
 	_radius = maxf(_radius, reveal_radius)

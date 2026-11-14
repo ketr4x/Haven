@@ -19,8 +19,14 @@ func _initialize() -> void:
 	assert(player_one_generator.seed_value == player_two_generator.seed_value)
 	assert(player_one_generator.course_signature == player_two_generator.course_signature)
 	var player_two := player_two_world.get_node("Player") as RezonansPlayer
+	var player_one_overlay := player_one_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
+	var player_two_overlay := player_two_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
 	assert(player_one.global_position == player_one_generator.global_position + player_one_generator.player_spawn)
 	assert(player_two.global_position == player_two_generator.global_position + player_two_generator.player_spawn)
+	assert(player_one_overlay.material != player_two_overlay.material)
+	player_one_overlay.trigger(60.0)
+	assert(float((player_one_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength")) > 0.0)
+	assert(is_zero_approx(float((player_two_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength"))))
 
 	finish_area._on_body_entered(player_one)
 	var winner_label := race.get_node("GlobalUi/Winner") as Label
