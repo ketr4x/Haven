@@ -1,7 +1,8 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/movement_lab.gd" id="1_lab"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://scenes/effects/luap_40_post_process.tscn" id="3_palette"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
 size = Vector2(1280, 48)
@@ -152,3 +153,5 @@ offset_bottom = 232.0
 theme_override_colors/font_color = Color(0.68, 0.72, 0.86, 1)
 theme_override_font_sizes/font_size = 16
 text = "Test coyote jumps, jump buffering, wall slides, and wall jumps.  R restarts."
+
+[node name="Luap40PostProcess" parent="." instance=ExtResource("3_palette")]

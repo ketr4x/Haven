@@ -1,11 +1,11 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Shader" path="res://assets/shaders/luap_40_post_process.gdshader" id="1_shader"]
-[ext_resource type="Texture2D" path="res://assets/palettes/luap_40.png" id="2_palette"]
+[ext_resource type="Texture2D" path="res://assets/palettes/luap_40_lut.png" id="2_palette"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_palette"]
 shader = ExtResource("1_shader")
-shader_parameter/palette_texture = ExtResource("2_palette")
+shader_parameter/palette_lut = ExtResource("2_palette")
 
 [node name="Luap40PostProcess" type="CanvasLayer"]
 layer = 100

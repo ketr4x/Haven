@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/generator_lab.gd" id="1_lab"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_step_down.tscn" id="7_step_down"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_bridge.tscn" id="8_bridge"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="9_finish"]
+[ext_resource type="PackedScene" path="res://scenes/effects/luap_40_post_process.tscn" id="10_palette"]
 
 [node name="GeneratorLab" type="Node2D"]
 script = ExtResource("1_lab")
@@ -73,3 +74,5 @@ offset_bottom = 188.0
 theme_override_colors/font_color = Color(0.68, 0.72, 0.86, 1)
 theme_override_font_sizes/font_size = 16
 text = "The same seed must produce the same chunk order. This lab uses safe placeholders only."
+
+[node name="Luap40PostProcess" parent="." instance=ExtResource("10_palette")]

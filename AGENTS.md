@@ -98,7 +98,7 @@ Test the chosen keyboard in the first hour. If it ghosts when both players hold 
   - Row 1 contains 9 idle frames. The full row is the idle animation.
   - Row 2 contains 10 run frames, or walk frames when playback is slowed. The last frame is idle, and the animation always returns to it.
   - Row 3 contains 8 slide frames. The first and last frames are idle; the 6 middle frames are the slide. The slide state must last exactly as long as this animation.
-- **Palette post-processing**: The final gameplay image is quantized to `Luap-40`. Keep this pass limited to palette mapping; do not add CRT effects to it.
+- **Palette shader**: Every runnable visual scene must instance [`scenes/effects/luap_40_post_process.tscn`](scenes/effects/luap_40_post_process.tscn) as its final canvas layer so its composed output uses only `Luap-40` colors. The shader uses a precomputed RGB lookup texture and one palette lookup per fragment. Do not replace it with a loop that compares every screen pixel against all 40 palette colors, and do not stack it inside component scenes that are already rendered through a parent scene's palette pass.
 - **Post-processing (planned)**: Once core gameplay and art assets are in place, add a separate final CRT-style screen shader (scanlines, subtle phosphor bloom/aberration, and dark vignette) tuned so split-screen text and fast parkour cues remain crisp and legible.
 
 ## Project layout
