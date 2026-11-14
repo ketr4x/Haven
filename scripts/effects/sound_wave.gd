@@ -3,6 +3,7 @@ extends Node2D
 
 signal bounced(position: Vector2, normal: Vector2, bounce_count: int)
 signal surface_reached(position: Vector2, normal: Vector2, intensity: float, tile_size: float)
+signal absorbed(position: Vector2)
 signal returned_to_owner(player: RezonansPlayer, captured_loudness: float, pulse_id: int)
 signal expired
 
@@ -99,6 +100,12 @@ func _physics_process(delta: float) -> void:
 		if _segment_returns_to_owner(segment_start, collision_position, velocity):
 			_return_to_owner()
 			return
+
+	var collider := collision.get("collider") as Node
+	if collider and collider.is_in_group(&"sound_absorber"):
+		absorbed.emit(collision_position)
+		_expire()
+		return
 
 	bounce_count += 1
 	var life_ratio := clampf(_remaining_lifetime / lifetime, 0.0, 1.0)

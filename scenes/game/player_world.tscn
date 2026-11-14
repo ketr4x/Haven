@@ -1,7 +1,8 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=36 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/player_world.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
+[ext_resource type="TileSet" path="res://resources/tiles/terrain_tileset.tres" id="20_tiles"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3_player"]
 [ext_resource type="PackedScene" path="res://scenes/game/finish_area.tscn" id="4_finish"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_start.tscn" id="5_start"]
@@ -12,6 +13,23 @@
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_gap.tscn" id="10_gap"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_wall_jump.tscn" id="11_wall_jump"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_bounce_reward.tscn" id="12_bounce_reward"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_foam_ceiling.tscn" id="16_foam_ceiling"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_maze_ascent.tscn" id="17_maze_ascent"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_maze_chimney.tscn" id="18_maze_chimney"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_maze_descent.tscn" id="19_maze_descent"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_stacked_ladders.tscn" id="21_stacked_ladders"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_stacked_gallery.tscn" id="22_stacked_gallery"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_stacked_switchback.tscn" id="23_stacked_switchback"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_wall_jump_tower.tscn" id="24_wall_jump_tower"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_stacked_canopy.tscn" id="25_stacked_canopy"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_stacked_fork.tscn" id="26_stacked_fork"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_stacked_channels.tscn" id="27_stacked_channels"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_stacked_overlook.tscn" id="28_stacked_overlook"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_wall_jump_gauntlet.tscn" id="29_wall_jump_gauntlet"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_double_floor_arcade.tscn" id="30_double_floor_arcade"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_double_floor_gap.tscn" id="31_double_floor_gap"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_dead_end_balcony.tscn" id="32_dead_end_balcony"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_dead_end_well.tscn" id="33_dead_end_well"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="13_finish"]
 [ext_resource type="PackedScene" path="res://scenes/effects/sound_wave.tscn" id="11_wave"]
 [ext_resource type="PackedScene" path="res://scenes/effects/reveal_ring.tscn" id="12_ring"]
@@ -33,10 +51,14 @@ color = Color(0.025, 0.035, 0.075, 1)
 position = Vector2(120, 650)
 script = ExtResource("2_generator")
 start_chunk = ExtResource("5_start")
-traversal_chunks = Array[PackedScene]([ExtResource("6_flat"), ExtResource("7_up"), ExtResource("8_down"), ExtResource("9_bridge"), ExtResource("10_gap"), ExtResource("11_wall_jump"), ExtResource("12_bounce_reward")])
+traversal_chunks = Array[PackedScene]([ExtResource("6_flat"), ExtResource("7_up"), ExtResource("8_down"), ExtResource("9_bridge"), ExtResource("10_gap"), ExtResource("11_wall_jump"), ExtResource("12_bounce_reward"), ExtResource("16_foam_ceiling"), ExtResource("17_maze_ascent"), ExtResource("18_maze_chimney"), ExtResource("19_maze_descent"), ExtResource("21_stacked_ladders"), ExtResource("22_stacked_gallery"), ExtResource("23_stacked_switchback"), ExtResource("24_wall_jump_tower"), ExtResource("25_stacked_canopy"), ExtResource("26_stacked_fork"), ExtResource("27_stacked_channels"), ExtResource("28_stacked_overlook"), ExtResource("29_wall_jump_gauntlet"), ExtResource("30_double_floor_arcade"), ExtResource("31_double_floor_gap"), ExtResource("32_dead_end_balcony"), ExtResource("33_dead_end_well")])
 safe_fallback_chunk = ExtResource("6_flat")
 finish_chunk = ExtResource("13_finish")
 traversal_count = 15
+
+[node name="Roof" type="TileMapLayer" parent="CourseGenerator"]
+position = Vector2(-24, -24)
+tile_set = ExtResource("20_tiles")
 
 [node name="GeneratedChunks" type="Node2D" parent="CourseGenerator"]
 

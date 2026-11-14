@@ -9,6 +9,7 @@ enum ReturnEffect {
 }
 
 signal player_finished(player_number: int)
+signal player_died(player_number: int)
 
 @export_category("Player")
 @export var player_number: int = 1
@@ -45,6 +46,7 @@ signal player_finished(player_number: int)
 @export_range(0.1, 1.0) var wall_jump_loudness_multiplier: float = 0.55
 @export_range(0.1, 1.0) var footstep_ring_scale: float = 0.45
 @export_range(0.4, 1.0) var large_footstep_ring_scale: float = 0.8
+@export_range(0.05, 2.0, 0.05) var respawn_delay: float = 0.35
 
 @onready var _generator: CourseGenerator = $CourseGenerator
 @onready var _player: RezonansPlayer = $Player
@@ -59,6 +61,9 @@ var _activated_pulses: Dictionary = {}
 var _reflected_pulses: Dictionary = {}
 var _pulse_return_effects: Dictionary = {}
 var _pulse_echo_colors: Dictionary = {}
+var death_height: float = INF
+var _race_active: bool = false
+var _respawn_time_remaining: float = 0.0
 
 func _ready() -> void:
 	_player.left_action = left_action
@@ -87,11 +92,25 @@ func _ready() -> void:
 	_player.obstacle_hit.connect(_on_player_obstacle_hit)
 
 
+func _process(delta: float) -> void:
+	if _respawn_time_remaining > 0.0:
+		_respawn_time_remaining = maxf(0.0, _respawn_time_remaining - delta)
+		if is_zero_approx(_respawn_time_remaining) and _race_active:
+			_respawn_player()
+		return
+
+	if _race_active and _player.global_position.y > death_height:
+		_handle_player_fall()
+
+
 func generate_course(seed: int) -> void:
 	_generator.generate_course(seed)
 
 
 func set_race_active(is_active: bool) -> void:
+	_race_active = is_active
+	if not is_active:
+		_respawn_time_remaining = 0.0
 	_player.set_physics_process(is_active)
 	_finish_area.monitoring = is_active
 
@@ -388,6 +407,8 @@ func _on_wave_returned(_owner: RezonansPlayer, _loudness: float, pulse_id: int) 
 
 
 func _on_course_generated(_seed: int, _signature: String) -> void:
+	_respawn_time_remaining = 0.0
+	death_height = _generator.to_global(Vector2(0.0, _generator.fall_death_y)).y
 	_player.global_position = _generator.to_global(_generator.player_spawn)
 	_player.velocity = Vector2.ZERO
 	_player.set_facing_direction(-1.0 if mirror_course_horizontally else 1.0)
@@ -399,6 +420,21 @@ func _on_course_generated(_seed: int, _signature: String) -> void:
 	_pulse_return_effects.clear()
 	_pulse_echo_colors.clear()
 	_clear_waves()
+
+
+func _handle_player_fall() -> void:
+	_player.set_physics_process(false)
+	_player.velocity = Vector2.ZERO
+	_clear_waves()
+	_respawn_time_remaining = respawn_delay
+	player_died.emit(player_number)
+
+
+func _respawn_player() -> void:
+	_player.global_position = _generator.to_global(_generator.player_spawn)
+	_player.velocity = Vector2.ZERO
+	_player.set_facing_direction(-1.0 if mirror_course_horizontally else 1.0)
+	_player.set_physics_process(_race_active)
 
 
 func _clear_waves() -> void:

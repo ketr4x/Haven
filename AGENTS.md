@@ -30,6 +30,8 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 
 ### Development conventions
 
+- For non-trivial changes, create and switch to a dedicated branch before editing. Use a descriptive prefix such as `feature/`, `fix/`, `chore/`, `docs/`, or `test/`.
+- Push completed non-trivial branches and merge them through a pull request when repository hosting and branch protection are available. Keep `main` releasable and avoid pushing directly to protected `main`.
 - The AGENTS.md file should be edited with new ideas, adding done things and removing to-dos, as well as adding next steps.
 - Use the Godot Input Map actions rather than reading physical keys in gameplay code.
 - Use `snake_case` for files, methods, variables, signals, and new node names. Use `PascalCase` for `class_name` types.
@@ -49,7 +51,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Do not make concurrent edits to the same `.tscn`, `.tres`, TileSet, or `project.godot` file.
 - Add new assets instead of moving or renaming referenced assets unless all references are updated.
 - Resolve scene and resource conflicts manually, then open and run the result in Godot.
-- Do not commit generated `.godot/` content, imports, logs, generated exports, or machine-local files. `local.agents.md` contains untracked, machine-specific notes and is not repository policy.
+- Do not commit generated `.godot/` content, imports, logs, generated exports, or machine-local files. When present, use `local.agents.md` for its untracked, machine-specific notes; it supplements but does not override repository policy.
 - When adding art or UI, use the existing Luap-40 palette and preserve pixel-crisp rendering. The logo and player sheet are staged assets, not active gameplay art.
 
 ## DONE
@@ -57,8 +59,8 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - The Godot project is configured for Forward+ and launches `scenes/game/race.tscn`.
 - The Input Map defines both players' movement, jump, cosmetic shout, `BigScream-`, and `BigScream+` actions, plus restart, new-course, and pause actions.
 - `race.tscn` presents independent top and bottom `SubViewport` player worlds.
-- The race has title, three-second countdown, racing, paused, and finished states. A player entering the finish area wins.
-- The race retains an integer seed. Restart reuses it, and the new-course action increments it. Both player worlds generate courses from that same seed. Player 2 receives a horizontal reflection of the same chunk sequence.
+- The race has title, three-second countdown, racing, paused, and finished states. Each player has a timer that freezes on their finish, and the race remains active until both players finish so the result panel can show both times.
+- The race generates a fresh random integer seed for its first course and for every `R` or `N` request. Both player worlds receive that same seed, so their generated routes stay equivalent while Player 2's course is horizontally reflected.
 - The player supports horizontal acceleration and deceleration, gravity, coyote time, jump buffering, wall sliding, wall jumping, landing particles, and exported tuning values.
 - Players have loudness clamped from 0 to 100. Running, wall contact, and hard landings add loudness, while idle decay reduces it. Manual shouts are cosmetic and cannot add loudness or reveal the level.
 - Intro pulses, footsteps, jumps, wall jumps, landings, and concentrated screams emit independent, invisible `SoundWave` probes inside the same visible arc as their pixel front. Both probes and pixel fronts inherit the player's velocity at emission, travel at 900 pixels per second relative to that frame, and share a maximum path distance, keeping collision light synchronized with the drawn wave.
@@ -71,23 +73,27 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - A sufficiently fast horizontal obstacle impact applies up to 40 milliseconds of player-local hitstop, pixel-stepped camera shake, spring recoil, and square debris without affecting the other viewport.
 - Return effects remain owner-local: Echo-Surf timing, `BigScream-` slow, and `BigScream+` boost affect only the player who emitted that pulse.
 - Scene-owned audio feedback plays distinct cues for footsteps, jumps, wall jumps, landings, shouts, wave bounces, returned waves, and finishes.
-- The project includes a Luap-40 lookup texture and post-process scene, a collision-local echolocation shader, a pixel-crisp source-front effect, optimized invisible sound probes, a terrain TileSet, a font, and staged logo and player-sheet artwork.
-- Course generation selects traversal chunks deterministically, requires a safe landing flag, checks basic grid geometry and width metadata, limits difficulty changes to one tier, aligns chunk markers, and uses a fallback chunk when no traversal candidate is compatible.
-- SceneTree checks exist for the race shell, deterministic generation, sound-wave behavior, and the owner-local echo path.
+- The project includes a Luap-40 lookup texture and post-process scene, an echo overlay shader, a collision-local echolocation shader, a pixel-crisp source-front effect, optimized invisible sound probes, a terrain TileSet, a font, and staged logo and player-sheet artwork.
+- Course generation selects traversal chunks deterministically, requires a safe landing flag, checks basic grid geometry and width metadata, limits difficulty changes to one tier, aligns chunk markers, caps noise-foam and branching-path frequency, and uses a fallback chunk when no traversal candidate is compatible.
+- Noise foam is a dark, porous collision surface that absorbs waves instead of reflecting them.
+- The traversal set includes sixteen static, 16-cell-wide stacked-path structures. Each has separate lower, middle, and upper platforms with gaps for jumping between paths, plus canopy, channels, crossing, fork, gallery, ladder, overlook, switchback, and dead-end layouts. The arcade, gap, and well structures use two-tile-thick floors. Every course includes a wall-jump structure: the tower or gauntlet uses opposing static walls and floating ledges for side-to-side climbing. Generation caps branching-path chunks and total dead-end branches per course.
+- Every generated course has a tile-aligned roof above its highest terrain and a fall boundary below its lowest terrain. Falling below the boundary pauses that player briefly, then respawns them at the course start.
+- SceneTree checks exist for the race shell, deterministic generation, sound-wave behavior, terrain features, fall resets, and the owner-local echo path.
 - The current runnable visual scenes, `race.tscn`, `movement_lab.tscn`, and `generator_lab.tscn`, instance the Luap-40 post-process scene.
+- The committed `t3.json` exposes actions to start the Godot game and build a Windows export.
+- A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
 
 ## TO DO
 
 - Add destructible blue blocks and connect them to `BigScream-`; the concentrated red wave and future-purpose documentation exist, but no blue block type is authored yet.
 - Playtest the two-player keyboard layout in Godot, including movement plus jump, `BigScream-`, or `BigScream+` combinations, to identify keyboard ghosting.
-- Define simultaneous-finish behavior. The current winner is the first player whose finish signal reaches the race controller.
+- Define simultaneous-finish behavior. Matching finish times currently award the win to Player 1.
 - Confirm whether a rematch should return to the title state, as it currently does, or start immediately.
 - Add or verify real traversal validation. The current generator does not test reachability, jump envelopes, chunk overlap, connection safety, or landing safety beyond the chunk metadata and grid checks.
 - Use the existing `allows_wall_jump` and `requires_shout` chunk metadata in generator compatibility or validation. They are declared but are not read by `CourseGenerator`.
 - Verify that all configured course chunks allow a player to reach the finish. The generator currently assembles chunks but has no pathfinding or traversal simulation.
-- Validate the existing authored chunk set before expanding it. The generator references start, traversal, fallback, and finish chunk scenes, including gap, wall-jump, and bounce-reward layouts.
+- Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
-- Add a committed export preset and test an exported build. No export preset is tracked in this repository.
 - Integrate the staged logo and player sprite sheet only when the corresponding menu and animation work is implemented. They are present in `assets/art/` but are not referenced by the active scenes.
 
 ## NEXT STEPS

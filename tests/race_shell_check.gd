@@ -19,6 +19,8 @@ func _initialize() -> void:
 	var player_one := player_one_world.get_node("Player") as RezonansPlayer
 
 	assert((race.get_node("GlobalUi/TitlePanel") as Control).visible)
+	assert((race.get_node("GlobalUi/PlayerOneTimer") as Label).text == "CZAS  00:00.000")
+	assert((race.get_node("GlobalUi/PlayerTwoTimer") as Label).text == "CZAS  00:00.000")
 	assert(InputMap.has_action(&"p1_big_scream_minus"))
 	assert(InputMap.has_action(&"p1_big_scream_plus"))
 	assert(InputMap.has_action(&"p2_big_scream_minus"))
@@ -26,6 +28,11 @@ func _initialize() -> void:
 	assert(not player_one.is_physics_processing())
 	assert(player_one_world != player_two_world)
 	assert(player_one_generator != player_two_generator)
+	assert(player_one_generator.seed_value == player_two_generator.seed_value)
+	assert(player_one_generator.course_signature == player_two_generator.course_signature)
+	var initial_seed := player_one_generator.seed_value
+	race._restart_course()
+	assert(player_one_generator.seed_value != initial_seed)
 	assert(player_one_generator.seed_value == player_two_generator.seed_value)
 	assert(player_one_generator.course_signature == player_two_generator.course_signature)
 	assert(player_one_generator.get_node("GeneratedChunks").get_child_count() == 17)
@@ -101,10 +108,30 @@ func _initialize() -> void:
 	assert(player_one.is_physics_processing())
 
 	player_one_finish_area._on_body_entered(player_one)
-	var winner_label := race.get_node("GlobalUi/ResultPanel/Winner") as Label
-	assert((race.get_node("GlobalUi/ResultPanel") as Control).visible)
-	assert(winner_label.text == "WYGRYWA GRACZ 1")
+	var player_one_timer_label := race.get_node("GlobalUi/PlayerOneTimer") as Label
+	var player_two_timer_label := race.get_node("GlobalUi/PlayerTwoTimer") as Label
+	var finish_status_label := race.get_node("GlobalUi/FinishStatus") as Label
+	assert(not (race.get_node("GlobalUi/ResultPanel") as Control).visible)
+	assert(finish_status_label.visible)
+	assert(finish_status_label.text == "GRACZ 1 NA MECIE. DRUGI GRACZ JEDZIE DALEJ.")
 	assert(not player_one.is_physics_processing())
+	assert(player_two.is_physics_processing())
+	var player_one_time := player_one_timer_label.text
+	race._process(1.0)
+	assert(player_one_timer_label.text == player_one_time)
+	assert(player_two_timer_label.text != player_one_time)
+
+	player_two_finish_area._on_body_entered(player_two)
+	var winner_label := race.get_node("GlobalUi/ResultPanel/Winner") as Label
+	var times_label := race.get_node("GlobalUi/ResultPanel/Times") as Label
+	assert((race.get_node("GlobalUi/ResultPanel") as Control).visible)
+	assert(not finish_status_label.visible)
+	assert(winner_label.text == "WYGRYWA GRACZ 1")
+	assert(times_label.text == "GRACZ 1  %s\nGRACZ 2  %s" % [
+		race._format_time(float(race._player_finish_times[1])),
+		race._format_time(float(race._player_finish_times[2])),
+	])
+	assert(not player_two.is_physics_processing())
 	race.queue_free()
 	for frame in 60:
 		await process_frame
