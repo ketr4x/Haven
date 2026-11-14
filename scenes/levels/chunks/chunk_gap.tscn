@@ -1,34 +1,21 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/generator/course_chunk.gd" id="1"]
-[sub_resource type="RectangleShape2D" id="2"]
-size = Vector2(144, 48)
-[sub_resource type="RectangleShape2D" id="3"]
-size = Vector2(168, 48)
+[ext_resource type="Script" path="res://scripts/generator/course_chunk.gd" id="1_chunk"]
+[ext_resource type="TileSet" path="res://resources/tiles/terrain_tileset.tres" id="2_tiles"]
 
 [node name="ChunkGap" type="Node2D"]
-script = ExtResource("1")
+script = ExtResource("1_chunk")
 chunk_id = &"gap"
 difficulty = 1
 min_width = 384.0
 max_width = 384.0
-has_safe_landing = true
+terrain_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0)])
+
 [node name="EntryMarker" type="Marker2D" parent="."]
+
 [node name="ExitMarker" type="Marker2D" parent="."]
 position = Vector2(384, 0)
-[node name="LaunchFloor" type="StaticBody2D" parent="."]
-position = Vector2(72, 0)
-collision_layer = 1
-[node name="CollisionShape2D" type="CollisionShape2D" parent="LaunchFloor"]
-shape = SubResource("2")
-[node name="Visual" type="Polygon2D" parent="LaunchFloor"]
-polygon = PackedVector2Array(-72,-24,72,-24,72,24,-72,24)
-color = Color(0.25,0.31,0.52,1)
-[node name="LandingFloor" type="StaticBody2D" parent="."]
-position = Vector2(300, 0)
-collision_layer = 1
-[node name="CollisionShape2D" type="CollisionShape2D" parent="LandingFloor"]
-shape = SubResource("3")
-[node name="Visual" type="Polygon2D" parent="LandingFloor"]
-polygon = PackedVector2Array(-84,-24,84,-24,84,24,-84,24)
-color = Color(0.3,0.8,0.8,1)
+
+[node name="Terrain" type="TileMapLayer" parent="."]
+position = Vector2(-24, -24)
+tile_set = ExtResource("2_tiles")

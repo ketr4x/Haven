@@ -39,7 +39,7 @@ func generate_course(seed: int = seed_value) -> void:
 		sequence.append(String(chunk.chunk_id))
 
 	var finish := _place_chunk(finish_chunk, next_entry)
-	finish_position = finish.position + Vector2(220, 0)
+	finish_position = finish.position + finish.finish_marker_position()
 	sequence.append(String(finish.chunk_id))
 	course_signature = " > ".join(sequence)
 	course_generated.emit(seed_value, course_signature)
@@ -60,6 +60,7 @@ func _scene_is_compatible(chunk_scene: PackedScene, previous_difficulty: int) ->
 	var candidate := chunk_scene.instantiate() as CourseChunk
 	var width := candidate.path_width()
 	var is_valid: bool = candidate.has_safe_landing \
+		and candidate.has_valid_grid_geometry() \
 		and width >= candidate.min_width \
 		and width <= candidate.max_width \
 		and width > 0.0 \
