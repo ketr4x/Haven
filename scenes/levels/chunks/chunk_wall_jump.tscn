@@ -1,0 +1,45 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/generator/course_chunk.gd" id="1"]
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(216, 48)
+[sub_resource type="RectangleShape2D" id="3"]
+size = Vector2(16, 168)
+[sub_resource type="RectangleShape2D" id="4"]
+size = Vector2(168, 32)
+
+[node name="ChunkWallJump" type="Node2D"]
+script = ExtResource("1")
+chunk_id = &"wall_jump"
+difficulty = 2
+min_width = 384.0
+max_width = 384.0
+allows_wall_jump = true
+has_safe_landing = true
+[node name="EntryMarker" type="Marker2D" parent="."]
+[node name="ExitMarker" type="Marker2D" parent="."]
+position = Vector2(384, -136)
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(108,0)
+collision_layer = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Floor"]
+shape = SubResource("2")
+[node name="Visual" type="Polygon2D" parent="Floor"]
+polygon = PackedVector2Array(-108,-24,108,-24,108,24,-108,24)
+color = Color(0.2,0.25,0.43,1)
+[node name="Wall" type="StaticBody2D" parent="."]
+position = Vector2(184,-84)
+collision_layer = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Wall"]
+shape = SubResource("3")
+[node name="Visual" type="Polygon2D" parent="Wall"]
+polygon = PackedVector2Array(-8,-84,8,-84,8,84,-8,84)
+color = Color(0.29,0.4,0.62,1)
+[node name="Platform" type="StaticBody2D" parent="."]
+position = Vector2(300,-136)
+collision_layer = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platform"]
+shape = SubResource("4")
+[node name="Visual" type="Polygon2D" parent="Platform"]
+polygon = PackedVector2Array(-84,-16,84,-16,84,16,-84,16)
+color = Color(0.3,0.8,0.8,1)

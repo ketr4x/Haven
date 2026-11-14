@@ -16,6 +16,7 @@ func _initialize() -> void:
 	assert(chunks.get_child_count() == 7)
 	assert((chunks.get_child(0) as CourseChunk).chunk_id == &"start")
 	assert((chunks.get_child(chunks.get_child_count() - 1) as CourseChunk).chunk_id == &"finish")
+	_assert_collision_geometry_is_visible(chunks)
 
 	var signatures: Dictionary = {}
 	for seed in range(1, 31):
@@ -23,8 +24,15 @@ func _initialize() -> void:
 		assert(chunks.get_child_count() == 7)
 		assert((chunks.get_child(0) as CourseChunk).chunk_id == &"start")
 		assert((chunks.get_child(chunks.get_child_count() - 1) as CourseChunk).chunk_id == &"finish")
+		_assert_collision_geometry_is_visible(chunks)
 		signatures[generator.course_signature] = true
 
 	assert(signatures.size() > 1)
 	print("Seeded generator check passed for 30 seeds.")
 	quit()
+
+
+func _assert_collision_geometry_is_visible(chunks: Node) -> void:
+	for body in chunks.find_children("*", "StaticBody2D", true, false):
+		assert(body.get_node_or_null("CollisionShape2D") is CollisionShape2D)
+		assert(body.get_node_or_null("Visual") is CanvasItem)

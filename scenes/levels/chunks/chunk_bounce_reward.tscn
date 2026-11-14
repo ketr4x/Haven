@@ -1,0 +1,35 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/generator/course_chunk.gd" id="1"]
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(384, 48)
+[sub_resource type="RectangleShape2D" id="3"]
+size = Vector2(16, 96)
+
+[node name="ChunkBounceReward" type="Node2D"]
+script = ExtResource("1")
+chunk_id = &"bounce_reward"
+difficulty = 2
+min_width = 384.0
+max_width = 384.0
+requires_shout = true
+has_safe_landing = true
+[node name="EntryMarker" type="Marker2D" parent="."]
+[node name="ExitMarker" type="Marker2D" parent="."]
+position = Vector2(384,0)
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(192,0)
+collision_layer = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Floor"]
+shape = SubResource("2")
+[node name="Visual" type="Polygon2D" parent="Floor"]
+polygon = PackedVector2Array(-192,-24,192,-24,192,24,-192,24)
+color = Color(0.2,0.25,0.43,1)
+[node name="Reflector" type="StaticBody2D" parent="."]
+position = Vector2(240,-96)
+collision_layer = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Reflector"]
+shape = SubResource("3")
+[node name="Visual" type="Polygon2D" parent="Reflector"]
+polygon = PackedVector2Array(-8,-48,8,-48,8,48,-8,48)
+color = Color(0.25,0.9,1,0.8)
