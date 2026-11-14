@@ -1,38 +1,35 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/generator/course_chunk.gd" id="1_chunk"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
-size = Vector2(320, 48)
+[ext_resource type="TileSet" path="res://resources/tiles/terrain_tileset.tres" id="2_tiles"]
 
 [node name="ChunkFinish" type="Node2D"]
 script = ExtResource("1_chunk")
 chunk_id = &"finish"
+difficulty = 1
+min_width = 384.0
+max_width = 384.0
+terrain_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0)])
 
 [node name="EntryMarker" type="Marker2D" parent="."]
 
 [node name="ExitMarker" type="Marker2D" parent="."]
-position = Vector2(320, 0)
+position = Vector2(384, 0)
 
-[node name="Floor" type="StaticBody2D" parent="."]
-position = Vector2(160, 0)
-collision_layer = 1
-collision_mask = 0
+[node name="FinishMarker" type="Marker2D" parent="."]
+position = Vector2(288, -96)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Floor"]
-shape = SubResource("RectangleShape2D_floor")
-
-[node name="Visual" type="Polygon2D" parent="Floor"]
-polygon = PackedVector2Array(-160, -24, 160, -24, 160, 24, -160, 24)
-color = Color(0.8, 0.5, 0.18, 1)
+[node name="Terrain" type="TileMapLayer" parent="."]
+position = Vector2(-24, -24)
+tile_set = ExtResource("2_tiles")
 
 [node name="FinishGate" type="Polygon2D" parent="."]
-position = Vector2(220, -80)
-polygon = PackedVector2Array(-8, -80, 8, -80, 8, 0, 38, 0, 38, -80, 54, -80, 54, 18, -24, 18, -24, -80)
-color = Color(1, 0.74, 0.25, 0.8)
+position = Vector2(288, -96)
+polygon = PackedVector2Array(-8, -96, 8, -96, 8, 0, 40, 0, 40, -96, 56, -96, 56, 24, -24, 24, -24, -96)
+color = Color(0.901961, 0.8, 0.631373, 0.8)
 
 [node name="Label" type="Label" parent="."]
-position = Vector2(148, -166)
-theme_override_colors/font_color = Color(1, 0.8, 0.4, 1)
+position = Vector2(216, -192)
+theme_override_colors/font_color = Color(0.901961, 0.8, 0.631373, 1)
 theme_override_font_sizes/font_size = 20
 text = "FINISH"
