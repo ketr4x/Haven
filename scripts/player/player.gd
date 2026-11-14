@@ -23,6 +23,9 @@ signal sonic_shouted(origin: Vector2, direction: Vector2)
 @export var coyote_time: float = 0.12
 @export var jump_buffer_time: float = 0.12
 
+@export_category("Sonic Shout")
+@export var shout_cooldown: float = 0.45
+
 @export_category("Presentation")
 @export var camera_enabled: bool = false
 
@@ -31,6 +34,7 @@ signal sonic_shouted(origin: Vector2, direction: Vector2)
 var facing_direction: float = 1.0
 var _coyote_time_remaining: float = 0.0
 var _jump_buffer_remaining: float = 0.0
+var _shout_cooldown_remaining: float = 0.0
 var _was_on_floor: bool = false
 
 func _ready() -> void:
@@ -38,6 +42,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_shout_cooldown_remaining = maxf(0.0, _shout_cooldown_remaining - delta)
 	_update_jump_buffer(delta)
 	_update_horizontal_velocity(delta)
 	_apply_gravity(delta)
@@ -105,5 +110,6 @@ func _update_ground_state(delta: float) -> void:
 
 
 func _emit_shout_if_requested() -> void:
-	if Input.is_action_just_pressed(shout_action):
+	if Input.is_action_just_pressed(shout_action) and is_zero_approx(_shout_cooldown_remaining):
+		_shout_cooldown_remaining = shout_cooldown
 		sonic_shouted.emit(global_position, Vector2(facing_direction, 0.0))
