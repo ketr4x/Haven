@@ -90,6 +90,10 @@ func _ready() -> void:
 	_player.jumped.connect(_on_player_jumped)
 	_player.wall_jumped.connect(_on_player_wall_jumped)
 	_player.slide_started.connect(_on_player_slide_started)
+	_player.rebound_boost_started.connect(_on_player_rebound_boost_started)
+	_player.impact_stunned.connect(_on_player_impact_stunned)
+	_player.blind_impact_slowed.connect(_on_player_blind_impact_slowed)
+	player_died.connect(_on_player_died_audio)
 
 	_player.sonic_shouted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("shout"))
 	_player.footstep_emitted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("footstep"))
@@ -300,6 +304,7 @@ func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: 
 			"impact_stun":
 				_player.trigger_remote_impact_stun()
 			"died":
+				_audio_feedback.play_death()
 				_clear_waves()
 				_player.global_position = _generator.to_global(_generator.player_spawn)
 				_player.reset_remote_target(_player.global_position)
@@ -376,7 +381,24 @@ func _on_player_footstep_emitted(_origin: Vector2, _direction: Vector2, _loudnes
 
 func _on_player_slide_started(_position: Vector2, _direction: Vector2) -> void:
 	# Slide is fast and stealthy: no sonar wave pulse is emitted.
-	pass
+	_audio_feedback.play_slide()
+
+
+func _on_player_rebound_boost_started() -> void:
+	_audio_feedback.play_boost()
+
+
+func _on_player_impact_stunned(_position: Vector2) -> void:
+	_audio_feedback.play_impact()
+
+
+func _on_player_blind_impact_slowed(_position: Vector2) -> void:
+	_audio_feedback.play_impact()
+
+
+func _on_player_died_audio(_player_num: int) -> void:
+	_audio_feedback.play_death()
+
 
 
 func _on_player_landed(position: Vector2) -> void:

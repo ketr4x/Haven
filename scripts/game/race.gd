@@ -59,6 +59,10 @@ enum MenuScreen {
 @onready var _result_panel: Control = $GlobalUi/ResultPanel
 @onready var _invert_flash_rect: ColorRect = $InvertLayer/InvertFlashRect
 @onready var _transition_rect: ColorRect = $TransitionLayer/TransitionRect
+@onready var _countdown_tick: AudioStreamPlayer = get_node_or_null("CountdownTick") as AudioStreamPlayer
+@onready var _countdown_go: AudioStreamPlayer = get_node_or_null("CountdownGo") as AudioStreamPlayer
+@onready var _match_victory: AudioStreamPlayer = get_node_or_null("MatchVictory") as AudioStreamPlayer
+
 
 var online_service: OnlineServiceBase
 
@@ -114,9 +118,14 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if _race_state == RaceState.COUNTDOWN:
+		var prev_sec := maxi(1, ceili(_countdown_remaining))
 		_countdown_remaining = maxf(0.0, _countdown_remaining - delta)
-		_countdown_label.text = str(maxi(1, ceili(_countdown_remaining)))
+		var current_sec := maxi(1, ceili(_countdown_remaining))
+		_countdown_label.text = str(current_sec)
+		if current_sec != prev_sec and not is_zero_approx(_countdown_remaining):
+			_play_countdown_tick()
 		if is_zero_approx(_countdown_remaining):
+			_play_countdown_go()
 			if _session_mode == SessionMode.ONLINE:
 				_online_match.begin_race()
 			_set_race_state(RaceState.RACING)
@@ -302,6 +311,7 @@ func _set_transition_progress(value: float) -> void:
 func _start_countdown(duration: float = countdown_duration) -> void:
 	_countdown_remaining = duration
 	_countdown_label.text = str(ceili(_countdown_remaining))
+	_play_countdown_tick()
 	_set_race_state(RaceState.COUNTDOWN)
 
 
@@ -323,6 +333,8 @@ func _set_race_state(next_state: RaceState) -> void:
 	_countdown_label.visible = next_state == RaceState.COUNTDOWN
 	_pause_panel.visible = next_state == RaceState.PAUSED
 	_result_panel.visible = next_state == RaceState.FINISHED
+	if next_state == RaceState.FINISHED:
+		_play_match_victory()
 
 	var is_racing := next_state == RaceState.RACING
 	if _session_mode == SessionMode.ONLINE:
@@ -654,6 +666,22 @@ func _cancel_invert_flash() -> void:
 	_set_invert_intensity(0.0)
 	if _invert_flash_rect != null:
 		_invert_flash_rect.visible = false
+
+
+func _play_countdown_tick() -> void:
+	if _countdown_tick != null:
+		_countdown_tick.play()
+
+
+func _play_countdown_go() -> void:
+	if _countdown_go != null:
+		_countdown_go.play()
+
+
+func _play_match_victory() -> void:
+	if _match_victory != null:
+		_match_victory.play()
+
 
 
 func _set_invert_intensity(value: float) -> void:

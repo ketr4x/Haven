@@ -12,11 +12,15 @@ extends Node
 @onready var _echo_return: AudioStreamPlayer = $EchoReturn
 @onready var _finish: AudioStreamPlayer = $Finish
 @onready var _wall_break: AudioStreamPlayer = $WallBreak
+@onready var _slide: AudioStreamPlayer = get_node_or_null("Slide") as AudioStreamPlayer
+@onready var _boost: AudioStreamPlayer = get_node_or_null("Boost") as AudioStreamPlayer
+@onready var _impact_stun: AudioStreamPlayer = get_node_or_null("ImpactStun") as AudioStreamPlayer
+@onready var _death: AudioStreamPlayer = get_node_or_null("Death") as AudioStreamPlayer
 
 var _bounce_cooldown_remaining: float = 0.0
 
 func _exit_tree() -> void:
-	for player in [_footstep, _land, _jump, _wall_jump, _shout, _wave_bounce, _echo_return, _finish, _wall_break]:
+	for player in [_footstep, _land, _jump, _wall_jump, _shout, _wave_bounce, _echo_return, _finish, _wall_break, _slide, _boost, _impact_stun, _death]:
 		if player != null:
 			player.stop()
 
@@ -70,3 +74,27 @@ func play_wall_break() -> void:
 	if _wall_break != null:
 		_wall_break.pitch_scale = randf_range(0.95, 1.05)
 		_wall_break.play()
+
+
+func play_slide() -> void:
+	if _slide != null:
+		_slide.pitch_scale = randf_range(0.94, 1.06)
+		_slide.play()
+
+
+func play_boost() -> void:
+	if _boost != null:
+		_boost.pitch_scale = randf_range(0.96, 1.04)
+		_boost.play()
+
+
+func play_impact() -> void:
+	if _impact_stun != null:
+		_impact_stun.pitch_scale = randf_range(0.94, 1.06)
+		_impact_stun.play()
+
+
+func play_death() -> void:
+	if _death != null:
+		_death.play()
+
