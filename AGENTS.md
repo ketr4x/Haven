@@ -53,20 +53,23 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Resolve scene and resource conflicts manually, then open and run the result in Godot.
 - Do not commit generated `.godot/` content, imports, logs, generated exports, or machine-local files. When present, use `local.agents.md` for its untracked, machine-specific notes; it supplements but does not override repository policy.
 - When adding art or UI, use the existing Luap-40 palette and preserve pixel-crisp rendering. The logo and player sheet are staged assets, not active gameplay art.
+- Use `assets/fonts/default_font.tres` (`assets/fonts/runescape_uf.ttf` with `kiwi_soda.ttf` fallback for Polish diacritics) as the default GUI font (`project.godot`). Reserve `assets/fonts/kiwi_soda.ttf` only for special emphasis such as countdowns, pause headings, and round-end winner banners.
+- Prefer frameless retro text selection (navigated via arrow keys / `W` & `S` and confirmed with `Enter` / `Space` or pointer click) over boxed UI buttons in menus.
+- **Strictly prohibited Polish UI phrasing**: Never write `"Odbita fala odsłania krawędzie i daje zryw prędkości."`, `"odsłania krawędzie"`, or `"zryw prędkości"` anywhere in UI copy, scenes, scripts, or documentation.
 
 ## DONE
 
 - The Godot project is configured for Forward+ and launches `scenes/game/race.tscn`.
 - The Input Map defines both players' movement, jump, and shout actions, plus restart, new-course, and pause actions.
 - `race.tscn` presents independent top and bottom `SubViewport` player worlds.
-- The race has title, three-second countdown, racing, paused, and finished states. Each player has a timer that freezes on their finish, and the race remains active until both players finish so the result panel can show both times.
+- The race has main menu (`scenes/game/main_menu.tscn`, instanced as `TitlePanel` with an 11-frame idle loop at 4 FPS, an 8-frame match-start outro animation at 6 FPS from `assets/art/main_menu_sheet.png`, and frameless arrow-selectable `GRAJ` / `WYJDŹ` text items), starting transition, three-second countdown, racing, paused, and finished states (documented in `art-mainmenu.md`). Each player has a timer that freezes on their finish, and the race remains active until both players finish so the result panel can show both times.
 - The race generates a fresh random integer seed for its first course and for every `R` or `N` request. Both player worlds receive that same seed, so their generated routes stay equivalent while Player 2's course is horizontally reflected.
 - The player supports horizontal acceleration and deceleration, gravity, coyote time, jump buffering, wall sliding, wall jumping, landing particles, and exported tuning values.
 - Players have loudness clamped from 0 to 100. Running and wall contact add loudness; idle decay reduces it. Shouts add loudness before emitting their pulse. Running also emits footsteps.
 - Shouts create visible reveal rings and radial `SoundWave` rays. Footsteps create a smaller visible ring. Rays bounce from collision geometry, expire after a lifetime or bounce limit, and may return only after at least one bounce.
 - The first returned ray for a pulse activates only its emitting player, triggering that viewport's echo overlay and the player's temporary speed and jump boost. Sonic Shouts provide a brief preview, and movement refreshes a smaller reveal.
 - Scene-owned audio feedback plays distinct cues for footsteps, jumps, wall jumps, landings, shouts, wave bounces, returned waves, and finishes.
-- The project includes a Luap-40 lookup texture and post-process scene, an echo overlay shader, a sound-wave ring shader asset (the active reveal ring currently uses `Line2D`), a terrain TileSet, a font, and staged logo and player-sheet artwork.
+- The project includes a Luap-40 lookup texture and post-process scene, an echo overlay shader, a sound-wave ring shader asset (the active reveal ring currently uses `Line2D`), a terrain TileSet, `runescape_uf.ttf` as the default UI font alongside `kiwi_soda.ttf` for round-end/accent text, an active main-menu sprite sheet, and staged logo and player-sheet artwork.
 - Course generation selects traversal chunks deterministically, requires a safe landing flag, checks basic grid geometry and width metadata, limits difficulty changes to one tier, aligns chunk markers, caps noise-foam and branching-path frequency, and uses a fallback chunk when no traversal candidate is compatible.
 - Noise foam is a dark, porous collision surface that absorbs waves instead of reflecting them.
 - The traversal set includes sixteen static, 16-cell-wide stacked-path structures. Each has separate lower, middle, and upper platforms with gaps for jumping between paths, plus canopy, channels, crossing, fork, gallery, ladder, overlook, switchback, and dead-end layouts. The arcade, gap, and well structures use two-tile-thick floors. Every course includes a wall-jump structure: the tower or gauntlet uses opposing static walls and floating ledges for side-to-side climbing. Generation caps branching-path chunks and total dead-end branches per course.
@@ -89,8 +92,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Use the existing `allows_wall_jump` and `requires_shout` chunk metadata in generator compatibility or validation. They are declared but are not read by `CourseGenerator`.
 - Verify that all configured course chunks allow a player to reach the finish. The generator currently assembles chunks but has no pathfinding or traversal simulation.
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
-- Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
-- Integrate the staged logo and player sprite sheet only when the corresponding menu and animation work is implemented. They are present in `assets/art/` but are not referenced by the active scenes.
+- Integrate the staged player sprite sheet (`assets/art/pierwszy_usmazony.png`) and standalone logo (`assets/art/rezonans_logo.png`) if needed outside the main menu artwork. They are present in `assets/art/` but are not referenced by the active gameplay scenes.
 - Add a common-seed event leaderboard and a separate online match-wins board only after the private online race flow works. Treat client results as casual until server-side validation exists.
 
 ## NEXT STEPS

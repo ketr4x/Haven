@@ -8,21 +8,22 @@ func _initialize() -> void:
 	root.add_child(race)
 	await process_frame
 
-	var prompt := race.get_node("GlobalUi/TitlePanel/Prompt") as Label
-	var room_code_input := race.get_node("GlobalUi/TitlePanel/RoomCodeInput") as LineEdit
-	assert(prompt.text.contains("GRA LOKALNA"))
-	assert(prompt.text.contains("GRA ONLINE"))
+	var menu := race.get_node("GlobalUi/TitlePanel") as MainMenu
+	var room_code_input := menu.get_node("MenuOverlay/RoomCodeInput") as LineEdit
+	assert(menu.get_option_text(0) == "GRAJ")
+	assert(menu.get_option_text(1) == "GRA ONLINE")
+	assert(menu.get_option_text(2) == "WYJDŹ")
 	assert(not room_code_input.visible)
 
 	_send_key(race, KEY_DOWN)
 	_send_key(race, KEY_ENTER)
-	assert(prompt.text.contains("SZYBKI MECZ"))
-	assert(prompt.text.contains("ZE ZNAJOMYM"))
+	assert(menu.get_option_text(0) == "SZYBKI MECZ")
+	assert(menu.get_option_text(1) == "ZE ZNAJOMYM")
 
 	_send_key(race, KEY_DOWN)
 	_send_key(race, KEY_ENTER)
-	assert(prompt.text.contains("STWÓRZ POKÓJ"))
-	assert(prompt.text.contains("DOŁĄCZ KODEM"))
+	assert(menu.get_option_text(0) == "STWÓRZ POKÓJ")
+	assert(menu.get_option_text(1) == "DOŁĄCZ KODEM")
 
 	_send_key(race, KEY_DOWN)
 	_send_key(race, KEY_ENTER)
@@ -31,7 +32,7 @@ func _initialize() -> void:
 
 	_send_key(race, KEY_ESCAPE)
 	assert(not room_code_input.visible)
-	assert(prompt.text.contains("STWÓRZ POKÓJ"))
+	assert(menu.get_option_text(0) == "STWÓRZ POKÓJ")
 
 	race.queue_free()
 	await process_frame
