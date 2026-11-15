@@ -1,0 +1,286 @@
+[gd_scene load_steps=23 format=3]
+
+[ext_resource type="Script" path="res://scripts/game/main_menu.gd" id="1_main_menu"]
+[ext_resource type="Texture2D" path="res://assets/art/main_menu_sheet.png" id="2_sheet"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_0"]
+atlas = ExtResource("2_sheet")
+region = Rect2(0, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_1"]
+atlas = ExtResource("2_sheet")
+region = Rect2(144, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_2"]
+atlas = ExtResource("2_sheet")
+region = Rect2(288, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_3"]
+atlas = ExtResource("2_sheet")
+region = Rect2(432, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_4"]
+atlas = ExtResource("2_sheet")
+region = Rect2(576, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_5"]
+atlas = ExtResource("2_sheet")
+region = Rect2(720, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_6"]
+atlas = ExtResource("2_sheet")
+region = Rect2(864, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_7"]
+atlas = ExtResource("2_sheet")
+region = Rect2(1008, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_8"]
+atlas = ExtResource("2_sheet")
+region = Rect2(1152, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_9"]
+atlas = ExtResource("2_sheet")
+region = Rect2(1296, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_idle_10"]
+atlas = ExtResource("2_sheet")
+region = Rect2(1440, 0, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_outro_0"]
+atlas = ExtResource("2_sheet")
+region = Rect2(0, 96, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_outro_1"]
+atlas = ExtResource("2_sheet")
+region = Rect2(144, 96, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_outro_2"]
+atlas = ExtResource("2_sheet")
+region = Rect2(288, 96, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_outro_3"]
+atlas = ExtResource("2_sheet")
+region = Rect2(432, 96, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_outro_4"]
+atlas = ExtResource("2_sheet")
+region = Rect2(576, 96, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_outro_5"]
+atlas = ExtResource("2_sheet")
+region = Rect2(720, 96, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_outro_6"]
+atlas = ExtResource("2_sheet")
+region = Rect2(864, 96, 144, 96)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_outro_7"]
+atlas = ExtResource("2_sheet")
+region = Rect2(1008, 96, 144, 96)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_main_menu"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_9")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_idle_10")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 4.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_outro_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_outro_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_outro_2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_outro_3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_outro_4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_outro_5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_outro_6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_outro_7")
+}],
+"loop": false,
+"name": &"outro",
+"speed": 6.0
+}]
+
+[node name="MainMenu" type="Control"]
+clip_contents = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_main_menu")
+
+[node name="BackgroundSprite" type="AnimatedSprite2D" parent="."]
+texture_filter = 1
+sprite_frames = SubResource("SpriteFrames_main_menu")
+animation = &"idle"
+centered = false
+
+[node name="MenuOverlay" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MenuItems" type="VBoxContainer" parent="MenuOverlay"]
+layout_mode = 0
+offset_left = 72.0
+offset_top = 348.0
+offset_right = 440.0
+offset_bottom = 492.0
+theme_override_constants/separation = 14
+mouse_filter = 2
+
+[node name="PlayOption" type="HBoxContainer" parent="MenuOverlay/MenuItems"]
+layout_mode = 2
+mouse_filter = 0
+mouse_default_cursor_shape = 2
+theme_override_constants/separation = 12
+
+[node name="Cursor" type="Label" parent="MenuOverlay/MenuItems/PlayOption"]
+custom_minimum_size = Vector2(28, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.960784, 0.960784, 0.960784, 1)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 44
+text = ">"
+
+[node name="Text" type="Label" parent="MenuOverlay/MenuItems/PlayOption"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.960784, 0.960784, 0.960784, 1)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 44
+text = "GRAJ"
+
+[node name="QuitOption" type="HBoxContainer" parent="MenuOverlay/MenuItems"]
+layout_mode = 2
+mouse_filter = 0
+mouse_default_cursor_shape = 2
+theme_override_constants/separation = 12
+
+[node name="Cursor" type="Label" parent="MenuOverlay/MenuItems/QuitOption"]
+custom_minimum_size = Vector2(28, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74902, 0.74902, 0.74902, 0.92)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 44
+
+[node name="Text" type="Label" parent="MenuOverlay/MenuItems/QuitOption"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74902, 0.74902, 0.74902, 0.92)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 44
+text = "WYJDŹ"
+
+[node name="Prompt" type="Label" parent="MenuOverlay"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 40.0
+offset_top = -90.0
+offset_right = -40.0
+offset_bottom = -56.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.960784, 0.960784, 0.960784, 1)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 4
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 24
+text = "STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="MenuOverlay"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 40.0
+offset_top = -50.0
+offset_right = -40.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.960784, 0.960784, 0.960784, 1)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 4
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 22
+text = "Odbijaj fale dźwiękowe, aby zobaczyć otoczenie!"
+horizontal_alignment = 1
