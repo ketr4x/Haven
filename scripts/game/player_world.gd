@@ -31,6 +31,7 @@ var _activated_pulses: Dictionary = {}
 var death_height: float = INF
 var _race_active: bool = false
 var _respawn_time_remaining: float = 0.0
+var _pending_events: Array[String] = []
 
 func _ready() -> void:
 	_apply_player_configuration()
@@ -48,8 +49,18 @@ func _ready() -> void:
 	_player.jumped.connect(_on_player_jumped)
 	_player.wall_jumped.connect(_on_player_wall_jumped)
 
+	_player.sonic_shouted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("shout"))
+	_player.footstep_emitted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("footstep"))
+	_player.jumped.connect(func(_p: Vector2) -> void: _queue_local_event("jump"))
+	_player.landed.connect(func(_p: Vector2) -> void: _queue_local_event("land"))
+	_player.wall_jumped.connect(func(_p: Vector2, _n: Vector2) -> void: _queue_local_event("wall_jump"))
+	player_died.connect(func(_p: int) -> void: _queue_local_event("died"))
+
 
 func _process(delta: float) -> void:
+	if _player.is_remote:
+		return
+
 	if _respawn_time_remaining > 0.0:
 		_respawn_time_remaining = maxf(0.0, _respawn_time_remaining - delta)
 		if is_zero_approx(_respawn_time_remaining) and _race_active:
@@ -72,8 +83,9 @@ func configure_for_local_slot(slot: int) -> void:
 	right_action = &"p1_right" if slot == 1 else &"p2_right"
 	jump_action = &"p1_jump" if slot == 1 else &"p2_jump"
 	shout_action = &"p1_shout" if slot == 1 else &"p2_shout"
-	mirror_course_horizontally = slot == 2
+	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
+	_player.is_remote = false
 	_apply_player_configuration()
 
 
@@ -83,8 +95,22 @@ func configure_for_online_slot(slot: int) -> void:
 	right_action = &"p1_right"
 	jump_action = &"p1_jump"
 	shout_action = &"p1_shout"
-	mirror_course_horizontally = slot == 2
+	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
+	_player.is_remote = false
+	_apply_player_configuration()
+
+
+func configure_as_remote_opponent(slot: int) -> void:
+	player_number = slot
+	left_action = &""
+	right_action = &""
+	jump_action = &""
+	shout_action = &""
+	mirror_course_horizontally = false
+	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
+	_player.is_remote = true
+	_finish_area.monitoring = false
 	_apply_player_configuration()
 
 
@@ -109,6 +135,54 @@ func has_rebound_boost() -> bool:
 	return _player.is_rebound_boost_active()
 
 
+func player_global_position() -> Vector2:
+	return _player.global_position
+
+
+func player_velocity() -> Vector2:
+	return _player.velocity
+
+
+func player_facing_direction() -> float:
+	return _player.facing_direction
+
+
+func _queue_local_event(event_name: String) -> void:
+	if _pending_events.size() < 10:
+		_pending_events.append(event_name)
+
+
+func consume_pending_events() -> Array[String]:
+	var events := _pending_events.duplicate()
+	_pending_events.clear()
+	return events
+
+
+func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, loudness: float, boost_active: bool, events: Array) -> void:
+	_player.loudness = loudness
+	if boost_active and not _player.is_rebound_boost_active():
+		_player.apply_rebound_boost()
+	elif not boost_active and _player.is_rebound_boost_active():
+		_player.cancel_rebound_boost()
+	_player.apply_remote_snapshot(pos, vel, facing)
+	for event in events:
+		match str(event):
+			"shout":
+				_player.trigger_remote_shout(loudness)
+			"footstep":
+				_player.trigger_remote_footstep(loudness)
+			"jump":
+				_player.trigger_remote_jump()
+			"land":
+				_player.trigger_remote_land()
+			"wall_jump":
+				_player.trigger_remote_wall_jump(Vector2.LEFT if facing > 0.0 else Vector2.RIGHT)
+			"died":
+				_clear_waves()
+				_player.global_position = _generator.to_global(_generator.player_spawn)
+				_player.reset_remote_target(_player.global_position)
+
+
 func _apply_player_configuration() -> void:
 	_player.left_action = left_action
 	_player.right_action = right_action
@@ -128,7 +202,7 @@ func set_race_active(is_active: bool) -> void:
 	if not is_active:
 		_respawn_time_remaining = 0.0
 	_player.set_physics_process(is_active)
-	_finish_area.monitoring = is_active
+	_finish_area.monitoring = is_active and not _player.is_remote
 
 
 func emit_intro_pulse() -> void:
@@ -199,8 +273,10 @@ func _on_course_generated(_seed: int, _signature: String) -> void:
 	_player.global_position = _generator.to_global(_generator.player_spawn)
 	_player.velocity = Vector2.ZERO
 	_player.set_facing_direction(-1.0 if mirror_course_horizontally else 1.0)
+	if _player.is_remote:
+		_player.reset_remote_target(_player.global_position)
 	_finish_area.global_position = _generator.to_global(_generator.finish_position)
-	_finish_area.monitoring = true
+	_finish_area.monitoring = not _player.is_remote
 	_activated_pulses.clear()
 	_clear_waves()
 

@@ -42,11 +42,11 @@ func _initialize() -> void:
 	assert(player_one_generator.get_node("GeneratedChunks").get_child_count() == 17)
 	assert(player_two_generator.get_node("GeneratedChunks").get_child_count() == 17)
 	assert(not player_one_generator.mirror_horizontally)
-	assert(player_two_generator.mirror_horizontally)
+	assert(not player_two_generator.mirror_horizontally)
 	var player_two_start_chunk := player_two_generator.get_node("GeneratedChunks").get_child(0) as CourseChunk
 	var player_two_start_terrain := player_two_start_chunk.get_node("Terrain") as TileMapLayer
 	for cell in player_two_start_chunk.terrain_cells:
-		assert(player_two_start_terrain.get_cell_source_id(Vector2i(-cell.x, cell.y)) == 0)
+		assert(player_two_start_terrain.get_cell_source_id(cell) == 0)
 	var player_two := player_two_world.get_node("Player") as RezonansPlayer
 	var player_one_overlay := player_one_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
 	var player_two_overlay := player_two_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
@@ -55,11 +55,11 @@ func _initialize() -> void:
 	var player_one_distance := player_one_finish_area.global_position.x - player_one.global_position.x
 	var player_two_distance := player_two_finish_area.global_position.x - player_two.global_position.x
 	assert(player_one_distance > 0.0)
-	assert(player_two_distance < 0.0)
-	assert(is_equal_approx(player_one_distance, -player_two_distance))
+	assert(player_two_distance > 0.0)
+	assert(is_equal_approx(player_one_distance, player_two_distance))
 	assert(player_one.facing_direction == 1.0)
-	assert(player_two.facing_direction == -1.0)
-	assert((player_two.get_node("FacingMarker") as Polygon2D).scale.x == -1.0)
+	assert(player_two.facing_direction == 1.0)
+	assert((player_two.get_node("FacingMarker") as Polygon2D).scale.x == 1.0)
 	assert(player_one_overlay.material != player_two_overlay.material)
 	assert((player_one_overlay.material as ShaderMaterial).get_shader_parameter("player_color") == player_one.modulate)
 	assert((player_two_overlay.material as ShaderMaterial).get_shader_parameter("player_color") == player_two.modulate)
@@ -106,16 +106,16 @@ func _initialize() -> void:
 	var player_one_start_x := player_one.global_position.x
 	var player_two_start_x := player_two.global_position.x
 	Input.action_press(&"p1_right")
-	Input.action_press(&"p2_left")
+	Input.action_press(&"p2_right")
 	for frame in 20:
 		await physics_frame
 	Input.action_release(&"p1_right")
-	Input.action_release(&"p2_left")
+	Input.action_release(&"p2_right")
 	assert(player_one.global_position.x > player_one_start_x)
-	assert(player_two.global_position.x < player_two_start_x)
+	assert(player_two.global_position.x > player_two_start_x)
 
 	player_two.rebound_boost_started.connect(_on_player_two_boost_started)
-	player_two_world._on_player_pulsed(player_two.global_position, Vector2.LEFT, 60.0, 16)
+	player_two_world._on_player_pulsed(player_two.global_position, Vector2.RIGHT, 60.0, 16)
 	for frame in 120:
 		await physics_frame
 		if _player_two_boost_started:
