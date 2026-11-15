@@ -23,4 +23,4 @@ position = Vector2(-24, -24)
 tile_set = ExtResource("2_tiles")
 
 [node name="NoiseFoam" parent="." instance=ExtResource("3_foam")]
-position = Vector2(192, -192)
+position = Vector2(192, -120)

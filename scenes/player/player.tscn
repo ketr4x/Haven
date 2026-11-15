@@ -19,12 +19,18 @@ polygon = PackedVector2Array(-24, -30, 24, -30, 32, 0, 24, 30, -24, 30, -32, 0)
 color = Color(1, 0.8, 0.24, 0.52)
 
 [node name="BodyVisual" type="Polygon2D" parent="."]
+visible = false
 polygon = PackedVector2Array(-12, -18, 12, -18, 12, 18, -12, 18)
 color = Color(0.98, 0.98, 1, 1)
 
+[node name="PlayerSprite" type="AnimatedSprite2D" parent="."]
+texture_filter = 1
+position = Vector2(0, -2)
+scale = Vector2(2.5, 2.5)
+
 [node name="FacingMarker" type="Polygon2D" parent="."]
 polygon = PackedVector2Array(12, -7, 23, 0, 12, 7)
-color = Color(1, 1, 1, 0.7)
+color = Color(1, 1, 1, 0)
 
 [node name="LandingDust" type="CPUParticles2D" parent="."]
 z_index = -1

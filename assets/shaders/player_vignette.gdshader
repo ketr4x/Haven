@@ -6,7 +6,7 @@ uniform float outer_radius : hint_range(0.1, 1.4) = 0.465;
 uniform float darkness_alpha : hint_range(0.0, 1.0) = 0.68;
 uniform float aspect_ratio = 3.5754;
 uniform float block_size : hint_range(2.0, 32.0) = 3.0;
-uniform vec4 vignette_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+uniform vec4 vignette_color : source_color = vec4(0.06, 0.075, 0.13, 1.0);
 
 float bayer4x4(ivec2 pos) {
 	int x = pos.x & 3;

@@ -14,6 +14,8 @@ const UNSELECTED_COLOR := Color(0.74902, 0.74902, 0.74902, 0.92)
 const DEFAULT_OPTIONS: Array[String] = ["GRAJ", "WYJDŹ"]
 
 @onready var _background_sprite: AnimatedSprite2D = $BackgroundSprite
+@onready var _wind_streaks: CPUParticles2D = $WindStreaks
+@onready var _wind_dust: CPUParticles2D = $WindDust
 @onready var _menu_overlay: Control = $MenuOverlay
 @onready var _prompt_label: Label = $MenuOverlay/Prompt
 @onready var _hint_label: Label = $MenuOverlay/Hint
@@ -47,8 +49,19 @@ func _ready() -> void:
 		var row := _option_rows[index]
 		row.mouse_entered.connect(_on_option_mouse_entered.bind(index))
 		row.gui_input.connect(_on_option_gui_input.bind(index))
+	_setup_wind_particles()
 	_update_background_layout()
 	reset_to_idle()
+
+
+func _setup_wind_particles() -> void:
+	if _wind_streaks == null:
+		return
+	var img := Image.create(10, 1, false, Image.FORMAT_RGBA8)
+	for x in 10:
+		var edge_fade := sin(PI * float(x + 1) / 11.0) * 0.75
+		img.set_pixel(x, 0, Color(1.0, 1.0, 1.0, edge_fade))
+	_wind_streaks.texture = ImageTexture.create_from_image(img)
 
 
 func reset_to_idle() -> void:
@@ -177,6 +190,14 @@ func _update_background_layout() -> void:
 	_background_sprite.scale = Vector2(cover_scale, cover_scale)
 	var scaled_width := FRAME_SIZE.x * cover_scale
 	_background_sprite.position = Vector2((size.x - scaled_width) * 0.5, 0.0)
+	var center := size * 0.5
+	var extents := Vector2(size.x * 0.6, size.y * 0.55)
+	if _wind_streaks != null:
+		_wind_streaks.position = center
+		_wind_streaks.emission_rect_extents = extents
+	if _wind_dust != null:
+		_wind_dust.position = center
+		_wind_dust.emission_rect_extents = extents
 
 
 func _on_option_mouse_entered(index: int) -> void:
