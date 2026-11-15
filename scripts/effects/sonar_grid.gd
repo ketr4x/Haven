@@ -495,7 +495,6 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 					ray["remaining_lifetime"] = float(ray["remaining_lifetime"]) * (1.0 - bounce_energy_loss)
 					ray["velocity"] = velocity
 					ray["position"] = impact_pos + normal * 2.0
-					_append_trail_point(ray, impact_pos)
 					if bounce_count >= int(ray["max_bounces"]) or float(ray["remaining_lifetime"]) <= 0.0:
 						return false
 					continue
@@ -536,8 +535,6 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 				current_speed = minf(forward_speed * 1.15, current_speed * 1.10)
 			elif hit_kind == TileKind.BREAKABLE or hit_kind == TileKind.YELLOW_BLOCK:
 				current_speed = maxf(min_ricochet_speed, current_speed * (1.0 - bounce_energy_loss * 0.6))
-			else:
-				current_speed = maxf(min_ricochet_speed, current_speed * (1.0 - bounce_energy_loss * 0.45))
 			else:
 				current_speed = maxf(min_ricochet_speed, current_speed * (1.0 - bounce_energy_loss * 0.45))
 

@@ -177,24 +177,26 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	if _race_state == RaceState.FINISHED and _is_username_input_capturing(event):
-		if event.is_action_pressed(&"ui_accept"):
-			_on_username_submitted(_username_input.text)
-			get_viewport().set_input_as_handled()
-		return
-
-	if _session_mode == SessionMode.ONLINE and _race_state == RaceState.FINISHED:
-		if event.is_action_pressed(&"ui_accept"):
-			if _username_input != null and _username_input.visible and not _leaderboard_submitted and not _username_input.text.strip_edges().is_empty():
+	if _race_state == RaceState.FINISHED:
+		if _is_username_input_capturing(event):
+			if event.is_action_pressed(&"ui_accept"):
 				_on_username_submitted(_username_input.text)
-			else:
-				_online_match.request_rematch()
-			get_viewport().set_input_as_handled()
+				get_viewport().set_input_as_handled()
 			return
+
 		if event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
 			_return_to_main_menu()
 			get_viewport().set_input_as_handled()
 			return
+
+		if _session_mode == SessionMode.ONLINE:
+			if event.is_action_pressed(&"ui_accept"):
+				if _username_input != null and _username_input.visible and not _leaderboard_submitted and not _username_input.text.strip_edges().is_empty():
+					_on_username_submitted(_username_input.text)
+				else:
+					_online_match.request_rematch()
+				get_viewport().set_input_as_handled()
+				return
 
 	if event.is_action_pressed(&"pause"):
 		_toggle_pause()
@@ -329,7 +331,7 @@ func _set_race_state(next_state: RaceState) -> void:
 	_race_state = next_state
 	_title_panel.visible = next_state == RaceState.TITLE or next_state == RaceState.STARTING
 	if next_state == RaceState.TITLE:
-		_title_panel.reset_to_idle()
+		_show_menu(MenuScreen.MAIN)
 	_countdown_label.visible = next_state == RaceState.COUNTDOWN
 	_pause_panel.visible = next_state == RaceState.PAUSED
 	_result_panel.visible = next_state == RaceState.FINISHED
@@ -554,6 +556,7 @@ func _show_menu(next_screen: MenuScreen) -> void:
 	_title_panel.visible = true
 	match next_screen:
 		MenuScreen.MAIN:
+			_title_panel.reset_to_idle()
 			_title_panel.show_options(
 				["GRAJ", "GRA ONLINE", "WYJDŹ"],
 				"STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ",
@@ -629,7 +632,7 @@ func _return_to_main_menu() -> void:
 	_player_two_timer_label.position.y = 412.0
 	_network_status_label.visible = false
 	_opponent_progress_label.visible = false
-	_result_actions.text = "R  REWANŻ        N  NOWA TRASA"
+	_result_actions.text = "R  REWANŻ        N  NOWA TRASA        ESC  MENU"
 	_result_reminder.text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
 	_generate_race(_next_random_seed())
 	_set_race_state(RaceState.TITLE)

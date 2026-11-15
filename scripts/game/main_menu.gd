@@ -11,7 +11,9 @@ const ANIM_IDLE := &"idle"
 const ANIM_OUTRO := &"outro"
 const SELECTED_COLOR := Color(0.960784, 0.960784, 0.960784, 1.0)
 const UNSELECTED_COLOR := Color(0.74902, 0.74902, 0.74902, 0.92)
-const DEFAULT_OPTIONS: Array[String] = ["GRAJ", "WYJDŹ"]
+const DEFAULT_OPTIONS: Array[String] = ["GRAJ", "GRA ONLINE", "WYJDŹ"]
+const DEFAULT_PROMPT: String = "STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ"
+const DEFAULT_HINT: String = "WYŚCIG ECHA"
 
 @onready var _background_sprite: AnimatedSprite2D = $BackgroundSprite
 @onready var _moon_halo: Sprite2D = get_node_or_null("BackgroundSprite/MoonHalo") as Sprite2D
@@ -112,10 +114,7 @@ func reset_to_idle() -> void:
 	_selected_index = 0
 	_set_options(DEFAULT_OPTIONS)
 	_set_room_code_visible(false)
-	_set_footer(
-		"STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ",
-		"Odbijaj fale dźwiękowe, aby zobaczyć otoczenie!",
-	)
+	_set_footer(DEFAULT_PROMPT, DEFAULT_HINT)
 	_menu_overlay.visible = true
 	_background_sprite.play(ANIM_IDLE)
 
