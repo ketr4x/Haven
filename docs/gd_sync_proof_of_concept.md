@@ -13,7 +13,7 @@ This proof of concept verifies the smallest online path required by Rezonans bef
 - Windows export packaging;
 - isolation from the local PvP scene and its SceneTree checks.
 
-It is not gameplay code and must not be used as the multiplayer architecture. The later `OnlineService` adapter will encapsulate GD-Sync.
+It is not gameplay code and must not be used as the multiplayer architecture. The proof now exercises the actual `OnlineService` adapter, which encapsulates GD-Sync for the game.
 
 ## Pinned dependency
 
@@ -25,7 +25,7 @@ The plugin source lives at `addons/GD-Sync/` and is pinned to:
 
 The upstream license is retained in `addons/GD-Sync/LICENSE`.
 
-The proof scene creates the `MultiplayerClient` only while it is running. Do not register it as a project-wide autoload yet. A global GD-Sync autoload initializes before SceneTree test scenes exist and produces startup errors in the existing local regression checks.
+`OnlineService` is a project-wide autoload that does not connect until `connect_online()` is called. It creates the GD-Sync `MultiplayerClient` only on demand, after a game scene exists. This avoids the GD-Sync startup errors that a direct global GD-Sync autoload produced in the existing SceneTree checks.
 
 ## Credentials
 
