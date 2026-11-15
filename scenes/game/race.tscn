@@ -1,9 +1,8 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="PackedScene" path="res://scenes/game/player_world.tscn" id="2_player_world"]
 [ext_resource type="FontFile" path="res://assets/fonts/kiwi_soda.ttf" id="3_font"]
-[ext_resource type="PackedScene" path="res://scenes/effects/luap_40_post_process.tscn" id="4_palette_post_process"]
 
 [node name="Race" type="Control"]
 layout_mode = 3
@@ -14,134 +13,46 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_race")
 
-[node name="Presentation" type="CanvasLayer" parent="."]
-
-[node name="SplitScreen" type="Control" parent="Presentation"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="TopContainer" type="SubViewportContainer" parent="Presentation/SplitScreen"]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_bottom = -2.0
-grow_horizontal = 2
-grow_vertical = 2
-stretch = true
-
-[node name="TopViewport" type="SubViewport" parent="Presentation/SplitScreen/TopContainer"]
-handle_input_locally = false
-size = Vector2i(1280, 358)
-disable_3d = true
-transparent_bg = false
-render_target_update_mode = 4
-
-[node name="PlayerOneWorld" parent="Presentation/SplitScreen/TopContainer/TopViewport" instance=ExtResource("2_player_world")]
-player_number = 1
-left_action = &"p1_left"
-right_action = &"p1_right"
-jump_action = &"p1_jump"
-shout_action = &"p1_shout"
-big_scream_minus_action = &"p1_big_scream_minus"
-big_scream_plus_action = &"p1_big_scream_plus"
-player_color = Color(0.74902, 0.411765, 0.47451, 1)
-
-[node name="Divider" type="ColorRect" parent="Presentation/SplitScreen"]
-layout_mode = 1
-anchors_preset = 10
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_top = -2.0
-offset_bottom = 2.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.760784, 0.94902, 0.94902, 0.8)
-mouse_filter = 2
-
-[node name="BottomContainer" type="SubViewportContainer" parent="Presentation/SplitScreen"]
-layout_mode = 1
-anchors_preset = 15
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = 2.0
-grow_horizontal = 2
-grow_vertical = 2
-stretch = true
-
-[node name="BottomViewport" type="SubViewport" parent="Presentation/SplitScreen/BottomContainer"]
-handle_input_locally = false
-size = Vector2i(1280, 358)
-disable_3d = true
-transparent_bg = false
-render_target_update_mode = 4
-
-[node name="PlayerTwoWorld" parent="Presentation/SplitScreen/BottomContainer/BottomViewport" instance=ExtResource("2_player_world")]
-player_number = 2
-left_action = &"p2_left"
-right_action = &"p2_right"
-jump_action = &"p2_jump"
-shout_action = &"p2_shout"
-big_scream_minus_action = &"p2_big_scream_minus"
-big_scream_plus_action = &"p2_big_scream_plus"
-player_color = Color(0.509804, 0.709804, 0.85098, 1)
-mirror_course_horizontally = true
+[node name="PlayerWorld" parent="." instance=ExtResource("2_player_world")]
 
 [node name="GlobalUi" type="CanvasLayer" parent="."]
 
-[node name="PlayerOneLabel" type="Label" parent="GlobalUi"]
+[node name="Timer" type="Label" parent="GlobalUi"]
 offset_left = 24.0
 offset_top = 16.0
-offset_right = 260.0
-offset_bottom = 48.0
-theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
+offset_right = 320.0
+offset_bottom = 46.0
+theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 18
-text = "GRACZ 1"
+text = "CZAS  00:00.000"
 
-[node name="PlayerTwoLabel" type="Label" parent="GlobalUi"]
-offset_left = 24.0
-offset_top = 382.0
-offset_right = 260.0
-offset_bottom = 414.0
-theme_override_colors/font_color = Color(0.509804, 0.709804, 0.85098, 1)
-theme_override_fonts/font = ExtResource("3_font")
-theme_override_font_sizes/font_size = 18
-text = "GRACZ 2"
-
-[node name="PlayerOneTimer" type="Label" parent="GlobalUi"]
+[node name="Mode" type="Label" parent="GlobalUi"]
 offset_left = 24.0
 offset_top = 46.0
-offset_right = 320.0
-offset_bottom = 74.0
-theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
+offset_right = 440.0
+offset_bottom = 72.0
+theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_fonts/font = ExtResource("3_font")
-theme_override_font_sizes/font_size = 16
-text = "CZAS  00:00.000"
+theme_override_font_sizes/font_size = 14
+text = "TRENING ASYNCHRONICZNY"
 
-[node name="PlayerTwoTimer" type="Label" parent="GlobalUi"]
-offset_left = 24.0
-offset_top = 412.0
-offset_right = 320.0
-offset_bottom = 440.0
-theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
+[node name="Seed" type="Label" parent="GlobalUi"]
+offset_left = 700.0
+offset_top = 16.0
+offset_right = 1234.0
+offset_bottom = 46.0
+theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 16
-text = "CZAS  00:00.000"
+horizontal_alignment = 2
 
 [node name="FinishStatus" type="Label" parent="GlobalUi"]
 visible = false
 offset_left = 164.0
-offset_top = 334.0
+offset_top = 654.0
 offset_right = 1116.0
-offset_bottom = 366.0
+offset_bottom = 686.0
 theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
 theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
 theme_override_constants/shadow_offset_x = 2
@@ -149,16 +60,6 @@ theme_override_constants/shadow_offset_y = 2
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
-
-[node name="Seed" type="Label" parent="GlobalUi"]
-offset_left = 700.0
-offset_top = 16.0
-offset_right = 1234.0
-offset_bottom = 48.0
-theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
-theme_override_fonts/font = ExtResource("3_font")
-theme_override_font_sizes/font_size = 16
-horizontal_alignment = 2
 
 [node name="Countdown" type="Label" parent="GlobalUi"]
 visible = false
@@ -192,14 +93,13 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.101961, 0.101961, 0.101961, 0.94)
+color = Color(0.025, 0.035, 0.075, 0.9)
 
 [node name="Title" type="Label" parent="GlobalUi/TitlePanel"]
-layout_mode = 0
 offset_left = 268.0
-offset_top = 114.0
+offset_top = 152.0
 offset_right = 1012.0
-offset_bottom = 198.0
+offset_bottom = 236.0
 theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 64
@@ -207,43 +107,28 @@ text = "REZONANS"
 horizontal_alignment = 1
 
 [node name="Tagline" type="Label" parent="GlobalUi/TitlePanel"]
-layout_mode = 0
 offset_left = 280.0
-offset_top = 201.0
+offset_top = 239.0
 offset_right = 1000.0
-offset_bottom = 232.0
+offset_bottom = 270.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 20
-text = "WYŚCIG ECHA"
+text = "WYŚCIG DUCHÓW"
 horizontal_alignment = 1
 
-[node name="PlayerOneControls" type="Label" parent="GlobalUi/TitlePanel"]
-layout_mode = 0
-offset_left = 190.0
-offset_top = 300.0
-offset_right = 590.0
-offset_bottom = 410.0
-theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
+[node name="Controls" type="Label" parent="GlobalUi/TitlePanel"]
+offset_left = 150.0
+offset_top = 338.0
+offset_right = 1130.0
+offset_bottom = 412.0
+theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_fonts/font = ExtResource("3_font")
-theme_override_font_sizes/font_size = 24
-text = "GRACZ 1\nA / D  RUCH    W  SKOK    S  KRZYK\nQ  FALA+    E  FALA-"
-horizontal_alignment = 1
-
-[node name="PlayerTwoControls" type="Label" parent="GlobalUi/TitlePanel"]
-layout_mode = 0
-offset_left = 690.0
-offset_top = 300.0
-offset_right = 1090.0
-offset_bottom = 410.0
-theme_override_colors/font_color = Color(0.509804, 0.709804, 0.85098, 1)
-theme_override_fonts/font = ExtResource("3_font")
-theme_override_font_sizes/font_size = 24
-text = "GRACZ 2\nLEWO / PRAWO  RUCH    GÓRA  SKOK    DÓŁ  KRZYK\nPGUP  FALA+    PGDN  FALA-"
+theme_override_font_sizes/font_size = 20
+text = "A / D  RUCH     W / SPACJA  SKOK     S  NURKOWANIE\nLPM  CELOWANIE FALI     PPM / SHIFT  ZAMROŹ ECHO / LINA"
 horizontal_alignment = 1
 
 [node name="Prompt" type="Label" parent="GlobalUi/TitlePanel"]
-layout_mode = 0
 offset_left = 210.0
 offset_top = 506.0
 offset_right = 1070.0
@@ -251,19 +136,7 @@ offset_bottom = 554.0
 theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 30
-text = "NACIŚNIJ DOWOLNY KLAWISZ RUCHU"
-horizontal_alignment = 1
-
-[node name="Hint" type="Label" parent="GlobalUi/TitlePanel"]
-layout_mode = 0
-offset_left = 250.0
-offset_top = 570.0
-offset_right = 1030.0
-offset_bottom = 598.0
-theme_override_colors/font_color = Color(0.635294, 0.635294, 0.635294, 1)
-theme_override_fonts/font = ExtResource("3_font")
-theme_override_font_sizes/font_size = 16
-text = "SKOCZ W CHWILI POWROTU FALI, ABY ZŁAPAĆ ECHO-ZRYW."
+text = "[LPM] CELOWANIE FALI  |  [PPM] ZAMROŹ ECHO / LINA  |  [R] POWTÓRZ TRASĘ"
 horizontal_alignment = 1
 
 [node name="PausePanel" type="Control" parent="GlobalUi"]
@@ -283,10 +156,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.101961, 0.101961, 0.101961, 0.82)
+color = Color(0.025, 0.035, 0.075, 0.82)
 
 [node name="Title" type="Label" parent="GlobalUi/PausePanel"]
-layout_mode = 0
 offset_left = 360.0
 offset_top = 278.0
 offset_right = 920.0
@@ -298,7 +170,6 @@ text = "PAUZA"
 horizontal_alignment = 1
 
 [node name="Hint" type="Label" parent="GlobalUi/PausePanel"]
-layout_mode = 0
 offset_left = 360.0
 offset_top = 372.0
 offset_right = 920.0
@@ -326,10 +197,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.101961, 0.101961, 0.101961, 0.88)
+color = Color(0.025, 0.035, 0.075, 0.88)
 
 [node name="Winner" type="Label" parent="GlobalUi/ResultPanel"]
-layout_mode = 0
 offset_left = 260.0
 offset_top = 208.0
 offset_right = 1020.0
@@ -337,10 +207,10 @@ offset_bottom = 284.0
 theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 52
+text = "META!"
 horizontal_alignment = 1
 
 [node name="Times" type="Label" parent="GlobalUi/ResultPanel"]
-layout_mode = 0
 offset_left = 360.0
 offset_top = 294.0
 offset_right = 920.0
@@ -350,20 +220,7 @@ theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 
-[node name="Reminder" type="Label" parent="GlobalUi/ResultPanel"]
-layout_mode = 0
-offset_left = 250.0
-offset_top = 386.0
-offset_right = 1030.0
-offset_bottom = 418.0
-theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
-theme_override_fonts/font = ExtResource("3_font")
-theme_override_font_sizes/font_size = 20
-text = "SKOCZ ±0,2 S OD POWROTU FALI, ABY ZŁAPAĆ ECHO-ZRYW"
-horizontal_alignment = 1
-
 [node name="Actions" type="Label" parent="GlobalUi/ResultPanel"]
-layout_mode = 0
 offset_left = 220.0
 offset_top = 470.0
 offset_right = 1060.0
@@ -371,7 +228,5 @@ offset_bottom = 528.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 28
-text = "R  REWANŻ        N  NOWA TRASA"
+text = "R  POWTÓRZ TRASĘ        N  NOWA TRASA"
 horizontal_alignment = 1
-
-[node name="Luap40PostProcess" parent="." instance=ExtResource("4_palette_post_process")]

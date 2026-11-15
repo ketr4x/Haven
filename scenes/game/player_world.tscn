@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3]
+[gd_scene load_steps=39 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/player_world.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
@@ -35,11 +35,21 @@
 [ext_resource type="PackedScene" path="res://scenes/effects/reveal_ring.tscn" id="12_ring"]
 [ext_resource type="PackedScene" path="res://scenes/effects/echo_overlay.tscn" id="13_overlay"]
 [ext_resource type="PackedScene" path="res://scenes/effects/audio_feedback.tscn" id="14_audio"]
+[ext_resource type="PackedScene" path="res://scenes/effects/frozen_echo.tscn" id="15_frozen_echo"]
+[ext_resource type="Script" path="res://scripts/effects/parallax_grid.gd" id="16_grid"]
+[ext_resource type="PackedScene" path="res://scenes/effects/blue_resonance_block.tscn" id="17_blue_block"]
 
 [node name="PlayerWorld" type="Node2D"]
 script = ExtResource("1_world")
 sound_wave_scene = ExtResource("11_wave")
 reveal_ring_scene = ExtResource("12_ring")
+frozen_echo_scene = ExtResource("15_frozen_echo")
+
+[node name="BlueprintCanvas" type="CanvasLayer" parent="."]
+layer = -5
+
+[node name="ParallaxGrid" type="Node2D" parent="BlueprintCanvas"]
+script = ExtResource("16_grid")
 
 [node name="Background" type="Polygon2D" parent="."]
 z_index = -10
@@ -50,6 +60,7 @@ color = Color(0.025, 0.035, 0.075, 1)
 [node name="CourseGenerator" type="Node2D" parent="."]
 position = Vector2(120, 650)
 script = ExtResource("2_generator")
+blue_resonance_block_scene = ExtResource("17_blue_block")
 start_chunk = ExtResource("5_start")
 traversal_chunks = Array[PackedScene]([ExtResource("6_flat"), ExtResource("7_up"), ExtResource("8_down"), ExtResource("9_bridge"), ExtResource("10_gap"), ExtResource("11_wall_jump"), ExtResource("12_bounce_reward"), ExtResource("16_foam_ceiling"), ExtResource("17_maze_ascent"), ExtResource("18_maze_chimney"), ExtResource("19_maze_descent"), ExtResource("21_stacked_ladders"), ExtResource("22_stacked_gallery"), ExtResource("23_stacked_switchback"), ExtResource("24_wall_jump_tower"), ExtResource("25_stacked_canopy"), ExtResource("26_stacked_fork"), ExtResource("27_stacked_channels"), ExtResource("28_stacked_overlook"), ExtResource("29_wall_jump_gauntlet"), ExtResource("30_double_floor_arcade"), ExtResource("31_double_floor_gap"), ExtResource("32_dead_end_balcony"), ExtResource("33_dead_end_well")])
 safe_fallback_chunk = ExtResource("6_flat")
@@ -79,3 +90,19 @@ layer = 2
 follow_viewport_enabled = true
 
 [node name="Waves" type="Node2D" parent="FeedbackCanvas"]
+
+[node name="FrozenEchoes" type="Node2D" parent="."]
+
+[node name="BungeeCanvas" type="CanvasLayer" parent="."]
+layer = 4
+
+[node name="BungeePrompt" type="Label" parent="BungeeCanvas"]
+visible = false
+offset_left = 390.0
+offset_top = 300.0
+offset_right = 890.0
+offset_bottom = 350.0
+theme_override_colors/font_color = Color(0.95, 0.76, 0.25, 1)
+theme_override_font_sizes/font_size = 24
+text = "[PPM / SPACJA] ODBIJ SIĘ!"
+horizontal_alignment = 1

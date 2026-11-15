@@ -2,7 +2,6 @@ extends SceneTree
 
 const RACE_SCENE := preload("res://scenes/game/race.tscn")
 
-var _player_two_boost_started: bool = false
 
 func _initialize() -> void:
 	var race := RACE_SCENE.instantiate()
@@ -10,62 +9,32 @@ func _initialize() -> void:
 	root.add_child(race)
 	await physics_frame
 
-	var player_one_world := race.get_node("Presentation/SplitScreen/TopContainer/TopViewport/PlayerOneWorld") as PlayerWorld
-	var player_two_world := race.get_node("Presentation/SplitScreen/BottomContainer/BottomViewport/PlayerTwoWorld") as PlayerWorld
-	var player_one_generator := player_one_world.get_node("CourseGenerator") as CourseGenerator
-	var player_two_generator := player_two_world.get_node("CourseGenerator") as CourseGenerator
-	var player_one_finish_area := player_one_world.get_node("FinishArea") as FinishArea
-	var player_two_finish_area := player_two_world.get_node("FinishArea") as FinishArea
-	var player_one := player_one_world.get_node("Player") as RezonansPlayer
+	var player_world := race.get_node("PlayerWorld") as PlayerWorld
+	var generator := player_world.get_node("CourseGenerator") as CourseGenerator
+	var finish_area := player_world.get_node("FinishArea") as FinishArea
+	var player := player_world.get_node("Player") as RezonansPlayer
+	var overlay := player_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
 
+	assert(not race.has_node("Presentation/SplitScreen"))
+	assert(race.get_node("PlayerWorld") == player_world)
 	assert((race.get_node("GlobalUi/TitlePanel") as Control).visible)
-	assert((race.get_node("GlobalUi/PlayerOneTimer") as Label).text == "CZAS  00:00.000")
-	assert((race.get_node("GlobalUi/PlayerTwoTimer") as Label).text == "CZAS  00:00.000")
-	assert(InputMap.has_action(&"p1_big_scream_minus"))
-	assert(InputMap.has_action(&"p1_big_scream_plus"))
-	assert(InputMap.has_action(&"p2_big_scream_minus"))
-	assert(InputMap.has_action(&"p2_big_scream_plus"))
-	assert(not player_one.is_physics_processing())
-	assert(player_one_world != player_two_world)
-	assert(player_one_generator != player_two_generator)
-	assert(player_one_generator.seed_value == player_two_generator.seed_value)
-	assert(player_one_generator.course_signature == player_two_generator.course_signature)
-	var initial_seed := player_one_generator.seed_value
+	assert((race.get_node("GlobalUi/Timer") as Label).text == "CZAS  00:00.000")
+	assert((race.get_node("GlobalUi/Seed") as Label).text == "SEED  %d" % generator.seed_value)
+	assert(player_world.get_node("BlueprintCanvas/ParallaxGrid") is ParallaxGrid)
+	assert(not player.is_physics_processing())
+	assert(generator.get_node("GeneratedChunks").get_child_count() == 17)
+	assert(not generator.mirror_horizontally)
+	assert(player.global_position == generator.to_global(generator.player_spawn))
+	assert(player.facing_direction == 1.0)
+	assert((overlay.material as ShaderMaterial).get_shader_parameter("afterglow_color") == Color(0.72, 0.96, 1.0, 1.0))
+	overlay.register_hit(player.global_position + Vector2.RIGHT * 96.0, Vector2.LEFT, 80.0)
+	assert(overlay.get_active_echo_count() == 1)
+
+	var initial_seed := generator.seed_value
 	race._restart_course()
-	assert(player_one_generator.seed_value != initial_seed)
-	assert(player_one_generator.seed_value == player_two_generator.seed_value)
-	assert(player_one_generator.course_signature == player_two_generator.course_signature)
-	assert(player_one_generator.get_node("GeneratedChunks").get_child_count() == 17)
-	assert(player_two_generator.get_node("GeneratedChunks").get_child_count() == 17)
-	assert(not player_one_generator.mirror_horizontally)
-	assert(player_two_generator.mirror_horizontally)
-	var player_two_start_chunk := player_two_generator.get_node("GeneratedChunks").get_child(0) as CourseChunk
-	var player_two_start_terrain := player_two_start_chunk.get_node("Terrain") as TileMapLayer
-	for cell in player_two_start_chunk.terrain_cells:
-		assert(player_two_start_terrain.get_cell_source_id(Vector2i(-cell.x, cell.y)) == 0)
-	var player_two := player_two_world.get_node("Player") as RezonansPlayer
-	var player_one_overlay := player_one_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
-	var player_two_overlay := player_two_world.get_node("EchoCanvas/EchoOverlay") as EchoOverlay
-	assert(player_one.global_position == player_one_generator.to_global(player_one_generator.player_spawn))
-	assert(player_two.global_position == player_two_generator.to_global(player_two_generator.player_spawn))
-	var player_one_distance := player_one_finish_area.global_position.x - player_one.global_position.x
-	var player_two_distance := player_two_finish_area.global_position.x - player_two.global_position.x
-	assert(player_one_distance > 0.0)
-	assert(player_two_distance < 0.0)
-	assert(is_equal_approx(player_one_distance, -player_two_distance))
-	assert(player_one.facing_direction == 1.0)
-	assert(player_two.facing_direction == -1.0)
-	assert(player_one.big_scream_minus_action == &"p1_big_scream_minus")
-	assert(player_one.big_scream_plus_action == &"p1_big_scream_plus")
-	assert(player_two.big_scream_minus_action == &"p2_big_scream_minus")
-	assert(player_two.big_scream_plus_action == &"p2_big_scream_plus")
-	assert((player_two.get_node("FacingMarker") as Polygon2D).scale.x == -1.0)
-	assert(player_one_overlay.material != player_two_overlay.material)
-	assert((player_one_overlay.material as ShaderMaterial).get_shader_parameter("player_color") == player_one.modulate)
-	assert((player_two_overlay.material as ShaderMaterial).get_shader_parameter("player_color") == player_two.modulate)
-	player_one_overlay.register_hit(player_one.global_position + Vector2.RIGHT * 96.0, Vector2.LEFT, 80.0)
-	assert(player_one_overlay.get_active_echo_count() == 1)
-	assert(player_two_overlay.get_active_echo_count() == 0)
+	assert(generator.seed_value == initial_seed)
+	race._generate_new_course()
+	assert(generator.seed_value != initial_seed)
 
 	var start_event := InputEventKey.new()
 	start_event.keycode = KEY_D
@@ -74,70 +43,36 @@ func _initialize() -> void:
 	assert((race.get_node("GlobalUi/Countdown") as Label).visible)
 	race._process(3.0)
 	assert(not (race.get_node("GlobalUi/Countdown") as Label).visible)
-	assert(player_one.is_physics_processing())
+	assert(player.is_physics_processing())
 
-	var player_one_start_x := player_one.global_position.x
-	var player_two_start_x := player_two.global_position.x
-	Input.action_press(&"p1_right")
-	Input.action_press(&"p2_left")
+	var player_start_x := player.global_position.x
+	Input.action_press(&"move_right")
 	for frame in 20:
 		await physics_frame
-	Input.action_release(&"p1_right")
-	Input.action_release(&"p2_left")
-	assert(player_one.global_position.x > player_one_start_x)
-	assert(player_two.global_position.x < player_two_start_x)
-
-	player_two.rebound_boost_started.connect(_on_player_two_boost_started)
-	player_two_world._on_player_pulsed(player_two.global_position, Vector2.LEFT, 60.0, 16)
-	for frame in 180:
-		await physics_frame
-		if player_two._echo_opportunity_remaining > 0.0:
-			Input.action_press(&"p2_jump")
-			await physics_frame
-			Input.action_release(&"p2_jump")
-		if _player_two_boost_started:
-			break
-	assert(_player_two_boost_started)
-	assert(player_two_overlay.get_active_echo_count() > 0)
+	Input.action_release(&"move_right")
+	assert(player.global_position.x > player_start_x)
 
 	race._toggle_pause()
 	assert(paused)
 	assert((race.get_node("GlobalUi/PausePanel") as Control).visible)
 	race._toggle_pause()
 	assert(not paused)
-	assert(player_one.is_physics_processing())
+	assert(player.is_physics_processing())
 
-	player_one_finish_area._on_body_entered(player_one)
-	var player_one_timer_label := race.get_node("GlobalUi/PlayerOneTimer") as Label
-	var player_two_timer_label := race.get_node("GlobalUi/PlayerTwoTimer") as Label
-	var finish_status_label := race.get_node("GlobalUi/FinishStatus") as Label
-	assert(not (race.get_node("GlobalUi/ResultPanel") as Control).visible)
-	assert(finish_status_label.visible)
-	assert(finish_status_label.text == "GRACZ 1 NA MECIE. DRUGI GRACZ JEDZIE DALEJ.")
-	assert(not player_one.is_physics_processing())
-	assert(player_two.is_physics_processing())
-	var player_one_time := player_one_timer_label.text
-	race._process(1.0)
-	assert(player_one_timer_label.text == player_one_time)
-	assert(player_two_timer_label.text != player_one_time)
-
-	player_two_finish_area._on_body_entered(player_two)
-	var winner_label := race.get_node("GlobalUi/ResultPanel/Winner") as Label
+	finish_area._on_body_entered(player)
+	var timer_label := race.get_node("GlobalUi/Timer") as Label
 	var times_label := race.get_node("GlobalUi/ResultPanel/Times") as Label
 	assert((race.get_node("GlobalUi/ResultPanel") as Control).visible)
-	assert(not finish_status_label.visible)
-	assert(winner_label.text == "WYGRYWA GRACZ 1")
-	assert(times_label.text == "GRACZ 1  %s\nGRACZ 2  %s" % [
-		race._format_time(float(race._player_finish_times[1])),
-		race._format_time(float(race._player_finish_times[2])),
-	])
-	assert(not player_two.is_physics_processing())
+	assert(not (race.get_node("GlobalUi/FinishStatus") as Label).visible)
+	assert((race.get_node("GlobalUi/ResultPanel/Winner") as Label).text == "META!")
+	assert(times_label.text == "TWÓJ CZAS  %s" % race._format_time(race._finish_time))
+	assert(not player.is_physics_processing())
+	var finish_time := timer_label.text
+	race._process(1.0)
+	assert(timer_label.text == finish_time)
+
 	race.queue_free()
 	for frame in 60:
 		await process_frame
 	print("Race shell and start flow check passed.")
 	quit()
-
-
-func _on_player_two_boost_started() -> void:
-	_player_two_boost_started = true

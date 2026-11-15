@@ -59,10 +59,9 @@ tile_set = ExtResource("19_tiles")
 
 [node name="PlayerOne" parent="." instance=ExtResource("3_player")]
 modulate = Color(1, 0.32, 0.62, 1)
-left_action = &"p1_left"
-right_action = &"p1_right"
-jump_action = &"p1_jump"
-shout_action = &"p1_shout"
+left_action = &"move_left"
+right_action = &"move_right"
+jump_action = &"jump"
 camera_enabled = true
 
 [node name="Interface" type="CanvasLayer" parent="."]

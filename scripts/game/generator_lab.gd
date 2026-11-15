@@ -14,7 +14,7 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"restart") or event.is_action_pressed(&"new_seed"):
+	if event.is_action_pressed(&"restart_seed") or event.is_action_pressed(&"next_seed"):
 		_course_generator.generate_course(_next_random_seed())
 		get_viewport().set_input_as_handled()
 

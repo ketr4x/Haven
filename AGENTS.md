@@ -2,27 +2,25 @@
 
 ## INFO
 
-Rezonans is a local two-player, horizontal split-screen parkour race built with Godot 4.7 Forward+. The entry scene is `scenes/game/race.tscn`. Player 1 plays in the top viewport with `A`/`D` to move, `W` to jump, `S` for a cosmetic shout, `E` for `BigScream-`, and `Q` for `BigScream+`. Player 2 plays in the bottom viewport with left/right to move, up to jump, down for a cosmetic shout, Page Down for `BigScream-`, and Page Up for `BigScream+`. `R` restarts the current seed, `N` increments the seed and generates a new course, and `Escape` pauses during a race.
+Rezonans is a single-player, full-screen parkour time trial built with Godot 4.7 Forward+. The entry scene is `scenes/game/race.tscn`. The active course is generated deterministically from one seed in one `PlayerWorld`. `R` restarts the current seed, `N` generates a new seed, and `Escape` pauses an active race.
+
+The project is migrating from passive, split-screen echolocation to **Echo-Hook & Petrified Echo**: mouse-aimed waves bounce from terrain, reflected waves can become temporary one-way platforms, and the player can grapple and swing from them. It is a solo time trial; it does not use Ghost Racing or a leaderboard.
 
 The game’s player-facing text is in Polish. Use Polish for new UI copy, prompts, and other text shown to players. Keep source code, identifiers, comments, and project documentation in English.
-
-Each viewport has its own `PlayerWorld`, player, generated level, waves, finish area, camera, and echo overlay. The race controller gives both worlds the same seed so they generate the same chunk sequence without sharing physics or rendering. Player 2's course is reflected horizontally and runs right-to-left.
-
-The game loop centers on movement-controlled echolocation. Every footstep emits a pulse, with every fourth step producing a long-range pulse. Jumps and wall jumps emit modest pulses, and a hard landing sends powerful sonar ahead. Manual shout input is cosmetic. Invisible sound probes and visible pixel arcs move at the same speed, reflect from collision geometry, and drive exact tile afterglow. A reflected wave opens a 200-millisecond jump-timing window; catching it with a jump grants Echo-Surf speed and height.
 
 ### Repository layout
 
 ```text
 assets/                 Art, fonts, palette resources, shaders, and audio placeholders
 resources/tiles/        Shared 48-pixel terrain TileSet
-scenes/effects/         Echo, palette, reveal-ring, and sound-wave scenes
+scenes/effects/         Echo, frozen echo, blue block, palette, reveal-ring, and sound-wave scenes
 scenes/game/            Race, player-world, movement-lab, and generator-lab scenes
-scenes/levels/chunks/    Authored start, traversal, fallback, and finish chunk scenes
+scenes/levels/chunks/   Authored start, traversal, fallback, and finish chunk scenes
 scenes/player/          Player scene
-scripts/effects/        Echo, ring, and wave behavior
+scripts/effects/        Echo, frozen platform, grid, ring, and wave behavior
 scripts/game/           Race state, player-world, and finish-area behavior
 scripts/generator/      Course chunk metadata and seeded course generation
-scripts/player/         Player movement, loudness, and boost behavior
+scripts/player/         Player movement and future grapple behavior
 tests/                  SceneTree checks for race, waves, echo, and generation
 ```
 
@@ -57,48 +55,37 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 ## DONE
 
 - The Godot project is configured for Forward+ and launches `scenes/game/race.tscn`.
-- The Input Map defines both players' movement, jump, cosmetic shout, `BigScream-`, and `BigScream+` actions, plus restart, new-course, and pause actions.
-- `race.tscn` presents independent top and bottom `SubViewport` player worlds.
-- The race has title, three-second countdown, racing, paused, and finished states. Each player has a timer that freezes on their finish, and the race remains active until both players finish so the result panel can show both times.
-- The race generates a fresh random integer seed for its first course and for every `R` or `N` request. Both player worlds receive that same seed, so their generated routes stay equivalent while Player 2's course is horizontally reflected.
-- The player supports horizontal acceleration and deceleration, gravity, coyote time, jump buffering, wall sliding, wall jumping, landing particles, and exported tuning values.
-- Players have loudness clamped from 0 to 100. Running, wall contact, and hard landings add loudness, while idle decay reduces it. Manual shouts are cosmetic and cannot add loudness or reveal the level.
-- Intro pulses, footsteps, jumps, wall jumps, landings, and concentrated screams emit independent, invisible `SoundWave` probes inside the same visible arc as their pixel front. Both probes and pixel fronts inherit the player's velocity at emission, travel at 900 pixels per second relative to that frame, and share a maximum path distance, keeping collision light synchronized with the drawn wave.
-- Every footstep creates a small pulse (scaled up 2.5× from the initial prototype), while every fourth footstep creates a quieter long-range pulse capable of returning for Echo-Surf. Jumps, soft landings, and wall jumps emit mid-sized pulses, and hard landings create the strongest regular directional sonar.
-- Each probe collision flashes the exact reached tile contour at full brightness and fades it over 3 seconds. Dark obstacles, ceilings, and vertical walls remain hidden until hit, while top walkable floor surfaces across the viewport stay permanently visible as a crisp Luap-40 outline.
-- Each visible outgoing impulse draws seven 70-degree arcs from a fixed emission point moving at the player's initial velocity, staggered by 50 milliseconds. Arcs consist only of individually snapped 1 × 1 pixels, use deterministic radial waviness, fade as their radii grow, and can reach 1,680 pixels. Live collision limits prevent pixels from drawing through terrain while still touching floor and wall surfaces.
-- A reflected eligible wave opens a 200-millisecond timing window before or after contact. Jumping inside that window grants Echo-Surf, immediately raising horizontal speed and jump velocity; merely receiving a regular reflected wave grants no automatic boost.
-- `BigScream-` emits a red 30-degree concentrated wave. A return from ordinary terrain applies a 0.5-second movement slow without stunning the player. Its planned purpose is destroying blue blocks once that block type exists.
-- `BigScream+` emits a yellow 30-degree concentrated wave. Its return immediately grants a speed boost and opens the same 200-millisecond timing window for additional jump height.
-- A sufficiently fast horizontal obstacle impact applies up to 40 milliseconds of player-local hitstop, pixel-stepped camera shake, spring recoil, and square debris without affecting the other viewport.
-- Return effects remain owner-local: Echo-Surf timing, `BigScream-` slow, and `BigScream+` boost affect only the player who emitted that pulse.
-- Scene-owned audio feedback plays distinct cues for footsteps, jumps, wall jumps, landings, shouts, wave bounces, returned waves, and finishes.
-- The project includes a Luap-40 lookup texture and post-process scene, an echo overlay shader, a collision-local echolocation shader, a pixel-crisp source-front effect, optimized invisible sound probes, a terrain TileSet, a font, and staged logo and player-sheet artwork.
-- Course generation selects traversal chunks deterministically, requires a safe landing flag, checks basic grid geometry and width metadata, limits difficulty changes to one tier, aligns chunk markers, caps noise-foam and branching-path frequency, and uses a fallback chunk when no traversal candidate is compatible.
+- `race.tscn` now contains one direct, full-screen `PlayerWorld`. The split-screen containers, second `SubViewport`, second player world, divider, and reflected right-to-left course have been removed.
+- The race keeps title, three-second countdown, racing, paused, and finished states for one time-trial player.
+- Restarting repeats the current seed. Generating a new course selects a different random seed. The current seed is shown in the HUD.
+- The race HUD and title flow are Polish and no longer present a second local player.
+- The echolocation overlay now preserves the full rendered scene. Echo hits add a cyan-white afterglow and cannot hide terrain by fading it to black.
+- `PlayerWorld` has a dark Luap-40 blueprint grid that drifts with parallax behind the course.
+- The Input Map now defines unified movement, jump, slam, mouse wave, freeze/grapple, restart-seed, next-seed, and pause actions. Active gameplay reads only these actions.
+- The player no longer builds loudness or emits automatic footstep, landing, shout, or BigScream pulses.
+- Holding the left mouse button provides a 1.2-second real-time focus window at 0.25 time scale. The player draws a one-bounce dashed aim path, marks noise foam with a red X, and fires a directional wave on release.
+- Directional waves travel at 1,500 px/s, are white before their first impact, and become cyan after a normal-based reflection. Only reflected waves are eligible for freezing.
+- `FrozenEcho` creates a 168 px, ±40-degree, four-second, one-way crystal platform. The world limits it to two live instances and flashes an afterglow at creation and expiry.
+- An airborne player can attach to a nearby FrozenEcho or one created while holding freeze/grapple. The tether preserves tangential momentum, accepts left/right swing input, renders as a vibrating string, and releases with a sling impulse.
+- FrozenEcho surfaces provide an Echo-Slide speed injection and bounce a hard landing or jump. A player created inside a new echo is moved above its one-way surface.
+- Grapple speed beyond `supersonic_speed` activates the cyan sonic cone and smoothly widens the camera view.
+- Falling below the boundary now opens a 0.4-second Bungee Bounce Back prompt. One charge uses the latest FrozenEcho or current-chunk checkpoint, then recharges over 8 seconds; a missed window respawns at that checkpoint.
+- `BlueResonanceBlock` is a 48-pixel generated shortcut barrier. A reflected wave or supersonic player shatters it.
+- Course generation now checks `requires_echo_hook` and `allows_wall_jump`, adds blue-block shortcut barriers to branching chunks, and retains the tile-aligned course roof as an Echo-Catcher above traversal gaps.
 - Noise foam is a dark, porous collision surface that absorbs waves instead of reflecting them.
-- The traversal set includes sixteen static, 16-cell-wide stacked-path structures. Each has separate lower, middle, and upper platforms with gaps for jumping between paths, plus canopy, channels, crossing, fork, gallery, ladder, overlook, switchback, and dead-end layouts. The arcade, gap, and well structures use two-tile-thick floors. Every course includes a wall-jump structure: the tower or gauntlet uses opposing static walls and floating ledges for side-to-side climbing. Generation caps branching-path chunks and total dead-end branches per course.
-- Every generated course has a tile-aligned roof above its highest terrain and a fall boundary below its lowest terrain. Falling below the boundary pauses that player briefly, then respawns them at the course start.
-- SceneTree checks exist for the race shell, deterministic generation, sound-wave behavior, terrain features, fall resets, and the owner-local echo path.
-- The current runnable visual scenes, `race.tscn`, `movement_lab.tscn`, and `generator_lab.tscn`, instance the Luap-40 post-process scene.
+- The traversal set includes sixteen static, 16-cell-wide stacked-path structures. Each has separate lower, middle, and upper platforms with gaps for jumping between paths, plus canopy, channels, crossing, fork, gallery, ladder, overlook, switchback, and dead-end layouts.
+- Every generated course has a tile-aligned roof above its highest terrain and a fall boundary below its lowest terrain.
+- The race shell SceneTree check now covers the single-world hierarchy, same-seed restart, new-seed generation, full-screen afterglow, parallax grid, state flow, pause, and finish.
 - The committed `t3.json` exposes actions to start the Godot game and build a Windows export.
 - A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
 
 ## TO DO
 
-- Add destructible blue blocks and connect them to `BigScream-`; the concentrated red wave and future-purpose documentation exist, but no blue block type is authored yet.
-- Playtest the two-player keyboard layout in Godot, including movement plus jump, `BigScream-`, or `BigScream+` combinations, to identify keyboard ghosting.
-- Define simultaneous-finish behavior. Matching finish times currently award the win to Player 1.
-- Confirm whether a rematch should return to the title state, as it currently does, or start immediately.
-- Add or verify real traversal validation. The current generator does not test reachability, jump envelopes, chunk overlap, connection safety, or landing safety beyond the chunk metadata and grid checks.
-- Use the existing `allows_wall_jump` and `requires_shout` chunk metadata in generator compatibility or validation. They are declared but are not read by `CourseGenerator`.
-- Verify that all configured course chunks allow a player to reach the finish. The generator currently assembles chunks but has no pathfinding or traversal simulation.
-- Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
-- Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
-- Integrate the staged logo and player sprite sheet only when the corresponding menu and animation work is implemented. They are present in `assets/art/` but are not referenced by the active scenes.
+- Add square debris/particle effects for blue-block destruction and displaced FrozenEcho replacement.
+- Extend the SceneTree checks for the new input map, bounced waves, frozen echoes, grapple physics, Bungee Bounce Back, and blue blocks. Do not run the full SceneTree suite unattended because it can hang.
+- Playtest roof/catcher placement over each authored gap layout and adjust blocker positions after in-editor traversal testing.
 
 ## NEXT STEPS
 
-**Playtest wave timing and darkness.** Confirm that 900-pixel-per-second fronts reach 12–15 tiles ahead, obstacle contours light exactly on contact, and the narrow 5% floor guide is enough for high-speed movement.
-**Tune Echo-Surf.** Test the 200-millisecond jump window, 1.8× launch speed, 1.38× jump velocity, and every-fourth-step return opportunities on wall-jump and gap chunks.
-**Tune concentrated screams.** Validate `E/Q` and `Page Down/Page Up`, the shared 0.8-second cooldown, the 0.5-second red-wave slow, and the yellow-wave speed-plus-jump reward before blue blocks are authored.
-**Tune obstacle impact feel.** Verify that 35 milliseconds of local hitstop, five-pixel camera shake, recoil, and square debris feel responsive without interfering with Echo-Surf or the other player.
+**Tune FrozenEcho and grapple movement.** Validate one-way collision, the two-platform replacement rule, swing control, and release momentum before adding the remaining recovery and destructive-terrain systems.
+**Playtest the full-screen presentation.** Confirm that all terrain remains readable at normal and high camera speeds and that the blueprint grid does not compete with collision outlines.

@@ -1,6 +1,7 @@
 class_name SoundWave
 extends Node2D
 
+signal wave_bounced(position: Vector2, normal: Vector2, bounce_count: int)
 signal bounced(position: Vector2, normal: Vector2, bounce_count: int)
 signal surface_reached(position: Vector2, normal: Vector2, intensity: float, tile_size: float)
 signal absorbed(position: Vector2)
@@ -15,6 +16,7 @@ signal expired
 @export_range(0.1, 1.0, 0.05) var bounce_retention: float = 0.68
 @export_range(4.0, 32.0, 1.0) var return_arming_distance: float = 10.0
 
+var is_reflected: bool = false
 var velocity: Vector2 = Vector2.ZERO
 var bounce_count: int = 0
 var captured_loudness: float = 0.0
@@ -58,9 +60,21 @@ func setup(
 	_return_distance = lerpf(34.0, 72.0, captured_loudness / 100.0)
 	_can_return = can_return
 	global_position = origin
+	is_reflected = false
+	queue_redraw()
+
+
+func _draw() -> void:
+	var color := Color(0.96, 0.96, 1.0, 0.95) if not is_reflected else Color(0.75, 0.95, 0.95, 1.0)
+	var direction := velocity.normalized() if not velocity.is_zero_approx() else Vector2.RIGHT
+	for index in range(12):
+		var progress := float(index) / 11.0
+		var lateral := direction.orthogonal() * sin(progress * TAU * 2.0) * 5.0
+		draw_rect(Rect2(-direction * (progress * 28.0) + lateral, Vector2(2.0, 2.0)), color, true)
 
 
 func _physics_process(delta: float) -> void:
+	queue_redraw()
 	_remaining_lifetime -= delta
 	if _remaining_lifetime <= 0.0 or _energy < 1.0:
 		_expire()
@@ -106,18 +120,25 @@ func _physics_process(delta: float) -> void:
 		absorbed.emit(collision_position)
 		_expire()
 		return
+	if collider and collider.is_in_group(&"blue_resonance_block") and is_reflected:
+		collider.call("shatter")
+		_expire()
+		return
 
+	if bounce_count >= max_bounces:
+		_expire()
+		return
 	bounce_count += 1
+	is_reflected = true
 	var life_ratio := clampf(_remaining_lifetime / lifetime, 0.0, 1.0)
 	var reveal_data := _get_surface_reveal_data(collision, collision_position, normal)
 	surface_reached.emit(reveal_data[0], normal, _energy * life_ratio, reveal_data[1])
+	wave_bounced.emit(collision_position, normal, bounce_count)
 	bounced.emit(collision_position, normal, bounce_count)
 	velocity = velocity.bounce(normal)
 	_energy *= bounce_retention
 	_distance_after_bounce = 0.0
 	global_position = collision_position + normal
-	if bounce_count >= max_bounces:
-		_expire()
 
 
 func _get_surface_reveal_data(

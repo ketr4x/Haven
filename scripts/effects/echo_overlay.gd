@@ -17,7 +17,7 @@ var _hit_data: PackedVector4Array = PackedVector4Array()
 var _hit_normals: PackedVector2Array = PackedVector2Array()
 
 func _ready() -> void:
-	# Player worlds instance this overlay twice; uniforms must not cross viewport boundaries.
+	# The afterglow state remains local to the world that created the impact.
 	material = material.duplicate()
 	_hit_data.resize(SHADER_ECHO_LIMIT)
 	_hit_normals.resize(SHADER_ECHO_LIMIT)

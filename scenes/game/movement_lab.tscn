@@ -103,20 +103,16 @@ color = Color(0.2, 0.62, 0.65, 1)
 [node name="PlayerOne" parent="." instance=ExtResource("2_player")]
 position = Vector2(220, 620)
 modulate = Color(1, 0.32, 0.62, 1)
-left_action = &"p1_left"
-right_action = &"p1_right"
-jump_action = &"p1_jump"
-shout_action = &"p1_shout"
+left_action = &"move_left"
+right_action = &"move_right"
+jump_action = &"jump"
 
 [node name="PlayerTwo" parent="." instance=ExtResource("2_player")]
 position = Vector2(360, 620)
 modulate = Color(0.25, 0.85, 1, 1)
-left_action = &"p2_left"
-right_action = &"p2_right"
-jump_action = &"p2_jump"
-shout_action = &"p2_shout"
-big_scream_minus_action = &"p2_big_scream_minus"
-big_scream_plus_action = &"p2_big_scream_plus"
+left_action = &"move_left"
+right_action = &"move_right"
+jump_action = &"jump"
 
 [node name="Interface" type="CanvasLayer" parent="."]
 

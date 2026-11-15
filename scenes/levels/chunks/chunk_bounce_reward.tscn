@@ -9,7 +9,7 @@ chunk_id = &"bounce_reward"
 difficulty = 2
 min_width = 384.0
 max_width = 384.0
-requires_shout = true
+requires_echo_hook = true
 terrain_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(5, -2), Vector2i(5, -3)])
 
 [node name="EntryMarker" type="Marker2D" parent="."]

@@ -9,6 +9,9 @@ signal course_generated(seed: int, signature: String)
 @export var traversal_chunks: Array[PackedScene]
 @export var safe_fallback_chunk: PackedScene
 @export var finish_chunk: PackedScene
+@export var blue_resonance_block_scene: PackedScene
+@export var echo_hook_enabled: bool = true
+@export var wall_jump_enabled: bool = true
 @export var mirror_horizontally: bool = false
 @export_range(1, 24) var traversal_count: int = 5
 @export_range(0, 3) var max_noise_foam_chunks: int = 1
@@ -48,6 +51,7 @@ func generate_course(seed: int = seed_value) -> void:
 		var required_feature := _required_feature(feature_counts, remaining_slots)
 		var chunk_scene := _choose_compatible_chunk(random, previous_difficulty, feature_counts, required_feature)
 		var chunk := _place_chunk(chunk_scene, next_entry)
+		_add_echo_hook_shortcut(chunk)
 		next_entry = chunk.position + chunk.exit_position()
 		previous_difficulty = chunk.difficulty
 		_record_terrain_features(chunk, feature_counts)
@@ -85,6 +89,8 @@ func _scene_is_compatible(chunk_scene: PackedScene, previous_difficulty: int, fe
 	var width := candidate.path_width()
 	var matches_required_feature := required_feature == &"" or candidate.terrain_features.has(required_feature)
 	var is_valid: bool = candidate.has_safe_landing \
+		and (not candidate.requires_echo_hook or echo_hook_enabled) \
+		and (not candidate.allows_wall_jump or wall_jump_enabled) \
 		and matches_required_feature \
 		and candidate.has_valid_grid_geometry() \
 		and width >= candidate.min_width \
@@ -116,6 +122,15 @@ func _record_terrain_features(chunk: CourseChunk, feature_counts: Dictionary) ->
 	for feature in chunk.terrain_features:
 		feature_counts[feature] = int(feature_counts.get(feature, 0)) + 1
 	feature_counts[&"dead_end_paths"] = int(feature_counts.get(&"dead_end_paths", 0)) + chunk.dead_end_paths
+
+
+func _add_echo_hook_shortcut(chunk: CourseChunk) -> void:
+	if blue_resonance_block_scene == null or not chunk.terrain_features.has(&"branching_paths"):
+		return
+	var block := blue_resonance_block_scene.instantiate() as Node2D
+	chunk.add_child(block)
+	var midpoint := (chunk.entry_position().x + chunk.exit_position().x) * 0.5
+	block.position = Vector2(snappedf(midpoint, TERRAIN_GRID_SIZE), -TERRAIN_GRID_SIZE * 2.0)
 
 
 func _place_chunk(chunk_scene: PackedScene, entry_position: Vector2) -> CourseChunk:

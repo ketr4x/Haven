@@ -7,7 +7,7 @@ extends Node2D
 @export var min_width: float = 384.0
 @export var max_width: float = 384.0
 @export var allows_wall_jump: bool = false
-@export var requires_shout: bool = false
+@export var requires_echo_hook: bool = false
 @export var terrain_features: Array[StringName] = []
 @export_range(1, 4) var floor_depth_cells: int = 1
 @export_range(0, 4) var dead_end_paths: int = 0
