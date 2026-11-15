@@ -37,8 +37,8 @@ signal blind_impact_slowed(position: Vector2)
 @export var slide_cooldown: float = 0.28
 @export var slide_speed_multiplier: float = 1.32
 @export var slide_deceleration: float = 420.0
-@export var standing_hitbox_size: Vector2 = Vector2(36.0, 68.0)
-@export var sliding_hitbox_size: Vector2 = Vector2(36.0, 38.0)
+@export var standing_hitbox_size: Vector2 = Vector2(26.0, 44.0)
+@export var sliding_hitbox_size: Vector2 = Vector2(26.0, 24.0)
 
 @export_category("Scream / Ping")
 @export var shout_cooldown: float = 1.2
@@ -72,9 +72,9 @@ const SLIDE_EXIT_ANIM_TIME := 0.12
 @export var camera_enabled: bool = false
 @export var is_remote: bool = false
 @export_range(1, 2, 1) var visual_slot: int = 1
-@export var camera_zoom: Vector2 = Vector2(1.45, 1.45)
-@export var camera_lookahead_x: float = 180.0
-@export var camera_vertical_offset: float = -16.0
+@export var camera_zoom: Vector2 = Vector2(1.22, 1.22)
+@export var camera_lookahead_x: float = 150.0
+@export var camera_vertical_offset: float = -14.0
 @export var camera_lookahead_lerp_speed: float = 7.0
 @export var outline_color: Color = Color.WHITE
 

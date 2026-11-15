@@ -13,7 +13,7 @@ func _initialize() -> void:
 	var player := lab.get_node("PlayerOne") as RezonansPlayer
 	var player_sprite := player.get_node("PlayerSprite") as AnimatedSprite2D
 	assert(player_sprite != null)
-	assert(player_sprite.scale.is_equal_approx(Vector2(5.0, 5.0)))
+	assert(player_sprite.scale.is_equal_approx(Vector2(3.0, 3.0)))
 	var outline_mat := player_sprite.material as ShaderMaterial
 	assert(outline_mat != null)
 	assert((outline_mat.get_shader_parameter(&"outline_color") as Color).is_equal_approx(Color.WHITE))
@@ -23,7 +23,7 @@ func _initialize() -> void:
 
 	var camera := player.get_node("Camera2D") as Camera2D
 	assert(camera != null)
-	assert(camera.zoom.x > 1.2)
+	assert(camera.zoom.x > 1.15 and camera.zoom.x < 1.35)
 	assert(camera.offset.x > 100.0)
 
 	assert(player_sprite.sprite_frames.get_frame_count(&"idle") == 9)
@@ -39,7 +39,7 @@ func _initialize() -> void:
 
 	# Test ground slide mechanic and animation
 	player.slide_started.connect(_on_slide_started)
-	for frame in 8:
+	for frame in 20:
 		await physics_frame
 		if player.is_on_floor():
 			break
