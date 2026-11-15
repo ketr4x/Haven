@@ -2,6 +2,7 @@ class_name CourseGenerator
 extends Node2D
 
 const TERRAIN_GRID_SIZE: float = 48.0
+const YELLOW_BLOCK_SCENE := preload("res://scenes/terrain/yellow_block.tscn")
 
 signal course_generated(seed: int, signature: String)
 
@@ -17,6 +18,7 @@ signal course_generated(seed: int, signature: String)
 @export_range(0, 12) var max_branching_path_chunks: int = 4
 @export_range(0, 3) var min_wall_climb_chunks: int = 1
 @export_range(0, 6) var max_dead_end_paths: int = 3
+@export_range(0, 12) var yellow_blocks_per_course: int = 6
 @export_range(2, 8) var roof_clearance_rows: int = 3
 @export_range(48.0, 480.0, 24.0) var fall_death_margin: float = 144.0
 @export var seed_value: int = 12_345
@@ -28,9 +30,11 @@ var course_signature: String = ""
 var player_spawn: Vector2 = Vector2.ZERO
 var finish_position: Vector2 = Vector2.ZERO
 var fall_death_y: float = 0.0
+var _dynamic_features: Node2D
 
 func generate_course(seed: int = seed_value) -> void:
 	seed_value = seed
+	_ensure_dynamic_features_node()
 	_clear_generated_chunks()
 
 	var random := RandomNumberGenerator.new()
@@ -60,7 +64,8 @@ func generate_course(seed: int = seed_value) -> void:
 	var finish := _place_chunk(finish_chunk, next_entry)
 	finish_position = finish.position + finish.finish_marker_position()
 	sequence.append(String(finish.chunk_id))
-	_rebuild_roof_and_fall_boundary()
+	var layout_data := _rebuild_roof_and_fall_boundary()
+	_spawn_dynamic_course_features(random, layout_data)
 	course_signature = " > ".join(sequence)
 	course_generated.emit(seed_value, course_signature)
 
@@ -172,7 +177,7 @@ func _place_chunk(chunk_scene: PackedScene, entry_position: Vector2) -> CourseCh
 	return chunk
 
 
-func _rebuild_roof_and_fall_boundary() -> void:
+func _rebuild_roof_and_fall_boundary() -> Dictionary:
 	_roof.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_roof.clear()
 	var min_column := 0
@@ -184,9 +189,12 @@ func _rebuild_roof_and_fall_boundary() -> void:
 	var col_top_y: Dictionary = {}
 	var col_bottom_y: Dictionary = {}
 	var col_floor_y: Dictionary = {}
+	var traversal_min_col := 0
+	var traversal_max_col := 0
 
-	for chunk_node in _generated_chunks.get_children():
-		var chunk := chunk_node as CourseChunk
+	var all_chunks := _generated_chunks.get_children()
+	for chunk_idx in all_chunks.size():
+		var chunk := all_chunks[chunk_idx] as CourseChunk
 		var grid := chunk.grid_size
 		var chunk_offset := Vector2i(
 			roundi(chunk.position.x / float(grid.x)),
@@ -197,6 +205,10 @@ func _rebuild_roof_and_fall_boundary() -> void:
 		var entry_row := roundi((chunk.position.y + chunk.entry_position().y) / float(grid.y))
 		min_column = mini(min_column, mini(entry_column, exit_column))
 		max_column = maxi(max_column, maxi(entry_column, exit_column))
+		if chunk_idx == 0:
+			traversal_min_col = maxi(entry_column, exit_column)
+		if chunk_idx == all_chunks.size() - 1:
+			traversal_max_col = mini(entry_column, exit_column)
 
 		var c_min := mini(entry_column, exit_column)
 		var c_max := maxi(entry_column, exit_column)
@@ -228,7 +240,7 @@ func _rebuild_roof_and_fall_boundary() -> void:
 				col_top_y[col] = mini(int(col_top_y.get(col, chunk_highest_y)), chunk_highest_y)
 
 	if not has_terrain:
-		return
+		return {}
 
 	var roof_cells: Dictionary = {}
 	var local_roof_rows: Dictionary = {}
@@ -312,6 +324,15 @@ func _rebuild_roof_and_fall_boundary() -> void:
 	# Every authored chunk uses the shared 48-pixel terrain grid.
 	fall_death_y = float(lowest_row + 1) * TERRAIN_GRID_SIZE + fall_death_margin
 
+	return {
+		"world_occupied": world_occupied,
+		"col_floor_y": col_floor_y,
+		"min_column": min_column,
+		"max_column": max_column,
+		"traversal_min_col": traversal_min_col,
+		"traversal_max_col": traversal_max_col,
+	}
+
 
 func _select_roof_or_bedrock_atlas(
 	cell: Vector2i,
@@ -358,6 +379,100 @@ func _select_roof_or_bedrock_atlas(
 	return CourseChunk.ATLAS_EARTH_CENTER if use_earth else CourseChunk.ATLAS_MOSS_CENTER
 
 
+func _ensure_dynamic_features_node() -> void:
+	if _dynamic_features != null and is_instance_valid(_dynamic_features):
+		return
+	var existing := get_node_or_null("DynamicFeatures") as Node2D
+	if existing != null:
+		_dynamic_features = existing
+		return
+	_dynamic_features = Node2D.new()
+	_dynamic_features.name = "DynamicFeatures"
+	add_child(_dynamic_features)
+
+
+func _spawn_dynamic_course_features(random: RandomNumberGenerator, layout_data: Dictionary) -> void:
+	if layout_data.is_empty() or _dynamic_features == null:
+		return
+	var world_occupied: Dictionary = layout_data["world_occupied"]
+	var col_floor_y: Dictionary = layout_data["col_floor_y"]
+	var traversal_min_col := int(layout_data["traversal_min_col"])
+	var traversal_max_col := int(layout_data["traversal_max_col"])
+
+	var blocked_cells: Dictionary = world_occupied.duplicate()
+	for chunk_node in _generated_chunks.get_children():
+		for child in chunk_node.get_children():
+			if child is StaticBody2D:
+				_mark_static_body_cells_blocked(child as StaticBody2D, blocked_cells)
+
+	# 1. Spawn indestructible E-revealed yellow blocks frequently on ground/passable lanes
+	var yellow_candidates: Array[int] = []
+	for col in range(traversal_min_col + 2, traversal_max_col - 2):
+		if not col_floor_y.has(col):
+			continue
+		var fy := int(col_floor_y[col])
+		if int(col_floor_y.get(col - 1, fy + 99)) != fy or int(col_floor_y.get(col + 1, fy + 99)) != fy:
+			continue
+		if not world_occupied.has(Vector2i(col, fy)) \
+			or not world_occupied.has(Vector2i(col - 1, fy)) \
+			or not world_occupied.has(Vector2i(col + 1, fy)):
+			continue
+		if blocked_cells.has(Vector2i(col, fy - 1)) \
+			or blocked_cells.has(Vector2i(col, fy - 2)) \
+			or blocked_cells.has(Vector2i(col - 1, fy - 1)) \
+			or blocked_cells.has(Vector2i(col + 1, fy - 1)):
+			continue
+		yellow_candidates.append(col)
+
+	_shuffle_ints(yellow_candidates, random)
+	var placed_yellow_cols: Array[int] = []
+	for col in yellow_candidates:
+		if placed_yellow_cols.size() >= yellow_blocks_per_course:
+			break
+		var too_close := false
+		for prev_col in placed_yellow_cols:
+			if absi(col - prev_col) < 5:
+				too_close = true
+				break
+		if too_close:
+			continue
+		var fy := int(col_floor_y[col])
+		var yellow := YELLOW_BLOCK_SCENE.instantiate() as Node2D
+		yellow.position = Vector2(float(col) * TERRAIN_GRID_SIZE, float(fy - 1) * TERRAIN_GRID_SIZE)
+		_dynamic_features.add_child(yellow)
+		blocked_cells[Vector2i(col, fy - 1)] = true
+		placed_yellow_cols.append(col)
+
+
+func _mark_static_body_cells_blocked(body: StaticBody2D, blocked: Dictionary) -> void:
+	var shape_node := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape_node == null or shape_node.shape == null:
+		return
+	var rect_shape := shape_node.shape as RectangleShape2D
+	if rect_shape == null:
+		return
+	var extents := rect_shape.size * 0.5
+	var parent_node := body.get_parent() as Node2D
+	var parent_pos := parent_node.position if parent_node != null else Vector2.ZERO
+	var center: Vector2 = parent_pos + body.position + shape_node.position
+	var half := TERRAIN_GRID_SIZE * 0.5
+	var min_pos: Vector2 = center - extents
+	var max_pos: Vector2 = center + extents
+	var min_cx := floori((min_pos.x + half) / TERRAIN_GRID_SIZE)
+	var max_cx := floori((max_pos.x + half - 0.01) / TERRAIN_GRID_SIZE)
+	var min_cy := floori((min_pos.y + half) / TERRAIN_GRID_SIZE)
+	var max_cy := floori((max_pos.y + half - 0.01) / TERRAIN_GRID_SIZE)
+	for cx in range(min_cx, max_cx + 1):
+		for cy in range(min_cy, max_cy + 1):
+			blocked[Vector2i(cx, cy)] = true
+
+
+func _shuffle_ints(arr: Array[int], random: RandomNumberGenerator) -> void:
+	for i in range(arr.size() - 1, 0, -1):
+		var j := random.randi_range(0, i)
+		var tmp := arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp
 
 
 func _clear_generated_chunks() -> void:
@@ -365,3 +480,7 @@ func _clear_generated_chunks() -> void:
 	for chunk in _generated_chunks.get_children():
 		_generated_chunks.remove_child(chunk)
 		chunk.queue_free()
+	if _dynamic_features != null and is_instance_valid(_dynamic_features):
+		for feat in _dynamic_features.get_children():
+			_dynamic_features.remove_child(feat)
+			feat.queue_free()

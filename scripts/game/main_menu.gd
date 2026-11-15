@@ -169,6 +169,11 @@ func handle_menu_input(event: InputEvent) -> bool:
 	if _is_playing_outro or _option_texts.is_empty() or _room_code_input.visible:
 		return false
 
+	if event.is_action_pressed(&"ui_accept"):
+		_play_ui_select()
+		option_selected.emit(_selected_index)
+		return true
+
 	if event.is_action_pressed(&"ui_up") \
 		or event.is_action_pressed(&"p1_jump") \
 		or event.is_action_pressed(&"p2_jump"):
@@ -179,11 +184,6 @@ func handle_menu_input(event: InputEvent) -> bool:
 		or event.is_action_pressed(&"p1_shout") \
 		or event.is_action_pressed(&"p2_shout"):
 		_move_selection(1)
-		return true
-
-	if event.is_action_pressed(&"ui_accept"):
-		_play_ui_select()
-		option_selected.emit(_selected_index)
 		return true
 
 	return false

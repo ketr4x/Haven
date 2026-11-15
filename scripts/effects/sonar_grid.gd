@@ -12,6 +12,7 @@ enum TileKind {
 	BOUNCE_PAD = 2,
 	ABSORBER = 3,
 	BREAKABLE = 4,
+	YELLOW_BLOCK = 5,
 }
 
 enum PulseKind {
@@ -20,6 +21,7 @@ enum PulseKind {
 	LAND = 2,
 	SCREAM = 3,
 	INTRO = 4,
+	TRAMPOLINE = 5,
 }
 
 const GRID_SIZE: float = 48.0
@@ -68,6 +70,7 @@ const ARC_SUBDIVISIONS: int = 2
 @export var bounce_pad_tile_color: Color = Color(0.94, 0.92, 0.75, 1.0)
 @export var absorber_tile_color: Color = Color(0.28, 0.29, 0.45, 1.0)
 @export var breakable_tile_color: Color = Color(0.55, 0.90, 1.0, 1.0)
+@export var yellow_block_tile_color: Color = Color(1.0, 1.0, 0.0, 0.55)
 @export var player_accent_color: Color = Color(0.76, 0.95, 0.95, 1.0)
 
 var grid_origin: Vector2 = Vector2.ZERO
@@ -138,10 +141,14 @@ func rebuild_from_generator(generator: CourseGenerator) -> void:
 				_register_cell(world_cell, tile_kind, is_floor)
 
 			for child in chunk.get_children():
-				if child is StaticBody2D and child.is_in_group(&"sound_absorber"):
-					_register_static_body_cells(generator, child as StaticBody2D, TileKind.ABSORBER, false)
-				elif child is StaticBody2D and child.is_in_group(&"breakable_wall"):
-					_register_static_body_cells(generator, child as StaticBody2D, TileKind.BREAKABLE, false, child)
+				if child is StaticBody2D:
+					_register_special_static_body(generator, child as StaticBody2D)
+
+	var dynamic_root := generator.get_node_or_null("DynamicFeatures")
+	if dynamic_root != null:
+		for child in dynamic_root.get_children():
+			if child is StaticBody2D:
+				_register_special_static_body(generator, child as StaticBody2D)
 
 	var roof := generator.get_node_or_null("Roof") as TileMapLayer
 	if roof != null:
@@ -162,6 +169,18 @@ func rebuild_from_generator(generator: CourseGenerator) -> void:
 	queue_redraw()
 
 
+func _register_special_static_body(generator: CourseGenerator, body: StaticBody2D) -> void:
+	if body.is_in_group(&"sound_absorber"):
+		_register_static_body_cells(generator, body, TileKind.ABSORBER, false)
+	elif body.is_in_group(&"yellow_block"):
+		var custom_col: Color = body.get_sonar_tile_color() if body.has_method("get_sonar_tile_color") else yellow_block_tile_color
+		var revealed: bool = bool(body.get("is_revealed")) if body.get("is_revealed") != null else false
+		_register_static_body_cells(generator, body, TileKind.YELLOW_BLOCK, false, body, custom_col, revealed)
+	elif body.is_in_group(&"breakable_wall"):
+		var custom_col: Color = body.get_sonar_tile_color() if body.has_method("get_sonar_tile_color") else breakable_tile_color
+		_register_static_body_cells(generator, body, TileKind.BREAKABLE, false, body, custom_col, true)
+
+
 func rebuild_from_static_bodies(root_node: Node2D, floor_y_threshold: float = 640.0) -> void:
 	tiles.clear()
 	_lit_tiles.clear()
@@ -172,12 +191,22 @@ func rebuild_from_static_bodies(root_node: Node2D, floor_y_threshold: float = 64
 		if body == null:
 			continue
 		var kind := TileKind.SAFE
+		var custom_col := Color.TRANSPARENT
+		var revealed := true
+		var wall_ref: Node = null
 		if body.is_in_group(&"sound_absorber"):
 			kind = TileKind.ABSORBER
+		elif body.is_in_group(&"yellow_block"):
+			kind = TileKind.YELLOW_BLOCK
+			wall_ref = body
+			custom_col = body.get_sonar_tile_color() if body.has_method("get_sonar_tile_color") else yellow_block_tile_color
+			revealed = bool(body.get("is_revealed")) if body.get("is_revealed") != null else false
 		elif body.is_in_group(&"breakable_wall"):
 			kind = TileKind.BREAKABLE
+			wall_ref = body
+			custom_col = body.get_sonar_tile_color() if body.has_method("get_sonar_tile_color") else breakable_tile_color
 		var is_floor := body.global_position.y >= floor_y_threshold
-		_register_static_body_cells(null, body, kind, is_floor, body if kind == TileKind.BREAKABLE else null)
+		_register_static_body_cells(null, body, kind, is_floor, wall_ref, custom_col, revealed)
 	queue_redraw()
 
 
@@ -254,6 +283,39 @@ func emit_pulse(
 	return spawned
 
 
+func emit_downward_pulse(origin: Vector2, ray_count: int = 56) -> int:
+	_next_pulse_group_id += 1
+	var pulse_id := _next_pulse_group_id
+	var half_arc := deg_to_rad(68.0)
+	var spawned := 0
+	for index in ray_count:
+		var t := float(index) / float(maxi(1, ray_count - 1))
+		var angle := PI * 0.5 + lerpf(-half_arc, half_arc, t)
+		var direction := Vector2.from_angle(angle)
+		var ray_speed := 820.0
+		var max_distance := 5.2 * GRID_SIZE
+		var ray_lifetime := max_distance / ray_speed
+		var start_pos := origin + Vector2(0.0, 14.0) + direction * 4.0
+		active_rays.append({
+			"pulse_id": pulse_id,
+			"ray_index": index,
+			"ray_count": ray_count + 1,
+			"position": start_pos,
+			"velocity": direction * ray_speed,
+			"remaining_lifetime": ray_lifetime,
+			"max_lifetime": ray_lifetime,
+			"bounce_count": 0,
+			"max_bounces": 2,
+			"trail": PackedVector2Array([start_pos]),
+			"is_forward": true,
+			"pulse_kind": PulseKind.TRAMPOLINE,
+		})
+		spawned += 1
+
+	queue_redraw()
+	return spawned
+
+
 func get_tile_light_level(world_cell: Vector2i) -> float:
 	if not tiles.has(world_cell):
 		return 0.0
@@ -282,6 +344,8 @@ func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int
 	if not tiles.has(world_cell):
 		return
 	var tile: Dictionary = tiles[world_cell]
+	if int(tile["kind"]) == TileKind.YELLOW_BLOCK and not bool(tile.get("revealed", false)):
+		return
 	var min_light := floor_min_light_level if bool(tile["is_floor"]) else 0.0
 	var clamped_level := clampf(level, min_light, 1.0)
 	var prev_level := float(tile["light_level"])
@@ -290,7 +354,7 @@ func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int
 
 	tile["lit_tick"] = _sim_tick
 	tile["light_level"] = maxf(prev_level, clamped_level)
-	tile["last_hit_color"] = _resolve_tile_hit_color(int(tile["kind"]), bounce_count)
+	tile["last_hit_color"] = _resolve_tile_hit_color(int(tile["kind"]), bounce_count, tile.get("custom_color", Color.TRANSPARENT))
 	if not hit_normal.is_zero_approx():
 		tile["hit_normal"] = hit_normal
 	if float(tile["light_level"]) > min_light:
@@ -305,10 +369,12 @@ func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int
 		if not tiles.has(neighbor_cell):
 			continue
 		var neighbor: Dictionary = tiles[neighbor_cell]
+		if int(neighbor["kind"]) == TileKind.YELLOW_BLOCK and not bool(neighbor.get("revealed", false)):
+			continue
 		var neighbor_min := floor_min_light_level if bool(neighbor["is_floor"]) else 0.0
 		var boosted := clampf(float(neighbor["light_level"]) + neighbor_light_boost, neighbor_min, 1.0)
 		neighbor["light_level"] = boosted
-		neighbor["last_hit_color"] = _resolve_tile_hit_color(int(neighbor["kind"]), bounce_count)
+		neighbor["last_hit_color"] = _resolve_tile_hit_color(int(neighbor["kind"]), bounce_count, neighbor.get("custom_color", Color.TRANSPARENT))
 		if boosted > neighbor_min:
 			_lit_tiles[neighbor_cell] = true
 		if not hit_normal.is_zero_approx() and Vector2(neighbor.get("hit_normal", Vector2.ZERO)).is_zero_approx():
@@ -418,6 +484,21 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 			var bounce_count := int(ray["bounce_count"]) + 1
 			var normal := _compute_grid_normal(current_cell, next_cell, velocity)
 			var impact_pos := _compute_impact_point(current_pos, next_pos, next_cell, normal)
+			var pulse_kind := int(ray.get("pulse_kind", PulseKind.RUN))
+
+			if hit_kind == TileKind.YELLOW_BLOCK:
+				if pulse_kind == PulseKind.SCREAM:
+					_reveal_yellow_block_at_cell(next_cell, bounce_count, normal)
+				elif not bool(hit_tile.get("revealed", false)):
+					ray["bounce_count"] = bounce_count
+					velocity = velocity.bounce(normal)
+					ray["remaining_lifetime"] = float(ray["remaining_lifetime"]) * (1.0 - bounce_energy_loss)
+					ray["velocity"] = velocity
+					ray["position"] = impact_pos + normal * 2.0
+					_append_trail_point(ray, impact_pos)
+					if bounce_count >= int(ray["max_bounces"]) or float(ray["remaining_lifetime"]) <= 0.0:
+						return false
+					continue
 
 			var max_life := maxf(0.001, float(ray["max_lifetime"]))
 			var life_ratio := clampf(remaining_lifetime / max_life, 0.0, 1.0)
@@ -434,10 +515,11 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 				return false
 
 			if hit_kind == TileKind.BREAKABLE:
-				var pulse_kind := int(ray.get("pulse_kind", PulseKind.RUN))
 				if pulse_kind == PulseKind.SCREAM:
-					_break_wall_at_cell(next_cell, impact_pos, velocity.normalized())
-					_spawn_impact_ripple(impact_pos, breakable_tile_color, 12.0, normal)
+					var ripple_col: Color = hit_tile.get("custom_color", breakable_tile_color)
+					if ripple_col == Color.TRANSPARENT:
+						ripple_col = breakable_tile_color
+					_spawn_impact_ripple(impact_pos, ripple_col, 12.0, normal)
 					current_pos = next_pos
 					ray["position"] = next_pos
 					continue
@@ -452,8 +534,10 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 			var current_speed := velocity.length()
 			if hit_kind == TileKind.BOUNCE_PAD:
 				current_speed = minf(forward_speed * 1.15, current_speed * 1.10)
-			elif hit_kind == TileKind.BREAKABLE:
+			elif hit_kind == TileKind.BREAKABLE or hit_kind == TileKind.YELLOW_BLOCK:
 				current_speed = maxf(min_ricochet_speed, current_speed * (1.0 - bounce_energy_loss * 0.6))
+			else:
+				current_speed = maxf(min_ricochet_speed, current_speed * (1.0 - bounce_energy_loss * 0.45))
 			else:
 				current_speed = maxf(min_ricochet_speed, current_speed * (1.0 - bounce_energy_loss * 0.45))
 
@@ -462,7 +546,7 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 			current_pos = impact_pos + normal * 2.0
 			_spawn_impact_ripple(
 				impact_pos,
-				_resolve_ray_color(bounce_count, int(ray["pulse_kind"])),
+				_resolve_ray_color(bounce_count, pulse_kind),
 				7.0,
 				normal,
 			)
@@ -552,6 +636,8 @@ func _draw() -> void:
 
 
 func _draw_tile_cell(cell: Vector2i, tile: Dictionary) -> void:
+	if int(tile["kind"]) == TileKind.YELLOW_BLOCK:
+		return
 	var rect := grid_to_world_rect(cell)
 	var local_rect := Rect2(to_local(rect.position), rect.size)
 	var light_level := clampf(float(tile["light_level"]), 0.0, 1.0)
@@ -778,8 +864,8 @@ func _draw_wave_arcs() -> void:
 		draw_multiline_colors(_arc_points, _arc_colors, WAVE_PIXEL_SIZE, false)
 
 
-func _resolve_tile_hit_color(kind: int, bounce_count: int) -> Color:
-	var base := _base_color_for_kind(kind)
+func _resolve_tile_hit_color(kind: int, bounce_count: int, custom_color: Color = Color.TRANSPARENT) -> Color:
+	var base := custom_color if custom_color != Color.TRANSPARENT else _base_color_for_kind(kind)
 	if bounce_count >= 2:
 		return base.lerp(player_accent_color, 0.55)
 	return base
@@ -789,6 +875,8 @@ func _resolve_ray_color(bounce_count: int, pulse_kind: int) -> Color:
 	var base := safe_tile_color
 	if pulse_kind == PulseKind.SCREAM:
 		base = Color(0.94, 0.92, 0.75, 1.0).lerp(player_accent_color, 0.45)
+	elif pulse_kind == PulseKind.TRAMPOLINE:
+		base = Color(0.45, 0.95, 1.0, 1.0).lerp(Color(1.0, 0.92, 0.45, 1.0), 0.25)
 	elif pulse_kind == PulseKind.JUMP or pulse_kind == PulseKind.LAND:
 		base = Color(0.76, 0.95, 0.95, 1.0)
 	if bounce_count >= 2:
@@ -808,6 +896,8 @@ func _base_color_for_kind(kind: int) -> Color:
 			return absorber_tile_color
 		TileKind.BREAKABLE:
 			return breakable_tile_color
+		TileKind.YELLOW_BLOCK:
+			return yellow_block_tile_color
 		_:
 			return safe_tile_color
 
@@ -835,15 +925,24 @@ func _classify_chunk_cell(chunk: CourseChunk, local_cell: Vector2i, is_floor: bo
 	return TileKind.SAFE
 
 
-func _register_cell(world_cell: Vector2i, kind: int, is_floor: bool, wall_node: Node = null) -> void:
+func _register_cell(
+	world_cell: Vector2i,
+	kind: int,
+	is_floor: bool,
+	wall_node: Node = null,
+	custom_color: Color = Color.TRANSPARENT,
+	revealed: bool = true
+) -> void:
 	var initial_light := floor_min_light_level if is_floor else 0.0
-	var base_color := _base_color_for_kind(kind)
+	var base_color := custom_color if custom_color != Color.TRANSPARENT else _base_color_for_kind(kind)
 	tiles[world_cell] = {
 		"light_level": initial_light,
 		"last_hit_color": base_color,
 		"kind": kind,
 		"is_floor": is_floor,
 		"wall_node": wall_node,
+		"custom_color": custom_color,
+		"revealed": revealed,
 	}
 
 
@@ -852,7 +951,9 @@ func _register_static_body_cells(
 	body: StaticBody2D,
 	kind: int,
 	is_floor: bool,
-	wall_node: Node = null
+	wall_node: Node = null,
+	custom_color: Color = Color.TRANSPARENT,
+	revealed: bool = true
 ) -> void:
 	var shape_node := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if shape_node == null or shape_node.shape == null:
@@ -871,7 +972,44 @@ func _register_static_body_cells(
 	var max_cell_y := floori((max_pos.y + HALF_GRID - 0.01) / GRID_SIZE)
 	for cx in range(min_cell_x, max_cell_x + 1):
 		for cy in range(min_cell_y, max_cell_y + 1):
-			_register_cell(Vector2i(cx, cy), kind, is_floor, wall_node)
+			_register_cell(Vector2i(cx, cy), kind, is_floor, wall_node, custom_color, revealed)
+
+	if body.is_in_group(&"yellow_block") and body.has_signal("revealed"):
+		var callable := _on_yellow_block_revealed.bind(body)
+		if not body.revealed.is_connected(callable):
+			body.revealed.connect(callable)
+
+
+func _on_yellow_block_revealed(_pos: Vector2, body: Node) -> void:
+	for cell_variant in tiles.keys():
+		var cell: Vector2i = cell_variant
+		var entry: Dictionary = tiles[cell]
+		if entry.get("wall_node") == body:
+			entry["revealed"] = true
+			entry["light_level"] = 1.0
+	queue_redraw()
+
+
+func _reveal_yellow_block_at_cell(world_cell: Vector2i, bounce_count: int = 0, normal: Vector2 = Vector2.UP) -> void:
+	if not tiles.has(world_cell):
+		return
+	var hit_tile: Dictionary = tiles[world_cell]
+	var wall_node = hit_tile.get("wall_node")
+	if wall_node != null and is_instance_valid(wall_node):
+		if wall_node.has_method("reveal_with_flash"):
+			wall_node.reveal_with_flash()
+		elif wall_node.has_method("reveal_block"):
+			wall_node.reveal_block()
+		for cell_variant in tiles.keys():
+			var cell: Vector2i = cell_variant
+			var entry: Dictionary = tiles[cell]
+			if entry.get("wall_node") == wall_node:
+				entry["revealed"] = true
+				illuminate_cell(cell, 1.0, bounce_count, normal)
+	else:
+		hit_tile["revealed"] = true
+		illuminate_cell(world_cell, 1.0, bounce_count, normal)
+	queue_redraw()
 
 
 func _break_wall_at_cell(world_cell: Vector2i, impact_pos: Vector2, impact_dir: Vector2) -> void:

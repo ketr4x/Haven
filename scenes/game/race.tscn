@@ -66,6 +66,7 @@ right_action = &"p1_right"
 jump_action = &"p1_jump"
 shout_action = &"p1_shout"
 slide_action = &"p1_slide"
+trampoline_action = &"p1_trampoline"
 player_color = Color(0.74902, 0.411765, 0.47451, 1)
 
 [node name="Divider" type="ColorRect" parent="Presentation/SplitScreen"]
@@ -106,6 +107,7 @@ right_action = &"p2_right"
 jump_action = &"p2_jump"
 shout_action = &"p2_shout"
 slide_action = &"p2_slide"
+trampoline_action = &"p2_trampoline"
 player_color = Color(0.509804, 0.709804, 0.85098, 1)
 mirror_course_horizontally = false
 

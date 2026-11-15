@@ -53,7 +53,13 @@ func _physics_process(delta: float) -> void:
 			queue_free()
 			return
 
-		if collider and collider.is_in_group(&"breakable_wall"):
+		if collider and collider.is_in_group(&"yellow_block"):
+			if captured_loudness >= 90.0:
+				if collider.has_method("reveal_with_flash"):
+					collider.reveal_with_flash()
+				elif collider.has_method("reveal_block"):
+					collider.reveal_block()
+		elif collider and collider.is_in_group(&"breakable_wall"):
 			if captured_loudness >= 90.0:
 				if collider.has_method("break_wall"):
 					collider.break_wall(velocity.normalized())
