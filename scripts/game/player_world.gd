@@ -72,6 +72,7 @@ func _ready() -> void:
 	sonar_grid.set_player_accent_color(accent)
 	add_child(sonar_grid)
 	sonar_grid.wave_bounced.connect(_audio_feedback.play_wave_bounce)
+	sonar_grid.wall_broken.connect(_on_sonar_wall_broken)
 
 	_setup_vignette_overlay(accent)
 	var camera := _player.get_node("Camera2D") as Camera2D
@@ -119,7 +120,7 @@ func _process(delta: float) -> void:
 	if dust != null and _player != null:
 		dust.global_position = _player.global_position
 
-	if not _player.is_remote:
+	if _player != null and not _player.is_remote:
 		if _respawn_time_remaining > 0.0:
 			_respawn_time_remaining = maxf(0.0, _respawn_time_remaining - delta)
 			if is_zero_approx(_respawn_time_remaining) and _race_active:
@@ -133,7 +134,8 @@ func _process(delta: float) -> void:
 		if _race_active and _player.is_physics_processing():
 			_check_unlit_airborne_collision()
 
-	if _race_active \
+	if _player != null \
+		and _race_active \
 		and _player.is_player_on_floor() \
 		and absf(_player.velocity.x) >= walking_echo_speed_threshold:
 		_echo_overlay.walking_preview(_player.loudness)
@@ -335,6 +337,13 @@ func _on_player_sonic_shouted(origin: Vector2, direction: Vector2, loudness: flo
 		scream_extra_bounces,
 		SonarGrid.PulseKind.SCREAM,
 	)
+
+
+func _on_sonar_wall_broken(_position: Vector2, _cell: Vector2i) -> void:
+	_audio_feedback.play_wall_break()
+	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.45)
+	_update_vignette_uniforms(_vignette_pulse_strength)
+
 
 
 func _on_player_footstep_emitted(_origin: Vector2, _direction: Vector2, _loudness: float) -> void:
