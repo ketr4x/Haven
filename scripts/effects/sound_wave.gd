@@ -65,12 +65,24 @@ func setup(
 
 
 func _draw() -> void:
-	var color := Color(0.96, 0.96, 1.0, 0.95) if not is_reflected else Color(0.75, 0.95, 0.95, 1.0)
 	var direction := velocity.normalized() if not velocity.is_zero_approx() else Vector2.RIGHT
-	for index in range(12):
-		var progress := float(index) / 11.0
-		var lateral := direction.orthogonal() * sin(progress * TAU * 2.0) * 5.0
-		draw_rect(Rect2(-direction * (progress * 28.0) + lateral, Vector2(2.0, 2.0)), color, true)
+	var color := Color(1.0, 0.96, 0.9, 1.0) if not is_reflected else Color(0.25, 0.96, 1.0, 1.0)
+	var glow_color := Color(color.r, color.g, color.b, 0.28)
+	var half_cone := deg_to_rad(22.5)
+	var front_radius := 30.0 if not is_reflected else 38.0
+	for arc_index in range(7):
+		var arc_radius := front_radius + float(arc_index) * 3.0
+		for pixel_index in range(25):
+			var progress := float(pixel_index) / 24.0
+			var angle := direction.angle() + lerpf(-half_cone, half_cone, progress)
+			var wobble := sin(progress * TAU * 3.0 + float(arc_index)) * 2.0
+			var pixel := (Vector2.from_angle(angle) * (arc_radius + wobble)).round()
+			draw_rect(Rect2(pixel - Vector2.ONE, Vector2(3.0, 3.0)), color, true)
+	for index in range(18):
+		var progress := float(index) / 17.0
+		var trail_position := -direction * lerpf(8.0, 150.0, progress)
+		var alpha := (1.0 - progress) * 0.72
+		draw_rect(Rect2(trail_position.round(), Vector2(4.0, 4.0)), Color(glow_color.r, glow_color.g, glow_color.b, alpha), true)
 
 
 func _physics_process(delta: float) -> void:
