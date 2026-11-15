@@ -131,7 +131,10 @@ func rebuild_from_generator(generator: CourseGenerator) -> void:
 		roof.self_modulate = Color(1.0, 1.0, 1.0, 1.0)
 		roof.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		for roof_cell in roof.get_used_cells():
-			_register_cell(roof_cell, TileKind.SAFE, false)
+			if tiles.has(roof_cell):
+				continue
+			var is_sub_floor := roof_cell.y >= 0
+			_register_cell(roof_cell, TileKind.SAFE, is_sub_floor)
 
 	queue_redraw()
 
@@ -228,7 +231,7 @@ func is_unlit_airborne_obstacle_at_world_pos(world_position: Vector2, light_thre
 	return float(tile["light_level"]) < light_threshold
 
 
-func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int = 0) -> void:
+func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int = 0, hit_normal: Vector2 = Vector2.ZERO) -> void:
 	if not tiles.has(world_cell):
 		return
 	var tile: Dictionary = tiles[world_cell]
@@ -236,6 +239,8 @@ func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int
 	var clamped_level := clampf(level, min_light, 1.0)
 	tile["light_level"] = maxf(float(tile["light_level"]), clamped_level)
 	tile["last_hit_color"] = _resolve_tile_hit_color(int(tile["kind"]), bounce_count)
+	if not hit_normal.is_zero_approx():
+		tile["hit_normal"] = hit_normal
 	tile_illuminated.emit(world_cell, int(tile["kind"]), float(tile["light_level"]))
 
 	for offset in NEIGHBOR_OFFSETS:
@@ -247,6 +252,8 @@ func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int
 		var boosted := clampf(float(neighbor["light_level"]) + neighbor_light_boost, neighbor_min, 1.0)
 		neighbor["light_level"] = boosted
 		neighbor["last_hit_color"] = _resolve_tile_hit_color(int(neighbor["kind"]), bounce_count)
+		if not hit_normal.is_zero_approx() and Vector2(neighbor.get("hit_normal", Vector2.ZERO)).is_zero_approx():
+			neighbor["hit_normal"] = hit_normal
 
 
 func world_to_grid(world_position: Vector2) -> Vector2i:
@@ -334,7 +341,7 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 			var normal := _compute_grid_normal(current_cell, next_cell, velocity)
 			var impact_pos := _compute_impact_point(current_pos, next_pos, next_cell, normal)
 
-			illuminate_cell(next_cell, 1.0, bounce_count)
+			illuminate_cell(next_cell, 1.0, bounce_count, normal)
 
 			if hit_kind == TileKind.ABSORBER:
 				_spawn_impact_ripple(impact_pos, absorber_tile_color, 6.0, normal)
@@ -445,19 +452,66 @@ func _draw() -> void:
 		var is_floor := bool(tile["is_floor"])
 		var visibility := (0.34 + 0.66 * light_level) if is_floor else (0.20 + 0.80 * light_level)
 
-		# Darken unlit/fading tiles with a transparent shadow mask so underlying pixel-art tile textures show through
+		# Use #21263f shadow mask so the bottom of tiles (which already fades to #21263f) blends seamlessly into the background
 		var shadow_alpha := clampf(1.0 - visibility, 0.0, 1.0)
 		if shadow_alpha > 0.001:
-			draw_rect(local_rect, Color(0.0, 0.0, 0.0, shadow_alpha), true)
+			draw_rect(local_rect, Color(0.129412, 0.14902, 0.247059, shadow_alpha), true)
 
-		# Subtle 1px pixel-aligned contour tint when illuminated by sonar waves
-		if light_level > 0.05:
+		# Only illuminate the top or the specific face that the wave hit (never the bottom of floor blocks or the whole 48x48 box)
+		if light_level > floor_min_light_level + 0.02 or (not is_floor and light_level > 0.05):
 			var base_color: Color = tile["last_hit_color"]
-			var border_alpha := light_level * (0.22 if is_floor else 0.34)
-			var border_color := Color(base_color.r, base_color.g, base_color.b, border_alpha)
-			draw_rect(local_rect.grow(-1.0), border_color, false, WAVE_PIXEL_SIZE)
+			var face_alpha := light_level * (0.28 if is_floor else 0.36)
+			var face_color := Color(base_color.r, base_color.g, base_color.b, face_alpha)
+			var face_normal := _resolve_tile_face_normal(cell, tile)
+			_draw_tile_face_highlight(local_rect, face_normal, face_color)
 
 	_draw_wave_arcs()
+
+
+func _resolve_tile_face_normal(cell: Vector2i, tile: Dictionary) -> Vector2:
+	var hit_normal: Vector2 = tile.get("hit_normal", Vector2.ZERO)
+	var is_floor := bool(tile["is_floor"])
+	if is_floor:
+		if not is_zero_approx(hit_normal.x) and not tiles.has(cell + Vector2i(roundi(hit_normal.x), 0)):
+			return Vector2(signf(hit_normal.x), 0.0)
+		return Vector2.UP
+	if not hit_normal.is_zero_approx():
+		return hit_normal
+	if not tiles.has(cell + Vector2i.UP):
+		return Vector2.UP
+	if not tiles.has(cell + Vector2i.DOWN):
+		return Vector2.DOWN
+	if not tiles.has(cell + Vector2i.RIGHT):
+		return Vector2.RIGHT
+	if not tiles.has(cell + Vector2i.LEFT):
+		return Vector2.LEFT
+	return Vector2.UP
+
+
+func _draw_tile_face_highlight(local_rect: Rect2, face_normal: Vector2, color: Color) -> void:
+	var strip_thickness := ART_PIXEL_SIZE * 2.0
+	if face_normal.y < -0.5:
+		draw_rect(Rect2(local_rect.position, Vector2(local_rect.size.x, strip_thickness)), color, true)
+	elif face_normal.y > 0.5:
+		draw_rect(
+			Rect2(
+				Vector2(local_rect.position.x, local_rect.end.y - strip_thickness),
+				Vector2(local_rect.size.x, strip_thickness),
+			),
+			color,
+			true,
+		)
+	elif face_normal.x < -0.5:
+		draw_rect(Rect2(local_rect.position, Vector2(strip_thickness, local_rect.size.y)), color, true)
+	elif face_normal.x > 0.5:
+		draw_rect(
+			Rect2(
+				Vector2(local_rect.end.x - strip_thickness, local_rect.position.y),
+				Vector2(strip_thickness, local_rect.size.y),
+			),
+			color,
+			true,
+		)
 
 
 func _draw_wave_arcs() -> void:

@@ -20,6 +20,14 @@ func _initialize() -> void:
 
 	var title_panel := race.get_node("GlobalUi/TitlePanel") as MainMenu
 	var menu_sprite := title_panel.get_node("BackgroundSprite") as AnimatedSprite2D
+	var wind_streaks := title_panel.get_node("WindStreaks") as CPUParticles2D
+	var wind_dust := title_panel.get_node("WindDust") as CPUParticles2D
+	assert(wind_streaks != null and wind_streaks.emitting)
+	assert(wind_dust != null and wind_dust.emitting)
+	var bg_one := player_one_world.get_node("Background") as Polygon2D
+	var dust_one := player_one_world.get_node("DustParticles") as CPUParticles2D
+	assert(bg_one.color.is_equal_approx(Color(0.129412, 0.14902, 0.247059, 1.0)))
+	assert(dust_one != null and dust_one.emitting)
 	assert(title_panel.visible)
 	assert(not title_panel.is_playing_outro())
 	assert(title_panel.get_selected_index() == 0)

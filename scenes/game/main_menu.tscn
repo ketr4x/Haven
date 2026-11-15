@@ -166,6 +166,46 @@ sprite_frames = SubResource("SpriteFrames_main_menu")
 animation = &"idle"
 centered = false
 
+[node name="WindStreaks" type="CPUParticles2D" parent="."]
+texture_filter = 1
+position = Vector2(640, 360)
+amount = 6
+lifetime = 3.2
+preprocess = 2.0
+randomness = 0.35
+fixed_fps = 30
+emission_shape = 3
+emission_rect_extents = Vector2(720, 360)
+direction = Vector2(-1, 0.12)
+spread = 8.0
+gravity = Vector2(-8, 3)
+initial_velocity_min = 95.0
+initial_velocity_max = 155.0
+scale_amount_min = 1.0
+scale_amount_max = 1.5
+color = Color(0.78, 0.92, 0.96, 0.16)
+
+[node name="WindDust" type="CPUParticles2D" parent="."]
+texture_filter = 1
+position = Vector2(640, 360)
+amount = 12
+lifetime = 4.2
+preprocess = 2.0
+randomness = 0.45
+fixed_fps = 30
+emission_shape = 3
+emission_rect_extents = Vector2(720, 360)
+direction = Vector2(-1, 0.15)
+spread = 18.0
+gravity = Vector2(-6, 4)
+initial_velocity_min = 38.0
+initial_velocity_max = 78.0
+tangential_accel_min = -8.0
+tangential_accel_max = 8.0
+scale_amount_min = 1.5
+scale_amount_max = 2.5
+color = Color(0.86, 0.94, 0.96, 0.22)
+
 [node name="MenuOverlay" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
