@@ -14,6 +14,8 @@ const UNSELECTED_COLOR := Color(0.74902, 0.74902, 0.74902, 0.92)
 const DEFAULT_OPTIONS: Array[String] = ["GRAJ", "WYJDŹ"]
 
 @onready var _background_sprite: AnimatedSprite2D = $BackgroundSprite
+@onready var _moon_halo: Sprite2D = get_node_or_null("BackgroundSprite/MoonHalo") as Sprite2D
+@onready var _moon_light: PointLight2D = get_node_or_null("BackgroundSprite/MoonLight") as PointLight2D
 @onready var _wind_streaks: CPUParticles2D = $WindStreaks
 @onready var _wind_dust: CPUParticles2D = $WindDust
 @onready var _menu_overlay: Control = $MenuOverlay
@@ -39,6 +41,7 @@ const DEFAULT_OPTIONS: Array[String] = ["GRAJ", "WYJDŹ"]
 var _selected_index: int = 0
 var _is_playing_outro: bool = false
 var _option_texts: Array[String] = DEFAULT_OPTIONS.duplicate()
+var _moon_pulse_time: float = 0.0
 
 
 func _ready() -> void:
@@ -50,8 +53,20 @@ func _ready() -> void:
 		row.mouse_entered.connect(_on_option_mouse_entered.bind(index))
 		row.gui_input.connect(_on_option_gui_input.bind(index))
 	_setup_wind_particles()
+	_setup_moon_light()
 	_update_background_layout()
 	reset_to_idle()
+
+
+func _process(delta: float) -> void:
+	_moon_pulse_time += delta
+	var wave := sin(_moon_pulse_time * 1.4)
+	if _moon_light != null:
+		_moon_light.energy = 0.88 + wave * 0.12
+	if _moon_halo != null:
+		_moon_halo.modulate.a = 0.38 + wave * 0.08
+		var s := 0.38 + wave * 0.025
+		_moon_halo.scale = Vector2(s, s)
 
 
 func _setup_wind_particles() -> void:
@@ -62,6 +77,32 @@ func _setup_wind_particles() -> void:
 		var edge_fade := sin(PI * float(x + 1) / 11.0) * 0.75
 		img.set_pixel(x, 0, Color(1.0, 1.0, 1.0, edge_fade))
 	_wind_streaks.texture = ImageTexture.create_from_image(img)
+
+
+func _setup_moon_light() -> void:
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.25, 0.65, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1.0, 1.0, 1.0, 1.0),
+		Color(0.96, 0.98, 1.0, 0.65),
+		Color(0.88, 0.94, 1.0, 0.18),
+		Color(0.85, 0.92, 1.0, 0.0),
+	])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.width = 128
+	tex.height = 128
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+
+	if _moon_light != null:
+		_moon_light.texture = tex
+	if _moon_halo != null:
+		_moon_halo.texture = tex
+		var add_mat := CanvasItemMaterial.new()
+		add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		_moon_halo.material = add_mat
 
 
 func reset_to_idle() -> void:

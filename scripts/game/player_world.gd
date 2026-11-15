@@ -28,8 +28,8 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/player_vignette.gdshader"
 @export var scream_extra_bounces: int = 1
 @export var jump_land_ray_count: int = 120
 @export var jump_land_range_multiplier: float = 0.68
-@export var footstep_ray_count: int = 64
-@export var footstep_range_multiplier: float = 0.34
+@export var footstep_ray_count: int = 40
+@export var footstep_range_multiplier: float = 0.22
 @export_range(1.0, 20.0, 0.5) var max_footstep_loudness: float = 8.0
 @export_range(0.05, 0.5, 0.05) var unlit_obstacle_light_threshold: float = 0.2
 
@@ -53,6 +53,8 @@ var sonar_grid: SonarGrid
 var vignette_rect: ColorRect
 var _vignette_material: ShaderMaterial
 var _vignette_pulse_strength: float = 0.0
+var _silence_dim_amount: float = 0.0
+var _shout_glow_amount: float = 0.0
 var _next_pulse_id: int = 0
 var _activated_pulses: Dictionary = {}
 var death_height: float = INF
@@ -95,6 +97,7 @@ func _ready() -> void:
 	_player.landed.connect(func(_p: Vector2) -> void: _queue_local_event("land"))
 	_player.wall_jumped.connect(func(_p: Vector2, _n: Vector2) -> void: _queue_local_event("wall_jump"))
 	_player.slide_started.connect(func(_p: Vector2, _d: Vector2) -> void: _queue_local_event("slide"))
+	_player.impact_stunned.connect(func(_p: Vector2) -> void: _queue_local_event("impact_stun"))
 	player_died.connect(func(_p: int) -> void: _queue_local_event("died"))
 
 
@@ -119,6 +122,7 @@ func _process(delta: float) -> void:
 	var dust := get_node_or_null("DustParticles") as CPUParticles2D
 	if dust != null and _player != null:
 		dust.global_position = _player.global_position
+		dust.modulate.a = lerpf(1.0, 0.58, _silence_dim_amount)
 
 	if _player != null and not _player.is_remote:
 		if _respawn_time_remaining > 0.0:
@@ -137,6 +141,7 @@ func _process(delta: float) -> void:
 	if _player != null \
 		and _race_active \
 		and _player.is_player_on_floor() \
+		and not _player.is_sliding() \
 		and absf(_player.velocity.x) >= walking_echo_speed_threshold:
 		_echo_overlay.walking_preview(_player.loudness)
 
@@ -145,6 +150,19 @@ func _update_vignette_overlay(delta: float) -> void:
 	if _vignette_pulse_strength > 0.0:
 		var decay := delta / maxf(0.1, scream_vignette_hold_duration)
 		_vignette_pulse_strength = maxf(0.0, _vignette_pulse_strength - decay)
+	if _shout_glow_amount > 0.0:
+		_shout_glow_amount = maxf(0.0, _shout_glow_amount - delta * 2.8)
+
+	var has_active_waves := sonar_grid != null and not sonar_grid.active_rays.is_empty()
+	var target_silence := 0.0 if (has_active_waves or _vignette_pulse_strength > 0.10) else (1.0 if _race_active else 0.35)
+	var silence_rate := 5.5 if target_silence < _silence_dim_amount else 1.15
+	_silence_dim_amount = move_toward(_silence_dim_amount, target_silence, delta * silence_rate)
+
+	if sonar_grid != null:
+		sonar_grid.set_silence_dim(_silence_dim_amount)
+	if _player != null:
+		_player.set_ambient_light_scale(1.0 - 0.32 * _silence_dim_amount)
+
 	_update_vignette_uniforms(_vignette_pulse_strength)
 
 
@@ -164,6 +182,8 @@ func _update_vignette_uniforms(strength: float) -> void:
 		"darkness_alpha",
 		lerpf(base_vignette_darkness, scream_vignette_darkness, eased),
 	)
+	_vignette_material.set_shader_parameter("silence_dim", _silence_dim_amount)
+	_vignette_material.set_shader_parameter("pulse_glow", _shout_glow_amount)
 
 
 func configure_for_local_slot(slot: int) -> void:
@@ -277,6 +297,8 @@ func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: 
 				_player.trigger_remote_wall_jump(Vector2.LEFT if facing > 0.0 else Vector2.RIGHT)
 			"slide":
 				_player.trigger_remote_slide()
+			"impact_stun":
+				_player.trigger_remote_impact_stun()
 			"died":
 				_clear_waves()
 				_player.global_position = _generator.to_global(_generator.player_spawn)
@@ -342,27 +364,19 @@ func _on_player_sonic_shouted(origin: Vector2, direction: Vector2, loudness: flo
 func _on_sonar_wall_broken(_position: Vector2, _cell: Vector2i) -> void:
 	_audio_feedback.play_wall_break()
 	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.45)
+	_shout_glow_amount = maxf(_shout_glow_amount, 0.65)
+	if _player != null:
+		_player.add_camera_trauma(0.32)
 	_update_vignette_uniforms(_vignette_pulse_strength)
-
 
 
 func _on_player_footstep_emitted(_origin: Vector2, _direction: Vector2, _loudness: float) -> void:
 	_audio_feedback.play_footstep()
 
 
-func _on_player_slide_started(position: Vector2, direction: Vector2) -> void:
-	_audio_feedback.play_landing()
-	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.24)
-	_update_vignette_uniforms(_vignette_pulse_strength)
-	if sonar_grid != null:
-		sonar_grid.emit_pulse(
-			position,
-			direction,
-			footstep_ray_count,
-			footstep_range_multiplier * 1.4,
-			0,
-			SonarGrid.PulseKind.RUN,
-		)
+func _on_player_slide_started(_position: Vector2, _direction: Vector2) -> void:
+	# Slide is fast and stealthy: no sonar wave pulse is emitted.
+	pass
 
 
 func _on_player_landed(position: Vector2) -> void:
@@ -411,8 +425,8 @@ func _on_player_wall_jumped(position: Vector2, normal: Vector2) -> void:
 
 
 func _on_footstep_emitted(origin: Vector2, direction: Vector2, loudness: float) -> void:
-	# Footsteps cap at max_footstep_loudness (8.0) and emit moderate local waves so running is not overpowered.
-	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.14)
+	# Footsteps emit restrained local waves so running does not replace jumping/shouting for vision.
+	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.06)
 	_update_vignette_uniforms(_vignette_pulse_strength)
 	if sonar_grid != null:
 		var clamped_step_loudness := clampf(loudness, 1.0, max_footstep_loudness)
@@ -425,7 +439,7 @@ func _on_footstep_emitted(origin: Vector2, direction: Vector2, loudness: float) 
 			direction,
 			footstep_ray_count,
 			step_scale,
-			-2,
+			-3,
 			SonarGrid.PulseKind.RUN,
 		)
 
@@ -443,6 +457,8 @@ func _on_player_pulsed(
 	_echo_overlay.preview(loudness)
 	_player.apply_rebound_boost()
 	_vignette_pulse_strength = 1.0
+	_shout_glow_amount = 1.0
+	_silence_dim_amount = 0.0
 	_update_vignette_uniforms(_vignette_pulse_strength)
 	if sonar_grid != null:
 		sonar_grid.emit_pulse(
@@ -479,6 +495,8 @@ func _check_unlit_airborne_collision() -> void:
 func _on_course_generated(_seed: int, _signature: String) -> void:
 	_respawn_time_remaining = 0.0
 	_vignette_pulse_strength = 0.0
+	_silence_dim_amount = 0.0
+	_shout_glow_amount = 0.0
 	_update_vignette_uniforms(0.0)
 	death_height = _generator.to_global(Vector2(0.0, _generator.fall_death_y)).y
 	_player.global_position = _generator.to_global(_generator.player_spawn)

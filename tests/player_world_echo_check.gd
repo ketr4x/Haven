@@ -27,6 +27,9 @@ func _initialize() -> void:
 	assert(is_equal_approx(player.loudness, 8.0))
 
 	sonar.clear_waves()
+	world._on_player_slide_started(player.global_position, Vector2.RIGHT)
+	assert(sonar.active_rays.is_empty())
+
 	world._on_footstep_emitted(player.global_position, Vector2.RIGHT, 50.0)
 	assert(sonar.active_rays.size() == world.footstep_ray_count)
 	var step_forward_ray: Dictionary = sonar.active_rays[0]
@@ -56,13 +59,22 @@ func _initialize() -> void:
 	assert(float(scream_forward_ray["max_lifetime"]) > jump_max_life * 2.0)
 	sonar.clear_waves()
 
-	# 4. Hitting an unlit airborne block significantly slows down the player.
+	# 4. Hitting an unlit airborne block significantly slows down the player and triggers flash.
 	player.blind_impact_slowed.connect(_on_blind_slowed)
 	player.velocity = Vector2(300.0, 0.0)
 	player.apply_blind_obstacle_slowdown()
 	assert(_blind_slowed)
 	assert(player.is_blind_slowed())
+	assert(player.is_stunned())
 	assert(player.velocity.x < 160.0)
+
+	# 5. Silence darkens outer vignette gently while keeping inner play area clear.
+	world._race_active = true
+	world._vignette_pulse_strength = 0.0
+	sonar.clear_waves()
+	world._update_vignette_overlay(1.5)
+	var vignette_mat := world.vignette_rect.material as ShaderMaterial
+	assert(float(vignette_mat.get_shader_parameter("silence_dim")) > 0.5)
 
 	world.queue_free()
 	for frame in 30:

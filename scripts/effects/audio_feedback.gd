@@ -26,22 +26,27 @@ func _process(delta: float) -> void:
 
 
 func play_footstep() -> void:
+	_footstep.pitch_scale = randf_range(0.92, 1.08)
 	_footstep.play()
 
 
 func play_landing() -> void:
+	_land.pitch_scale = randf_range(0.94, 1.06)
 	_land.play()
 
 
 func play_jump() -> void:
+	_jump.pitch_scale = randf_range(0.95, 1.06)
 	_jump.play()
 
 
 func play_wall_jump() -> void:
+	_wall_jump.pitch_scale = randf_range(0.95, 1.07)
 	_wall_jump.play()
 
 
 func play_shout() -> void:
+	_shout.pitch_scale = randf_range(0.97, 1.03)
 	_shout.play()
 
 
@@ -49,6 +54,7 @@ func play_wave_bounce(_position: Vector2, _normal: Vector2, bounce_count: int) -
 	if bounce_count > 3 or _bounce_cooldown_remaining > 0.0:
 		return
 	_bounce_cooldown_remaining = wave_bounce_cooldown
+	_wave_bounce.pitch_scale = randf_range(0.92, 1.10)
 	_wave_bounce.play()
 
 
@@ -62,4 +68,5 @@ func play_finish() -> void:
 
 func play_wall_break() -> void:
 	if _wall_break != null:
+		_wall_break.pitch_scale = randf_range(0.95, 1.05)
 		_wall_break.play()

@@ -83,6 +83,7 @@ func _physics_process(delta: float) -> void:
 func _process(_delta: float) -> void:
 	var fade := clampf(_remaining_lifetime / maxf(0.001, lifetime), 0.0, 1.0)
 	modulate.a = pow(fade, _decay_power)
+	scale = Vector2.ONE * lerpf(0.18, 1.0, fade)
 
 
 func _compute_decay_power(max_lifetime: float) -> float:

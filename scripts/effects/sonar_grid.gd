@@ -67,7 +67,7 @@ const ARC_SUBDIVISIONS: int = 2
 @export var hazard_tile_color: Color = Color(0.75, 0.41, 0.47, 1.0)
 @export var bounce_pad_tile_color: Color = Color(0.94, 0.92, 0.75, 1.0)
 @export var absorber_tile_color: Color = Color(0.28, 0.29, 0.45, 1.0)
-@export var breakable_tile_color: Color = Color(0.98, 0.62, 0.25, 1.0)
+@export var breakable_tile_color: Color = Color(0.55, 0.90, 1.0, 1.0)
 @export var player_accent_color: Color = Color(0.76, 0.95, 0.95, 1.0)
 
 var grid_origin: Vector2 = Vector2.ZERO
@@ -77,6 +77,7 @@ var active_ripples: Array[Dictionary] = []
 
 var _next_pulse_group_id: int = 0
 var _wave_time: float = 0.0
+var silence_dim: float = 0.0
 var _sim_tick: int = 0
 var _lit_tiles: Dictionary = {}
 var _arc_points: PackedVector2Array = PackedVector2Array()
@@ -92,6 +93,13 @@ func _ready() -> void:
 func set_player_accent_color(color: Color) -> void:
 	player_accent_color = color
 	queue_redraw()
+
+
+func set_silence_dim(value: float) -> void:
+	var clamped := clampf(value, 0.0, 1.0)
+	if not is_equal_approx(silence_dim, clamped):
+		silence_dim = clamped
+		queue_redraw()
 
 
 func clear_waves() -> void:
@@ -416,6 +424,8 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 			var visibility_level := clampf(remaining_lifetime / maxf(0.05, fade_duration), 0.0, 1.0)
 			if bounce_count == 1 and life_ratio >= 0.85 and max_life >= fade_duration * 0.9:
 				visibility_level = 1.0
+			if int(ray.get("pulse_kind", PulseKind.RUN)) == PulseKind.RUN:
+				visibility_level *= 0.55
 			illuminate_cell(next_cell, visibility_level, bounce_count, normal)
 
 			if hit_kind == TileKind.ABSORBER:
@@ -546,12 +556,15 @@ func _draw_tile_cell(cell: Vector2i, tile: Dictionary) -> void:
 	var local_rect := Rect2(to_local(rect.position), rect.size)
 	var light_level := clampf(float(tile["light_level"]), 0.0, 1.0)
 	var is_floor := bool(tile["is_floor"])
+	var kind := int(tile["kind"])
 	var visibility := (0.34 + 0.66 * light_level) if is_floor else (0.20 + 0.80 * light_level)
 
-	# Use #21263f shadow mask so the bottom of tiles (which already fades to #21263f) blends seamlessly into the background
-	var shadow_alpha := clampf(1.0 - visibility, 0.0, 1.0)
-	if shadow_alpha > 0.001:
-		draw_rect(local_rect, Color(0.129412, 0.14902, 0.247059, shadow_alpha), true)
+	if kind != TileKind.BREAKABLE:
+		# Use #21263f shadow mask so the bottom of tiles blends seamlessly into the background; gently deepens in silence.
+		var silence_extra := silence_dim * (0.04 if is_floor else 0.08) * (1.0 - light_level)
+		var shadow_alpha := clampf(1.0 - visibility + silence_extra, 0.0, 0.90)
+		if shadow_alpha > 0.001:
+			draw_rect(local_rect, Color(0.129412, 0.14902, 0.247059, shadow_alpha), true)
 
 	# Only illuminate the top or the specific face that the wave hit (never the bottom of floor blocks or the whole 48x48 box)
 	if light_level > floor_min_light_level + 0.02 or (not is_floor and light_level > 0.05):
@@ -686,12 +699,19 @@ func _draw_wave_arcs() -> void:
 				var amp_scale := (1.0 if is_forward else 0.6) * (0.35 + 0.65 * life_ratio)
 				var subdivisions := ARC_SUBDIVISIONS if (bounce_a == 0 and span_sq > 144.0) else 1
 
+				# Waves shrink over their active lifetime: band spread contracts, arc segments narrow, and pixels thin out.
+				var band_spread_scale := lerpf(0.15, 1.0, life_ratio)
+				var span_shrink := clampf(life_ratio / 0.85, 0.18, 1.0)
+				var seg_mid := pos_a.lerp(pos_b, 0.5)
+				var shrunk_a := seg_mid.lerp(pos_a, span_shrink)
+				var shrunk_b := seg_mid.lerp(pos_b, span_shrink)
+
 				for band_idx in band_count:
-					var band_scale := 1.0 if band_idx == 1 else 0.52
+					var band_scale := 1.0 if band_idx == 1 else (0.52 * clampf((life_ratio - 0.35) / 0.65, 0.0, 1.0))
 					var band_alpha := raw_alpha * band_scale
 					if band_alpha < 0.002:
 						continue
-					var offset_px := ARC_BAND_OFFSETS[band_idx]
+					var offset_px := ARC_BAND_OFFSETS[band_idx] * band_spread_scale
 					var band_amp := wave_undulation_amplitude * (1.0 if band_idx == 1 else 0.65) * amp_scale
 					var band_phase := quantized_time * wave_undulation_speed + float(band_idx) * 1.4
 					var seg_color := Color(arc_color.r, arc_color.g, arc_color.b, band_alpha)
@@ -699,7 +719,7 @@ func _draw_wave_arcs() -> void:
 					var prev_pt := Vector2.ZERO
 					for step in range(subdivisions + 1):
 						var t := float(step) / float(subdivisions)
-						var base_pos := pos_a.lerp(pos_b, t)
+						var base_pos := shrunk_a.lerp(shrunk_b, t)
 						var interp_dir := dir_a.lerp(dir_b, t).normalized()
 						if interp_dir.is_zero_approx():
 							interp_dir = dir_a
@@ -733,13 +753,14 @@ func _draw_wave_arcs() -> void:
 			var pos: Vector2 = ray["position"]
 			var arc_color := _resolve_ray_color(int(ray["bounce_count"]), int(ray["pulse_kind"]))
 			var half_width := (6.5 if is_forward else 4.5) * (0.55 + 0.45 * life_ratio)
+			var band_spread_scale := lerpf(0.15, 1.0, life_ratio)
 
 			for band_idx in band_count:
-				var band_scale := 1.0 if band_idx == 1 else 0.48
+				var band_scale := 1.0 if band_idx == 1 else (0.48 * clampf((life_ratio - 0.35) / 0.65, 0.0, 1.0))
 				var band_alpha := raw_alpha * band_scale
 				if band_alpha < 0.002:
 					continue
-				var offset_px := ARC_BAND_OFFSETS[band_idx]
+				var offset_px := ARC_BAND_OFFSETS[band_idx] * band_spread_scale
 				var seg_color := Color(arc_color.r, arc_color.g, arc_color.b, band_alpha)
 				var left_pt := _snap_wave_point(pos - tangent * half_width + dir * (offset_px - 1.5))
 				var mid_pt := _snap_wave_point(pos + dir * offset_px)

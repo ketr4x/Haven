@@ -41,7 +41,10 @@ enum MenuScreen {
 @onready var _player_one_timer_label: Label = $GlobalUi/PlayerOneTimer
 @onready var _player_two_timer_label: Label = $GlobalUi/PlayerTwoTimer
 @onready var _finish_status_label: Label = $GlobalUi/FinishStatus
+@onready var _player_one_finish_banner: Control = $GlobalUi/PlayerOneFinishBanner
+@onready var _player_two_finish_banner: Control = $GlobalUi/PlayerTwoFinishBanner
 @onready var _winner_label: Label = $GlobalUi/ResultPanel/Winner
+@onready var _placement_summary_label: Label = $GlobalUi/ResultPanel/PlacementSummary
 @onready var _times_label: Label = $GlobalUi/ResultPanel/Times
 @onready var _result_reminder: Label = $GlobalUi/ResultPanel/Reminder
 @onready var _result_actions: Label = $GlobalUi/ResultPanel/Actions
@@ -49,6 +52,7 @@ enum MenuScreen {
 @onready var _countdown_label: Label = $GlobalUi/Countdown
 @onready var _pause_panel: Control = $GlobalUi/PausePanel
 @onready var _result_panel: Control = $GlobalUi/ResultPanel
+@onready var _invert_flash_rect: ColorRect = $InvertLayer/InvertFlashRect
 @onready var _transition_rect: ColorRect = $TransitionLayer/TransitionRect
 
 var _seed: int = 0
@@ -62,6 +66,7 @@ var _session_mode: SessionMode = SessionMode.LOCAL
 var _menu_screen: MenuScreen = MenuScreen.MAIN
 var _status_send_remaining: float = 0.0
 var _transition_tween: Tween
+var _invert_tween: Tween
 
 
 func _ready() -> void:
@@ -174,9 +179,12 @@ func _generate_race(seed: int) -> void:
 	_player_finish_times.clear()
 	_seed_label.text = ""
 	_winner_label.text = ""
+	_placement_summary_label.text = ""
 	_times_label.text = ""
 	_finish_status_label.text = ""
 	_finish_status_label.visible = false
+	_hide_finish_banners()
+	_cancel_invert_flash()
 	_update_timer_labels()
 	_player_one_world.generate_course(_seed)
 	_player_two_world.generate_course(_seed)
@@ -184,6 +192,7 @@ func _generate_race(seed: int) -> void:
 
 func _restart_course() -> void:
 	_cancel_transition()
+	_cancel_invert_flash()
 	get_tree().paused = false
 	_generate_race(_next_random_seed())
 	_set_race_state(RaceState.TITLE)
@@ -302,10 +311,14 @@ func _on_player_finished(player_number: int) -> void:
 	if _race_state != RaceState.RACING or _player_finish_times.has(player_number):
 		return
 
+	_play_finish_invert_flash()
+
 	if _session_mode == SessionMode.ONLINE:
 		_player_finish_times[player_number] = _race_elapsed
 		_player_one_world.set_race_active(false)
 		_online_match.submit_local_finish(_race_elapsed)
+		var place := 1 if _player_finish_times.size() == 1 else 2
+		_show_player_finish_banner(1, place, _race_elapsed)
 		_finish_status_label.text = "JESTEŚ NA MECIE. PRZECIWNIK JEDZIE DALEJ."
 		_finish_status_label.visible = true
 		_update_timer_labels()
@@ -314,14 +327,18 @@ func _on_player_finished(player_number: int) -> void:
 	_player_finish_times[player_number] = _race_elapsed
 	_get_player_world(player_number).set_race_active(false)
 	_update_timer_labels()
+	var placement := 1 if _player_finish_times.size() == 1 else 2
+	_show_player_finish_banner(player_number, placement, _race_elapsed)
 	if _player_finish_times.size() < 2:
 		_finish_status_label.text = "GRACZ %d NA MECIE. DRUGI GRACZ JEDZIE DALEJ." % player_number
 		_finish_status_label.visible = true
 		return
 
 	_finish_status_label.visible = false
+	_hide_finish_banners()
 	var winner_number := _winner_number()
 	_winner_label.text = "WYGRYWA GRACZ %d" % winner_number
+	_update_placement_summary("GRACZ 1", "GRACZ 2")
 	_times_label.text = "GRACZ 1  %s\nGRACZ 2  %s" % [
 		_format_time(float(_player_finish_times[1])),
 		_format_time(float(_player_finish_times[2])),
@@ -425,6 +442,8 @@ func _on_online_rematch_waiting() -> void:
 func _on_online_opponent_finished(player_slot: int, elapsed: float) -> void:
 	_player_finish_times[player_slot] = elapsed
 	_player_two_world.set_race_active(false)
+	var place := 1 if _player_finish_times.size() == 1 else 2
+	_show_player_finish_banner(2, place, elapsed)
 	_finish_status_label.text = "PRZECIWNIK JEST NA MECIE. JEDŹ DALEJ."
 	_finish_status_label.visible = true
 	_update_timer_labels()
@@ -438,7 +457,11 @@ func _on_online_opponent_snapshot_received(pos: Vector2, vel: Vector2, facing: f
 func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> void:
 	_player_finish_times = finish_times.duplicate(true)
 	_finish_status_label.visible = false
+	_hide_finish_banners()
 	_winner_label.text = "WYGRYWASZ" if winner_slot == _online_match.player_slot else "WYGRYWA PRZECIWNIK"
+	var p1_label := _online_match.local_display_name if _online_match.player_slot == 1 else (_online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else "PRZECIWNIK")
+	var p2_label := _online_match.local_display_name if _online_match.player_slot == 2 else (_online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else "PRZECIWNIK")
+	_update_placement_summary(p1_label, p2_label)
 	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
 	_result_reminder.text = "WYNIK MECZU ONLINE"
 	_times_label.text = "GRACZ 1  %s\nGRACZ 2  %s" % [
@@ -450,6 +473,8 @@ func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> vo
 
 func _on_online_opponent_left(_client_id: int) -> void:
 	_finish_status_label.visible = false
+	_hide_finish_banners()
+	_placement_summary_label.text = ""
 	_winner_label.text = "PRZECIWNIK OPUŚCIŁ MECZ"
 	_times_label.text = ""
 	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
@@ -459,6 +484,8 @@ func _on_online_opponent_left(_client_id: int) -> void:
 
 func _on_online_match_failed(reason: String) -> void:
 	_finish_status_label.visible = false
+	_hide_finish_banners()
+	_placement_summary_label.text = ""
 	_winner_label.text = "NIE UDAŁO SIĘ ROZPOCZĄĆ MECZU"
 	_times_label.text = reason
 	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
@@ -559,6 +586,88 @@ func _get_player_world(player_number: int) -> PlayerWorld:
 
 func _winner_number() -> int:
 	return 1 if float(_player_finish_times[1]) <= float(_player_finish_times[2]) else 2
+
+
+func _play_finish_invert_flash() -> void:
+	if _invert_flash_rect == null:
+		return
+	_cancel_invert_flash()
+	_invert_flash_rect.visible = true
+	_set_invert_intensity(1.0)
+	_invert_tween = create_tween()
+	_invert_tween.tween_interval(0.075)
+	_invert_tween.tween_method(_set_invert_intensity, 1.0, 0.0, 0.045).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_invert_tween.tween_callback(func() -> void:
+		_invert_flash_rect.visible = false
+		_invert_tween = null
+	)
+
+
+func _cancel_invert_flash() -> void:
+	if _invert_tween != null and _invert_tween.is_valid():
+		_invert_tween.kill()
+	_invert_tween = null
+	_set_invert_intensity(0.0)
+	if _invert_flash_rect != null:
+		_invert_flash_rect.visible = false
+
+
+func _set_invert_intensity(value: float) -> void:
+	if _invert_flash_rect == null:
+		return
+	var mat := _invert_flash_rect.material as ShaderMaterial
+	if mat != null:
+		mat.set_shader_parameter(&"intensity", value)
+
+
+func _show_player_finish_banner(viewport_slot: int, place: int, elapsed: float) -> void:
+	var banner := _player_one_finish_banner if viewport_slot == 1 else _player_two_finish_banner
+	if banner == null:
+		return
+	var place_label := banner.get_node_or_null("Place") as Label
+	var time_label := banner.get_node_or_null("Time") as Label
+	var border := banner.get_node_or_null("Border") as ReferenceRect
+	var accent := Color(0.941176, 0.921569, 0.752941, 1.0) if place == 1 else Color(0.760784, 0.94902, 0.94902, 1.0)
+	if place_label != null:
+		place_label.text = "%d. MIEJSCE" % place
+		place_label.add_theme_color_override(&"font_color", accent)
+	if time_label != null:
+		time_label.text = "CZAS  %s" % _format_time(elapsed)
+	if border != null:
+		border.border_color = accent
+	banner.visible = true
+	banner.pivot_offset = banner.size * 0.5
+	banner.scale = Vector2(0.86, 0.86)
+	banner.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var tween := banner.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(banner, "scale", Vector2.ONE, 0.20).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(banner, "modulate:a", 1.0, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func _hide_finish_banners() -> void:
+	if _player_one_finish_banner != null:
+		_player_one_finish_banner.visible = false
+	if _player_two_finish_banner != null:
+		_player_two_finish_banner.visible = false
+
+
+func _update_placement_summary(p1_name: String, p2_name: String) -> void:
+	if _placement_summary_label == null:
+		return
+	if not _player_finish_times.has(1) or not _player_finish_times.has(2):
+		_placement_summary_label.text = ""
+		return
+	var t1 := float(_player_finish_times[1])
+	var t2 := float(_player_finish_times[2])
+	if t1 <= t2:
+		_placement_summary_label.text = "1. MIEJSCE   %s   —   %s\n2. MIEJSCE   %s   —   %s" % [
+			p1_name, _format_time(t1), p2_name, _format_time(t2)
+		]
+	else:
+		_placement_summary_label.text = "1. MIEJSCE   %s   —   %s\n2. MIEJSCE   %s   —   %s" % [
+			p2_name, _format_time(t2), p1_name, _format_time(t1)
+		]
 
 
 func _update_timer_labels() -> void:

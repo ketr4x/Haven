@@ -21,6 +21,14 @@ func _initialize() -> void:
 	await process_frame
 	assert(wall.is_in_group(&"breakable_wall"))
 	assert(not wall.is_broken)
+	assert(wall.get_node_or_null("Cracks") == null)
+	var body_poly := wall.get_node("Body") as Polygon2D
+	assert(body_poly != null and body_poly.material is ShaderMaterial)
+	assert(body_poly.uv.size() == 4)
+	var field_col := (body_poly.material as ShaderMaterial).get_shader_parameter(&"field_color") as Color
+	assert(field_col.b > field_col.r and field_col.a < 0.5)
+	var field_light := wall.get_node_or_null("FieldLight") as PointLight2D
+	assert(field_light != null and field_light.enabled)
 	var col_shape := wall.get_node("CollisionShape2D") as CollisionShape2D
 	assert(col_shape != null and not col_shape.disabled)
 	var rect := col_shape.shape as RectangleShape2D
@@ -61,6 +69,7 @@ func _initialize() -> void:
 	for frame in 20:
 		await process_frame
 	assert(wall.is_broken)
+	assert(not field_light.enabled)
 	assert(_wall_signal_fired)
 	assert(_wall_broken_events > 0)
 	# After breaking, cells must be removed from SonarGrid so subsequent rays pass through

@@ -20,6 +20,10 @@ func _initialize() -> void:
 
 	var title_panel := race.get_node("GlobalUi/TitlePanel") as MainMenu
 	var menu_sprite := title_panel.get_node("BackgroundSprite") as AnimatedSprite2D
+	var moon_light := menu_sprite.get_node_or_null("MoonLight") as PointLight2D
+	var moon_halo := menu_sprite.get_node_or_null("MoonHalo") as Sprite2D
+	assert(moon_light != null and moon_light.texture != null)
+	assert(moon_halo != null and moon_halo.texture != null)
 	var wind_streaks := title_panel.get_node("WindStreaks") as CPUParticles2D
 	var wind_dust := title_panel.get_node("WindDust") as CPUParticles2D
 	assert(wind_streaks != null and wind_streaks.emitting)
@@ -149,7 +153,15 @@ func _initialize() -> void:
 	assert(not paused)
 	assert(player_one.is_physics_processing())
 
+	var invert_rect := race.get_node("InvertLayer/InvertFlashRect") as ColorRect
+	assert(invert_rect != null and not invert_rect.visible)
 	player_one_finish_area._on_body_entered(player_one)
+	assert(invert_rect.visible)
+	assert(is_equal_approx(float((invert_rect.material as ShaderMaterial).get_shader_parameter(&"intensity")), 1.0))
+	var p1_banner := race.get_node("GlobalUi/PlayerOneFinishBanner") as Control
+	assert(p1_banner != null and p1_banner.visible)
+	assert((p1_banner.get_node("Place") as Label).text == "1. MIEJSCE")
+	assert((p1_banner.get_node("Time") as Label).text.begins_with("CZAS  "))
 	var player_one_timer_label := race.get_node("GlobalUi/PlayerOneTimer") as Label
 	var player_two_timer_label := race.get_node("GlobalUi/PlayerTwoTimer") as Label
 	var finish_status_label := race.get_node("GlobalUi/FinishStatus") as Label
@@ -165,15 +177,20 @@ func _initialize() -> void:
 
 	player_two_finish_area._on_body_entered(player_two)
 	var winner_label := race.get_node("GlobalUi/ResultPanel/Winner") as Label
+	var placement_label := race.get_node("GlobalUi/ResultPanel/PlacementSummary") as Label
 	var times_label := race.get_node("GlobalUi/ResultPanel/Times") as Label
 	assert((race.get_node("GlobalUi/ResultPanel") as Control).visible)
 	assert(not finish_status_label.visible)
+	assert(not p1_banner.visible)
 	assert(winner_label.text == "WYGRYWA GRACZ 1")
+	assert("1. MIEJSCE" in placement_label.text and "2. MIEJSCE" in placement_label.text)
 	assert(times_label.text == "GRACZ 1  %s\nGRACZ 2  %s" % [
 		race._format_time(float(race._player_finish_times[1])),
 		race._format_time(float(race._player_finish_times[2])),
 	])
 	assert(not player_two.is_physics_processing())
+	await create_timer(0.35).timeout
+	assert(not invert_rect.visible)
 	race.queue_free()
 	for frame in 60:
 		await process_frame
