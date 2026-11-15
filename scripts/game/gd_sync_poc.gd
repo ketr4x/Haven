@@ -8,17 +8,17 @@ const POC_TAGS: Dictionary = {
 	"mode": "gd_sync_poc",
 	"protocol": POC_PROTOCOL_VERSION,
 }
-const GD_SYNC_CLIENT: GDScript = preload("res://addons/GD-Sync/MultiplayerClient.gd")
 
 @onready var _status_label: Label = $Panel/Margin/VBox/Status
 @onready var _room_code_label: Label = $Panel/Margin/VBox/RoomCode
 @onready var _details_label: Label = $Panel/Margin/VBox/Details
+@onready var _online_service: OnlineServiceBase = get_node("/root/OnlineService") as OnlineServiceBase
 
 var _mode: String = ""
 var _room_code: String = ""
 var _is_public_lobby: bool = false
+var _next_sequence: int = 0
 var _random: RandomNumberGenerator = RandomNumberGenerator.new()
-var _gd_sync: Variant
 
 
 func _ready() -> void:
@@ -30,36 +30,27 @@ func _ready() -> void:
 	_room_code_label.text = ""
 	_details_label.text = _instructions_for_mode()
 
-	_gd_sync = GD_SYNC_CLIENT.new()
-	_gd_sync.name = "GDSync"
-	get_tree().root.call_deferred("add_child", _gd_sync)
-	await _gd_sync.ready
-
-	_gd_sync.connected.connect(_on_connected)
-	_gd_sync.connection_failed.connect(_on_connection_failed)
-	_gd_sync.disconnected.connect(_on_disconnected)
-	_gd_sync.lobby_created.connect(_on_lobby_created)
-	_gd_sync.lobby_creation_failed.connect(_on_lobby_creation_failed)
-	_gd_sync.lobby_joined.connect(_on_lobby_joined)
-	_gd_sync.lobby_join_failed.connect(_on_lobby_join_failed)
-	_gd_sync.lobbies_received.connect(_on_lobbies_received)
-	_gd_sync.client_joined.connect(_on_client_joined)
-	_gd_sync.client_left.connect(_on_client_left)
-	_gd_sync.expose_func(_receive_probe)
-	_gd_sync.start_multiplayer()
+	_online_service.online_connected.connect(_on_connected)
+	_online_service.connection_failed.connect(_on_connection_failed)
+	_online_service.online_disconnected.connect(_on_disconnected)
+	_online_service.lobby_created.connect(_on_lobby_created)
+	_online_service.lobby_joined.connect(_on_lobby_joined)
+	_online_service.lobby_join_failed.connect(_on_lobby_join_failed)
+	_online_service.lobbies_listed.connect(_on_lobbies_listed)
+	_online_service.peer_joined.connect(_on_peer_joined)
+	_online_service.peer_left.connect(_on_peer_left)
+	_online_service.message_received.connect(_on_message_received)
+	_online_service.operation_rejected.connect(_on_operation_rejected)
+	_online_service.connect_online()
 	_schedule_automatic_exit()
 
 
 func _exit_tree() -> void:
-	if not is_instance_valid(_gd_sync):
-		return
-	if _gd_sync.is_active():
-		_gd_sync.lobby_leave()
-	_gd_sync.queue_free()
+	_online_service.leave_lobby()
 
 
-func _on_connected() -> void:
-	_print_event("connected")
+func _on_connected(client_id: int) -> void:
+	_print_event("connected=%d" % client_id)
 	match _mode:
 		"host":
 			_create_private_lobby()
@@ -67,7 +58,7 @@ func _on_connected() -> void:
 			_join_private_lobby()
 		"browse":
 			_status_label.text = "POBIERANIE PUBLICZNYCH POKOI…"
-			_gd_sync.get_public_lobbies()
+			_online_service.list_public_lobbies()
 		_:
 			_status_label.text = "BRAK TRYBU TESTOWEGO"
 			_details_label.text = "Uruchom z --poc-mode=host, join albo browse."
@@ -78,7 +69,7 @@ func _create_private_lobby() -> void:
 		_room_code = _create_room_code()
 	_status_label.text = "TWORZENIE PRYWATNEGO POKOJU…"
 	_room_code_label.text = "KOD POKOJU: %s" % _room_code
-	_gd_sync.lobby_create(_room_code, "", _is_public_lobby, 2, POC_TAGS)
+	_online_service.create_lobby(_room_code, "", _is_public_lobby, 2, POC_TAGS)
 
 
 func _join_private_lobby() -> void:
@@ -88,19 +79,13 @@ func _join_private_lobby() -> void:
 		return
 	_status_label.text = "DOŁĄCZANIE DO POKOJU…"
 	_room_code_label.text = "KOD POKOJU: %s" % _room_code
-	_gd_sync.lobby_join(_room_code)
+	_online_service.join_lobby(_room_code)
 
 
 func _on_lobby_created(lobby_name: String) -> void:
 	_print_event("lobby_created=%s" % lobby_name)
 	_status_label.text = "POKÓJ UTWORZONY. DOŁĄCZANIE GOSPODARZA…"
-	_gd_sync.lobby_join(lobby_name)
-
-
-func _on_lobby_creation_failed(lobby_name: String, error: int) -> void:
-	_print_event("lobby_creation_failed=%s error=%d" % [lobby_name, error])
-	_status_label.text = "NIE UDAŁO SIĘ UTWORZYĆ POKOJU"
-	_details_label.text = "Kod %s zwrócił błąd %d. Uruchom ponownie hosta." % [lobby_name, error]
+	_online_service.join_lobby(lobby_name)
 
 
 func _on_lobby_joined(lobby_name: String) -> void:
@@ -112,13 +97,13 @@ func _on_lobby_joined(lobby_name: String) -> void:
 	_schedule_test_leave()
 
 
-func _on_lobby_join_failed(lobby_name: String, error: int) -> void:
-	_print_event("lobby_join_failed=%s error=%d" % [lobby_name, error])
+func _on_lobby_join_failed(lobby_name: String, reason: String) -> void:
+	_print_event("lobby_join_failed=%s reason=%s" % [lobby_name, reason])
 	_status_label.text = "NIE UDAŁO SIĘ DOŁĄCZYĆ"
-	_details_label.text = "Pokój %s zwrócił błąd %d." % [lobby_name, error]
+	_details_label.text = "Pokój %s odrzucił połączenie." % lobby_name
 
 
-func _on_lobbies_received(lobbies: Array) -> void:
+func _on_lobbies_listed(lobbies: Array) -> void:
 	_print_event("public_lobbies=%d" % lobbies.size())
 	var matching_lobbies: int = 0
 	for lobby_value in lobbies:
@@ -132,38 +117,55 @@ func _on_lobbies_received(lobbies: Array) -> void:
 	_details_label.text = "Wykryto %d pokoi ogółem. Test przeglądania zakończony." % lobbies.size()
 
 
-func _on_client_joined(client_id: int) -> void:
-	if client_id == _gd_sync.get_client_id():
-		return
+func _on_peer_joined(client_id: int) -> void:
 	_print_event("peer_joined=%d" % client_id)
 	_status_label.text = "DRUGI KLIENT DOŁĄCZYŁ"
 	_details_label.text = "Wysyłanie wiadomości testowej do klienta %d…" % client_id
-	_gd_sync.call_func(_receive_probe, _gd_sync.get_client_id(), "echo-poc")
+	_send_probe("echo-poc")
 
 
-func _on_client_left(client_id: int) -> void:
+func _on_peer_left(client_id: int) -> void:
+	_print_event("peer_left=%d" % client_id)
 	_status_label.text = "DRUGI KLIENT OPUŚCIŁ POKÓJ"
 	_details_label.text = "Klient %d rozłączył się." % client_id
 
 
-func _receive_probe(sender_id: int, payload: String) -> void:
-	_print_event("probe_received_from=%d payload=%s" % [sender_id, payload])
+func _on_message_received(sender_id: int, message: Dictionary) -> void:
+	var payload: Dictionary = message["payload"] as Dictionary
+	var probe: String = str(payload.get("probe", ""))
+	_print_event("probe_received_from=%d payload=%s" % [sender_id, probe])
 	_status_label.text = "WIADOMOŚĆ TESTOWA ODEBRANA"
-	_details_label.text = "Klient %d wysłał: %s" % [sender_id, payload]
-	if payload == "echo-poc":
-		_gd_sync.call_func(_receive_probe, _gd_sync.get_client_id(), "echo-ack")
+	_details_label.text = "Klient %d wysłał: %s" % [sender_id, probe]
+	if probe == "echo-poc":
+		_send_probe("echo-ack")
 
 
-func _on_connection_failed(error: int) -> void:
-	_print_event("connection_failed=%d" % error)
+func _on_operation_rejected(operation: String, reason: String) -> void:
+	_print_event("operation_rejected=%s reason=%s" % [operation, reason])
+	_status_label.text = "OPERACJA ZOSTAŁA ODRZUCONA"
+	_details_label.text = reason
+
+
+func _on_connection_failed(reason: String) -> void:
+	_print_event("connection_failed=%s" % reason)
 	_status_label.text = "NIE UDAŁO SIĘ POŁĄCZYĆ Z GD-SYNC"
-	_details_label.text = "Błąd połączenia: %d." % error
+	_details_label.text = reason
 
 
 func _on_disconnected() -> void:
 	_print_event("disconnected")
 	_status_label.text = "POŁĄCZENIE ZOSTAŁO PRZERWANE"
 	_details_label.text = "Zamknij test i uruchom go ponownie."
+
+
+func _send_probe(probe: String) -> void:
+	_next_sequence += 1
+	_online_service.send_message(OnlineProtocol.make_message(
+		"hello",
+		_room_code,
+		_next_sequence,
+		{"probe": probe},
+	))
 
 
 func _command_line_value(flag: String) -> String:
@@ -208,11 +210,11 @@ func _schedule_test_leave() -> void:
 
 
 func _leave_lobby_for_test(leave_after_seconds: float) -> void:
-	if not _gd_sync.is_active():
+	if not _online_service.has_active_lobby():
 		return
 	_print_event("leaving_lobby_after=%.1f" % leave_after_seconds)
 	_status_label.text = "OPUSZCZANIE POKOJU…"
-	_gd_sync.lobby_leave()
+	_online_service.leave_lobby()
 
 
 func _quit_after_timeout(timeout_seconds: float) -> void:

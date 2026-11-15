@@ -76,6 +76,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - The committed `t3.json` exposes actions to start the Godot game and build a Windows export.
 - A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
 - GD-Sync 1.0.2 is pinned under `addons/GD-Sync/` for a completed proof of concept. `gd_sync_poc.tscn` connects, creates or joins a room-code lobby, browses public lobbies, exchanges an explicitly exposed remote-call probe, and reports a departing peer without registering GD-Sync as a global autoload. Two exported Windows clients on separate connections completed the proof.
+- `OnlineService` is an idle project autoload backed by `GdSyncOnlineService`. It creates GD-Sync only when an online flow calls `connect_online()`, provides validated lobby and protocol-message APIs, and has an in-memory `LocalMatchService` test double.
 
 ## TO DO
 
@@ -88,11 +89,11 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
 - Integrate the staged logo and player sprite sheet only when the corresponding menu and animation work is implemented. They are present in `assets/art/` but are not referenced by the active scenes.
-- Add multiplayer behind an `OnlineService` boundary, beginning with two-player private friend rooms, then public lobby discovery for quick matches. Do not couple `Race`, `PlayerWorld`, or UI directly to the service plugin.
+- Implement the private friend-room race flow through `OnlineService`, then add public lobby discovery for quick matches. Do not couple `Race`, `PlayerWorld`, or UI directly to the service plugin.
 - Add a common-seed event leaderboard and a separate online match-wins board only after the private online race flow works. Treat client results as casual until server-side validation exists.
 
 ## NEXT STEPS
 
-**Create the online service boundary.** Add the typed `OnlineService` interface and GD-Sync adapter described in the multiplayer implementation plan. Keep the plugin-specific calls out of `Race`, `PlayerWorld`, and the UI.
+**Build the private-room race session.** Use `OnlineService` and `OnlineProtocol` to exchange the room setup, seed, course signature, countdown, finish, and peer-leave events. Keep `Race`, `PlayerWorld`, and scene UI independent of GD-Sync types.
 **Ship friend rooms first.** Refactor the race session and player-world configuration so a single full-height local online world can use the existing Player 1 Input Map actions, while local split-screen behavior remains unchanged.
 **Build outward from the playable slice.** After private rooms reliably complete a race, add quick-match lobby discovery, the multiplayer menu/result states, and then the fixed-seed event leaderboard.
