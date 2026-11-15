@@ -115,8 +115,6 @@ left_action = &"p2_left"
 right_action = &"p2_right"
 jump_action = &"p2_jump"
 shout_action = &"p2_shout"
-big_scream_minus_action = &"p2_big_scream_minus"
-big_scream_plus_action = &"p2_big_scream_plus"
 
 [node name="Interface" type="CanvasLayer" parent="."]
 
