@@ -18,7 +18,15 @@ func _initialize() -> void:
 	var player_two_finish_area := player_two_world.get_node("FinishArea") as FinishArea
 	var player_one := player_one_world.get_node("Player") as RezonansPlayer
 
-	assert((race.get_node("GlobalUi/TitlePanel") as Control).visible)
+	var title_panel := race.get_node("GlobalUi/TitlePanel") as MainMenu
+	var menu_sprite := title_panel.get_node("BackgroundSprite") as AnimatedSprite2D
+	assert(title_panel.visible)
+	assert(not title_panel.is_playing_outro())
+	assert(title_panel.get_selected_index() == 0)
+	assert(menu_sprite.animation == &"idle")
+	assert(menu_sprite.sprite_frames.get_frame_count(&"idle") == 11)
+	assert(menu_sprite.sprite_frames.get_frame_count(&"outro") == 8)
+	assert((title_panel.get_node("MenuOverlay") as Control).visible)
 	assert((race.get_node("GlobalUi/PlayerOneTimer") as Label).text == "CZAS  00:00.000")
 	assert((race.get_node("GlobalUi/PlayerTwoTimer") as Label).text == "CZAS  00:00.000")
 	assert(not player_one.is_physics_processing())
@@ -59,11 +67,38 @@ func _initialize() -> void:
 	assert(float((player_one_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength")) > 0.0)
 	assert(is_zero_approx(float((player_two_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength"))))
 
-	var start_event := InputEventKey.new()
-	start_event.keycode = KEY_D
+	var down_event := InputEventAction.new()
+	down_event.action = &"ui_down"
+	down_event.pressed = true
+	race._input(down_event)
+	assert(title_panel.get_selected_index() == 1)
+
+	var up_event := InputEventAction.new()
+	up_event.action = &"ui_up"
+	up_event.pressed = true
+	race._input(up_event)
+	assert(title_panel.get_selected_index() == 0)
+
+	var start_event := InputEventAction.new()
+	start_event.action = &"ui_accept"
 	start_event.pressed = true
 	race._input(start_event)
+	assert(title_panel.visible)
+	assert(title_panel.is_playing_outro())
+	assert(menu_sprite.animation == &"outro")
+	assert(not (title_panel.get_node("MenuOverlay") as Control).visible)
+	assert(not (race.get_node("GlobalUi/Countdown") as Label).visible)
+	await title_panel.outro_finished
+	var transition_rect := race.get_node("TransitionLayer/TransitionRect") as ColorRect
+	assert(transition_rect.visible)
+	assert(title_panel.visible)
+	assert(not (race.get_node("GlobalUi/Countdown") as Label).visible)
+	await race.countdown_started
+	assert(not title_panel.visible)
+	assert(not title_panel.is_playing_outro())
 	assert((race.get_node("GlobalUi/Countdown") as Label).visible)
+	await race.transition_finished
+	assert(not transition_rect.visible)
 	race._process(3.0)
 	assert(not (race.get_node("GlobalUi/Countdown") as Label).visible)
 	assert(player_one.is_physics_processing())
