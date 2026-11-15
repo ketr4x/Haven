@@ -25,6 +25,7 @@ func _initialize() -> void:
 	assert(_connection_events == 1)
 
 	service.create_lobby("ECHO-TEST", "", true, 2, {"mode": "race"})
+	service.join_lobby("ECHO-TEST")
 	assert(service.has_active_lobby())
 	service.list_public_lobbies()
 	assert(_listed_lobbies.size() == 1)

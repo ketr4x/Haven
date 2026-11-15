@@ -2,7 +2,7 @@
 
 ## Decision and scope
 
-This plan targets the hackathon release for Windows, distributed as a direct `.exe` download. **Phase 0 passed on the GD-Sync proof of concept, and Phase 1 established the `OnlineService` boundary. GD-Sync is the selected integration.**
+This plan targets the hackathon release for Windows, distributed as a direct `.exe` download. **Phases 0 through 3 are complete, and the online race HUD and mutual-rematch flow are implemented. GD-Sync is the selected integration.**
 
 The release will support:
 

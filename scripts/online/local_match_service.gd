@@ -2,7 +2,8 @@ class_name LocalMatchService
 extends OnlineServiceBase
 
 var client_id: int = 1
-var public_lobbies: Array = []
+var lobbies: Array = []
+var sent_messages: Array = []
 
 
 func connect_online() -> void:
@@ -39,15 +40,14 @@ func create_lobby(
 		_reject("create_lobby", "A race lobby needs space for two players.")
 		return
 
-	active_lobby_name = lobby_name
-	if is_public:
-		public_lobbies.append({
-			"Name": lobby_name,
-			"Open": true,
-			"PlayerCount": 1,
-			"PlayerLimit": player_limit,
-			"Tags": tags.duplicate(true),
-		})
+	lobbies.append({
+		"Name": lobby_name,
+		"Open": true,
+		"PlayerCount": 0,
+		"PlayerLimit": player_limit,
+		"Public": is_public,
+		"Tags": tags.duplicate(true),
+	})
 	lobby_created.emit(lobby_name)
 	lobby_joined.emit(lobby_name)
 
@@ -55,7 +55,7 @@ func create_lobby(
 func join_lobby(lobby_name: String, _password: String = "") -> void:
 	if not _require_online("join_lobby"):
 		return
-	for lobby_value in public_lobbies:
+	for lobby_value in lobbies:
 		if not lobby_value is Dictionary:
 			continue
 		var lobby: Dictionary = lobby_value
@@ -81,7 +81,11 @@ func leave_lobby() -> void:
 func list_public_lobbies() -> void:
 	if not _require_online("list_public_lobbies"):
 		return
-	lobbies_listed.emit(public_lobbies.duplicate(true))
+	var public_lobbies: Array = []
+	for lobby_value in lobbies:
+		if lobby_value is Dictionary and bool((lobby_value as Dictionary).get("Public", false)):
+			public_lobbies.append((lobby_value as Dictionary).duplicate(true))
+	lobbies_listed.emit(public_lobbies)
 
 
 func send_message(message: Dictionary) -> bool:
@@ -94,7 +98,12 @@ func send_message(message: Dictionary) -> bool:
 	if not bool(result["valid"]):
 		_reject("send_message", str(result["error"]))
 		return false
+	sent_messages.append(result["message"])
 	return true
+
+
+func get_client_id() -> int:
+	return client_id
 
 
 func receive_message(sender_id: int, message: Dictionary) -> void:

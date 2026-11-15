@@ -58,16 +58,11 @@ var death_height: float = INF
 var _race_active: bool = false
 var _respawn_time_remaining: float = 0.0
 var _blind_collision_cooldown: float = 0.0
+var _pending_events: Array[String] = []
 
 
 func _ready() -> void:
-	_player.left_action = left_action
-	_player.right_action = right_action
-	_player.jump_action = jump_action
-	_player.shout_action = shout_action
-	_player.modulate = player_color
-	_generator.mirror_horizontally = mirror_course_horizontally
-	_echo_overlay.set_player_color(player_color)
+	_apply_player_configuration()
 	_echo_overlay.visible = false
 
 	sonar_grid = SonarGrid.new()
@@ -78,7 +73,6 @@ func _ready() -> void:
 	sonar_grid.wave_bounced.connect(_audio_feedback.play_wave_bounce)
 
 	_setup_vignette_overlay(accent)
-
 	var camera := _player.get_node("Camera2D") as Camera2D
 	camera.enabled = true
 	camera.make_current()
@@ -91,6 +85,13 @@ func _ready() -> void:
 	_player.landed.connect(_on_player_landed)
 	_player.jumped.connect(_on_player_jumped)
 	_player.wall_jumped.connect(_on_player_wall_jumped)
+
+	_player.sonic_shouted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("shout"))
+	_player.footstep_emitted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("footstep"))
+	_player.jumped.connect(func(_p: Vector2) -> void: _queue_local_event("jump"))
+	_player.landed.connect(func(_p: Vector2) -> void: _queue_local_event("land"))
+	_player.wall_jumped.connect(func(_p: Vector2, _n: Vector2) -> void: _queue_local_event("wall_jump"))
+	player_died.connect(func(_p: int) -> void: _queue_local_event("died"))
 
 
 func _setup_vignette_overlay(_accent: Color) -> void:
@@ -112,18 +113,24 @@ func _process(delta: float) -> void:
 	_blind_collision_cooldown = maxf(0.0, _blind_collision_cooldown - delta)
 	_update_vignette_overlay(delta)
 
-	if _respawn_time_remaining > 0.0:
-		_respawn_time_remaining = maxf(0.0, _respawn_time_remaining - delta)
-		if is_zero_approx(_respawn_time_remaining) and _race_active:
-			_respawn_player()
-		return
+	if not _player.is_remote:
+		if _respawn_time_remaining > 0.0:
+			_respawn_time_remaining = maxf(0.0, _respawn_time_remaining - delta)
+			if is_zero_approx(_respawn_time_remaining) and _race_active:
+				_respawn_player()
+			return
 
-	if _race_active and _player.global_position.y > death_height:
-		_handle_player_fall()
-		return
+		if _race_active and _player.global_position.y > death_height:
+			_handle_player_fall()
+			return
 
-	if _race_active and _player.is_physics_processing():
-		_check_unlit_airborne_collision()
+		if _race_active and _player.is_physics_processing():
+			_check_unlit_airborne_collision()
+
+	if _race_active \
+		and _player.is_player_on_floor() \
+		and absf(_player.velocity.x) >= walking_echo_speed_threshold:
+		_echo_overlay.walking_preview(_player.loudness)
 
 
 func _update_vignette_overlay(delta: float) -> void:
@@ -151,6 +158,131 @@ func _update_vignette_uniforms(strength: float) -> void:
 	)
 
 
+func configure_for_local_slot(slot: int) -> void:
+	player_number = slot
+	left_action = &"p1_left" if slot == 1 else &"p2_left"
+	right_action = &"p1_right" if slot == 1 else &"p2_right"
+	jump_action = &"p1_jump" if slot == 1 else &"p2_jump"
+	shout_action = &"p1_shout" if slot == 1 else &"p2_shout"
+	mirror_course_horizontally = false
+	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
+	_player.is_remote = false
+	_apply_player_configuration()
+
+
+func configure_for_online_slot(slot: int) -> void:
+	player_number = slot
+	left_action = &"p1_left"
+	right_action = &"p1_right"
+	jump_action = &"p1_jump"
+	shout_action = &"p1_shout"
+	mirror_course_horizontally = false
+	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
+	_player.is_remote = false
+	_apply_player_configuration()
+
+
+func configure_as_remote_opponent(slot: int) -> void:
+	player_number = slot
+	left_action = &""
+	right_action = &""
+	jump_action = &""
+	shout_action = &""
+	mirror_course_horizontally = false
+	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
+	_player.is_remote = true
+	_finish_area.monitoring = false
+	_apply_player_configuration()
+
+
+func course_signature() -> String:
+	return _generator.course_signature
+
+
+func progress_fraction() -> float:
+	var spawn := _generator.to_global(_generator.player_spawn)
+	var finish := _generator.to_global(_generator.finish_position)
+	var course_distance := absf(finish.x - spawn.x)
+	if is_zero_approx(course_distance):
+		return 0.0
+	return clampf(absf(_player.global_position.x - spawn.x) / course_distance, 0.0, 1.0)
+
+
+func current_loudness() -> float:
+	return _player.loudness
+
+
+func has_rebound_boost() -> bool:
+	return _player.is_rebound_boost_active()
+
+
+func player_global_position() -> Vector2:
+	return _player.global_position
+
+
+func player_velocity() -> Vector2:
+	return _player.velocity
+
+
+func player_facing_direction() -> float:
+	return _player.facing_direction
+
+
+func player_is_on_floor() -> bool:
+	return _player.is_player_on_floor()
+
+
+func _queue_local_event(event_name: String) -> void:
+	if _pending_events.size() < 10:
+		_pending_events.append(event_name)
+
+
+func consume_pending_events() -> Array[String]:
+	var events := _pending_events.duplicate()
+	_pending_events.clear()
+	return events
+
+
+func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: bool, loudness: float, boost_active: bool, events: Array) -> void:
+	_player.loudness = loudness
+	if boost_active and not _player.is_rebound_boost_active():
+		_player.apply_rebound_boost()
+	elif not boost_active and _player.is_rebound_boost_active():
+		_player.cancel_rebound_boost()
+	_player.apply_remote_snapshot(pos, vel, facing, on_floor)
+	if on_floor and absf(vel.x) >= walking_echo_speed_threshold:
+		_echo_overlay.walking_preview(loudness)
+	for event in events:
+		match str(event):
+			"shout":
+				_player.trigger_remote_shout(loudness)
+			"footstep":
+				_player.trigger_remote_footstep(loudness)
+			"jump":
+				_player.trigger_remote_jump()
+			"land":
+				_player.trigger_remote_land()
+			"wall_jump":
+				_player.trigger_remote_wall_jump(Vector2.LEFT if facing > 0.0 else Vector2.RIGHT)
+			"died":
+				_clear_waves()
+				_player.global_position = _generator.to_global(_generator.player_spawn)
+				_player.reset_remote_target(_player.global_position)
+
+
+func _apply_player_configuration() -> void:
+	_player.left_action = left_action
+	_player.right_action = right_action
+	_player.jump_action = jump_action
+	_player.shout_action = shout_action
+	_player.modulate = player_color
+	_generator.mirror_horizontally = mirror_course_horizontally
+	_echo_overlay.set_player_color(player_color)
+	if sonar_grid != null:
+		var accent := _accent_color_for_player(player_number, player_color)
+		sonar_grid.set_player_accent_color(accent)
+
+
 func generate_course(seed: int) -> void:
 	_generator.generate_course(seed)
 
@@ -160,7 +292,7 @@ func set_race_active(is_active: bool) -> void:
 	if not is_active:
 		_respawn_time_remaining = 0.0
 	_player.set_physics_process(is_active)
-	_finish_area.monitoring = is_active
+	_finish_area.monitoring = is_active and not _player.is_remote
 
 
 func emit_intro_pulse() -> void:
@@ -315,8 +447,10 @@ func _on_course_generated(_seed: int, _signature: String) -> void:
 	_player.global_position = _generator.to_global(_generator.player_spawn)
 	_player.velocity = Vector2.ZERO
 	_player.set_facing_direction(-1.0 if mirror_course_horizontally else 1.0)
+	if _player.is_remote:
+		_player.reset_remote_target(_player.global_position)
 	_finish_area.global_position = _generator.to_global(_generator.finish_position)
-	_finish_area.monitoring = true
+	_finish_area.monitoring = not _player.is_remote
 	_activated_pulses.clear()
 	_clear_waves()
 	if sonar_grid != null:

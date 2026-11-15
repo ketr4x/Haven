@@ -6,7 +6,7 @@ Rezonans is a local two-player, horizontal split-screen parkour race built with 
 
 The game’s player-facing text is in Polish. Use Polish for new UI copy, prompts, and other text shown to players. Keep source code, identifiers, comments, and project documentation in English.
 
-Each viewport has its own `PlayerWorld`, player, generated level, `SonarGrid`, finish area, camera, and echo overlay. The race controller gives both worlds the same seed so they generate the same chunk sequence without sharing physics or rendering. Player 2's course is reflected horizontally and runs right-to-left.
+Each viewport has its own `PlayerWorld`, player, generated level, `SonarGrid`, finish area, camera, and echo overlay. The race controller gives both worlds the same seed so they generate the same chunk sequence without sharing physics or rendering. Both players race left-to-right on identical generated courses without course mirroring.
 
 The game loop centers on grid-based echolocation (`SonarGrid`) and multi-bounce sound waves. Every tile on the map maintains its own `light_level` (0.0 to 1.0, fading over 3 seconds) and `last_hit_color`. Floor tiles stay dimly readable, while airborne obstacles and platforms start completely black (`light_level = 0.0`) until hit by a wave; running into an unlit airborne block significantly slows the player down. Running caps `loudness` at `10.0` (`step_loudness_cap`) and footsteps emit only tiny, short-range waves around the runner's feet. Jumps and landings emit 120-ray pulses, while pressing Scream (`E` / `S` for Player 1, Down Arrow for Player 2, 1.2s cooldown) maxes `loudness` to `100.0`, grants an immediate speed and jump boost, and fires an asymmetric 360° wave (90 rays with a high-speed, long-range, up-to-5-bounce ±45° forward cone and shorter peripheral rays) rendered as 3 concentric sonar wave arcs that shatter and ricochet on contact.
 
@@ -63,7 +63,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - The Input Map defines both players' movement, jump, and shout/scream actions (`E` and `S` for Player 1, Down Arrow for Player 2), plus restart, new-course, and pause actions.
 - `race.tscn` presents independent top and bottom `SubViewport` player worlds.
 - The race has main menu (`scenes/game/main_menu.tscn`, instanced as `TitlePanel` with an 11-frame idle loop at 4 FPS, an 8-frame match-start outro animation at 6 FPS from `assets/art/main_menu_sheet.png`, and frameless arrow-selectable `GRAJ` / `WYJDŹ` text items), starting transition, three-second countdown, racing, paused, and finished states (documented in `art-mainmenu.md`). Each player has a timer that freezes on their finish, and the race remains active until both players finish so the result panel can show both times.
-- The race generates a fresh random integer seed for its first course and for every `R` or `N` request. Both player worlds receive that same seed, so their generated routes stay equivalent while Player 2's course is horizontally reflected.
+- The race generates a fresh random integer seed for its first course and for every `R` or `N` request. Both player worlds receive that same seed, generating identical unmirrored courses.
 - The player supports horizontal acceleration and deceleration, gravity, coyote time, jump buffering, wall sliding, wall jumping, landing particles, and exported tuning values.
 - Echolocation and sound-wave rendering use `SonarGrid` (`scripts/effects/sonar_grid.gd`) and `player_vignette.gdshader` (`assets/shaders/player_vignette.gdshader`):
   - Instant per-tile illumination (`light_level` set to `1.0` on hit plus `0.35` boost to 1-cell neighbors) with a smooth 4-second radar afterimage fade.
@@ -82,6 +82,9 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
 - GD-Sync 1.0.2 is pinned under `addons/GD-Sync/` for a completed proof of concept. `gd_sync_poc.tscn` connects, creates or joins a room-code lobby, browses public lobbies, exchanges an explicitly exposed remote-call probe, and reports a departing peer without registering GD-Sync as a global autoload. Two exported Windows clients on separate connections completed the proof.
 - `OnlineService` is an idle project autoload backed by `GdSyncOnlineService`. It creates GD-Sync only when an online flow calls `connect_online()`, provides validated lobby and protocol-message APIs, and has an in-memory `LocalMatchService` test double.
+- `OnlineMatch` runs private two-player friend rooms. It assigns player slots, exchanges a shared seed and course signatures before the countdown, relays finishes, and ends the session if an opponent leaves. `race.tscn` exposes the flow through `GRA ONLINE` → `ZE ZNAJOMYM` → create or join by code; the command-line entry points remain for development tests.
+- `GRA ONLINE` → `SZYBKI MECZ` browses compatible public GD-Sync lobbies, joins a random open two-player room, or creates one when none is available. A join collision triggers one refresh/retry before returning an error.
+- Online races retain the horizontal split-screen presentation from local play. The remote opponent is rendered in the bottom viewport as an interpolated puppet with synchronized position, velocity, facing direction, loudness, particles, and echolocation waves. Both race timers, room connection state, and mutual rematch remain fully functional without textual progress overlays.
 
 ## TO DO
 
@@ -93,12 +96,12 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Verify that all configured course chunks allow a player to reach the finish. The generator currently assembles chunks but has no pathfinding or traversal simulation.
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
+- Add editable, locally persisted player display names. Online races currently use a session pseudonym derived from the GD-Sync client ID.
 - Integrate the staged player sprite sheet (`assets/art/pierwszy_usmazony.png`) and standalone logo (`assets/art/rezonans_logo.png`) if needed outside the main menu artwork. They are present in `assets/art/` but are not referenced by the active gameplay scenes.
-- Implement the private friend-room race flow through `OnlineService`, then add public lobby discovery for quick matches. Do not couple `Race`, `PlayerWorld`, or UI directly to the service plugin.
 - Add a common-seed event leaderboard and a separate online match-wins board only after the private online race flow works. Treat client results as casual until server-side validation exists.
 
 ## NEXT STEPS
 
-**Build the private-room race session.** Use `OnlineService` and `OnlineProtocol` to exchange the room setup, seed, course signature, countdown, finish, and peer-leave events. Keep `Race`, `PlayerWorld`, and scene UI independent of GD-Sync types.
-**Ship friend rooms first.** Refactor the race session and player-world configuration so a single full-height local online world can use the existing Player 1 Input Map actions, while local split-screen behavior remains unchanged.
-**Build outward from the playable slice.** After private rooms reliably complete a race, add quick-match lobby discovery, the multiplayer menu/result states, and then the fixed-seed event leaderboard.
+**Add the event leaderboard.** Use the same online identity and a common fixed course seed. Keep random and friend-race results separate from comparable time-trial scores.
+**Add editable player profiles.** Provide a settings field for a persistent display name and send it through the existing online hello message.
+**Playtest online race flow.** Run friend rooms and quick match from different networks, exercise cancel, join-collision, finish, rematch, and departure paths, then tune status text and timing.
