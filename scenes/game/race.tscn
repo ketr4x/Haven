@@ -1,9 +1,8 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="PackedScene" path="res://scenes/game/player_world.tscn" id="2_player_world"]
 [ext_resource type="FontFile" path="res://assets/fonts/kiwi_soda.ttf" id="3_font"]
-[ext_resource type="PackedScene" path="res://scenes/effects/luap_40_post_process.tscn" id="4_palette_post_process"]
 [ext_resource type="PackedScene" path="res://scenes/game/main_menu.tscn" id="5_main_menu"]
 [ext_resource type="Shader" path="res://assets/shaders/retro_pixel_transition.gdshader" id="6_transition_shader"]
 
@@ -266,7 +265,7 @@ offset_right = 1030.0
 offset_bottom = 418.0
 theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_font_sizes/font_size = 22
-text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
+text = "KRZYKNIJ (E / DÓŁ), ABY OŚWIETLIĆ PRZESZKODY I PRZYSPIESZYĆ"
 horizontal_alignment = 1
 
 [node name="Actions" type="Label" parent="GlobalUi/ResultPanel"]
@@ -279,8 +278,6 @@ theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_font_sizes/font_size = 30
 text = "R  REWANŻ        N  NOWA TRASA"
 horizontal_alignment = 1
-
-[node name="Luap40PostProcess" parent="." instance=ExtResource("4_palette_post_process")]
 
 [node name="TransitionLayer" type="CanvasLayer" parent="."]
 layer = 101

@@ -8,6 +8,7 @@ signal sonic_shouted(origin: Vector2, direction: Vector2, loudness: float)
 signal footstep_emitted(origin: Vector2, direction: Vector2, loudness: float)
 signal rebound_boost_started
 signal rebound_boost_ended
+signal blind_impact_slowed(position: Vector2)
 
 @export_category("Input")
 @export var left_action: StringName = &"p1_left"
@@ -28,21 +29,26 @@ signal rebound_boost_ended
 @export var coyote_time: float = 0.12
 @export var jump_buffer_time: float = 0.12
 
-@export_category("Sonic Shout")
-@export var shout_cooldown: float = 0.45
+@export_category("Scream / Ping")
+@export var shout_cooldown: float = 1.2
 
 @export_category("Echolocation")
 @export_range(1.0, 100.0) var max_loudness: float = 100.0
+@export_range(1.0, 30.0) var step_loudness_cap: float = 8.0
 @export var running_loudness_per_second: float = 24.0
-@export var wall_loudness_per_second: float = 36.0
-@export var shout_loudness_gain: float = 42.0
-@export var footstep_interval: float = 0.3
+@export var wall_loudness_per_second: float = 18.0
+@export var shout_loudness_gain: float = 100.0
+@export var footstep_interval: float = 0.35
 @export var idle_loudness_decay_per_second: float = 18.0
 
 @export_category("Rebound Boost")
-@export var rebound_boost_duration: float = 1.4
-@export var rebound_speed_multiplier: float = 1.35
+@export var rebound_boost_duration: float = 1.8
+@export var rebound_speed_multiplier: float = 1.38
 @export var rebound_jump_multiplier: float = 1.18
+
+@export_category("Blind Obstacle Penalty")
+@export var blind_slow_duration: float = 1.25
+@export_range(0.15, 0.85, 0.05) var blind_slow_multiplier: float = 0.42
 
 @export_category("Presentation")
 @export var camera_enabled: bool = false
@@ -63,8 +69,10 @@ var _last_wall_normal: Vector2 = Vector2.ZERO
 var _jump_buffer_remaining: float = 0.0
 var _shout_cooldown_remaining: float = 0.0
 var _boost_time_remaining: float = 0.0
+var _blind_slow_time_remaining: float = 0.0
 var _footstep_time_remaining: float = 0.0
 var _was_on_floor: bool = false
+
 
 func _ready() -> void:
 	_camera.enabled = camera_enabled
@@ -85,6 +93,7 @@ func set_facing_direction(direction: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_rebound_boost(delta)
+	_update_blind_slow(delta)
 	_update_loudness(delta)
 	_shout_cooldown_remaining = maxf(0.0, _shout_cooldown_remaining - delta)
 	_update_jump_buffer(delta)
@@ -108,8 +117,10 @@ func _update_loudness(delta: float) -> void:
 		gain += wall_loudness_per_second * delta
 	if is_zero_approx(gain):
 		loudness = maxf(0.0, loudness - idle_loudness_decay_per_second * delta)
+	elif loudness < step_loudness_cap:
+		loudness = minf(step_loudness_cap, loudness + gain)
 	else:
-		loudness = minf(max_loudness, loudness + gain)
+		loudness = maxf(step_loudness_cap, loudness - idle_loudness_decay_per_second * delta)
 
 
 func _add_loudness(amount: float) -> void:
@@ -117,10 +128,24 @@ func _add_loudness(amount: float) -> void:
 
 
 func apply_rebound_boost() -> void:
+	_blind_slow_time_remaining = 0.0
 	_boost_time_remaining = rebound_boost_duration
 	_boost_aura.visible = true
 	_boost_trail.emitting = true
 	rebound_boost_started.emit()
+
+
+func apply_blind_obstacle_slowdown() -> void:
+	_boost_time_remaining = 0.0
+	_boost_aura.visible = false
+	_boost_trail.emitting = false
+	_blind_slow_time_remaining = blind_slow_duration
+	velocity.x *= blind_slow_multiplier
+	blind_impact_slowed.emit(global_position)
+
+
+func is_blind_slowed() -> bool:
+	return _blind_slow_time_remaining > 0.0
 
 
 func _update_rebound_boost(delta: float) -> void:
@@ -134,8 +159,17 @@ func _update_rebound_boost(delta: float) -> void:
 		rebound_boost_ended.emit()
 
 
+func _update_blind_slow(delta: float) -> void:
+	if is_zero_approx(_blind_slow_time_remaining):
+		return
+	_blind_slow_time_remaining = maxf(0.0, _blind_slow_time_remaining - delta)
+
+
 func _speed_multiplier() -> float:
-	return rebound_speed_multiplier if _boost_time_remaining > 0.0 else 1.0
+	var multiplier := rebound_speed_multiplier if _boost_time_remaining > 0.0 else 1.0
+	if _blind_slow_time_remaining > 0.0:
+		multiplier *= blind_slow_multiplier
+	return multiplier
 
 
 func _jump_multiplier() -> float:
@@ -219,14 +253,18 @@ func _emit_footstep_if_running(delta: float) -> void:
 	_footstep_time_remaining -= delta
 	if _footstep_time_remaining <= 0.0:
 		_footstep_time_remaining = footstep_interval
-		footstep_emitted.emit(global_position, Vector2(facing_direction, 0.0), loudness)
+		if loudness <= step_loudness_cap:
+			loudness = step_loudness_cap
+		var capped_step_loudness := clampf(loudness, 1.0, step_loudness_cap)
+		footstep_emitted.emit(global_position, Vector2(facing_direction, 0.0), capped_step_loudness)
 
 
 func _emit_shout_if_requested() -> void:
 	if Input.is_action_just_pressed(shout_action) and is_zero_approx(_shout_cooldown_remaining):
 		_shout_cooldown_remaining = shout_cooldown
-		_add_loudness(shout_loudness_gain)
+		loudness = max_loudness
 		_play_particle_burst(_shout_sparks)
+		apply_rebound_boost()
 		sonic_shouted.emit(global_position, Vector2(facing_direction, 0.0), loudness)
 
 

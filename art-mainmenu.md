@@ -4,15 +4,13 @@ Documentation of all main menu artwork, animation, font, UI, and state-flow chan
 
 ## 1. Animated Sprite Sheet & Rendering
 
-- **Asset**: `assets/art/main_menu_sheet.png` (`1584 × 192` px, `32bpp RGBA`, authored in the Luap-40 palette).
+- **Asset**: `assets/art/main_menu_sheet.png` (`1584 × 192` px, `32bpp RGBA`).
 - **Grid**: `11` columns × `2` rows, each frame `144 × 96` px.
   - **Row 0 (`idle`)**: 11 looping frames (`y = 0`, `x = 0..1440`), played at `4.0 FPS` (`loop = true`).
   - **Row 1 (`outro`)**: 8 one-shot frames (`y = 96`, `x = 0..1008`), played at `6.0 FPS` (`loop = false`) when starting a match.
 - **Pixel-crisp display**:
   - Rendered via `AnimatedSprite2D` (`BackgroundSprite`) with `texture_filter = Nearest` (`1`) and `centered = false`.
   - `_update_background_layout()` scales the `144 × 96` artwork using top-aligned cover scaling (`cover_scale = maxf(size.x / 144.0, size.y / 96.0)`, centered horizontally, `y = 0.0`) so it fills the full `1280 × 720` viewport with no black bars while keeping the upper `REZONANS` logo, moon, and animated character completely uncropped.
-- **Luap-40 Post-Process Bypass on Menu**:
-  - Because `assets/art/main_menu_sheet.png` is already authored in the exact Luap-40 palette, `scripts/game/race.gd` disables `Luap40PostProcess` during `RaceState.TITLE` and `RaceState.STARTING` and re-enables it for `COUNTDOWN`, `RACING`, `PAUSED`, and `FINISHED`.
 
 ## 2. Fonts
 

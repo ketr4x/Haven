@@ -27,7 +27,6 @@ enum RaceState {
 @onready var _countdown_label: Label = $GlobalUi/Countdown
 @onready var _pause_panel: Control = $GlobalUi/PausePanel
 @onready var _result_panel: Control = $GlobalUi/ResultPanel
-@onready var _palette_post_process: CanvasLayer = $Luap40PostProcess
 @onready var _transition_rect: ColorRect = $TransitionLayer/TransitionRect
 
 var _seed: int = 0
@@ -199,7 +198,6 @@ func _set_race_state(next_state: RaceState) -> void:
 	_title_panel.visible = next_state == RaceState.TITLE or next_state == RaceState.STARTING
 	if next_state == RaceState.TITLE:
 		_title_panel.reset_to_idle()
-	_palette_post_process.visible = next_state != RaceState.TITLE and next_state != RaceState.STARTING
 	_countdown_label.visible = next_state == RaceState.COUNTDOWN
 	_pause_panel.visible = next_state == RaceState.PAUSED
 	_result_panel.visible = next_state == RaceState.FINISHED
