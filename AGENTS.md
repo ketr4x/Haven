@@ -87,9 +87,12 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
 - Integrate the staged logo and player sprite sheet only when the corresponding menu and animation work is implemented. They are present in `assets/art/` but are not referenced by the active scenes.
+- Complete the GD-Sync external-network proof of concept before changing race gameplay. It must verify private room-code joins, public lobby discovery, relay messages, Windows exports, and safe client credential handling.
+- Add multiplayer behind an `OnlineService` boundary, beginning with two-player private friend rooms, then public lobby discovery for quick matches. Do not couple `Race`, `PlayerWorld`, or UI directly to the service plugin.
+- Add a common-seed event leaderboard and a separate online match-wins board only after the private online race flow works. Treat client results as casual until server-side validation exists.
 
 ## NEXT STEPS
 
-**Make the core loop readable.** Add a per-player loudness indicator and a visible boost-duration cue. Test whether players can tell that loudness affects their wave, noise foam blocks it, and a returned wave causes the boost.
-**Playtest terrain features.** Tune foam placement and the readability of branching platform choices while both players race through the same seed.
-**Playtest the new cues.** Verify that the movement, wave, boost, landing, and finish sounds stay distinct and balanced for two simultaneous players.
+**Prove the online path.** Run the GD-Sync proof of concept from the multiplayer implementation plan before refactoring the race scene or menu. Stop and select an alternative backend if it cannot connect two exported Windows builds over separate networks without exposing secrets.
+**Ship friend rooms first.** Refactor the race session and player-world configuration so a single full-height local online world can use the existing Player 1 Input Map actions, while local split-screen behavior remains unchanged.
+**Build outward from the playable slice.** After private rooms reliably complete a race, add quick-match lobby discovery, the multiplayer menu/result states, and then the fixed-seed event leaderboard.
