@@ -134,6 +134,10 @@ func _update_rebound_boost(delta: float) -> void:
 		rebound_boost_ended.emit()
 
 
+func is_rebound_boost_active() -> bool:
+	return _boost_time_remaining > 0.0
+
+
 func _speed_multiplier() -> float:
 	return rebound_speed_multiplier if _boost_time_remaining > 0.0 else 1.0
 

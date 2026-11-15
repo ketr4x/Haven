@@ -7,6 +7,9 @@ var _configured_slots: Array = []
 var _countdown_duration: float = 0.0
 var _finished_winner: int = 0
 var _finished_times: Dictionary = {}
+var _opponent_progress: float = 0.0
+var _opponent_loudness: float = 0.0
+var _opponent_boost_active: bool = false
 
 
 func _initialize() -> void:
@@ -18,6 +21,7 @@ func _initialize() -> void:
 	online_match.match_configured.connect(_on_online_match_configured)
 	online_match.countdown_started.connect(_on_countdown_started)
 	online_match.match_finished.connect(_on_online_match_finished)
+	online_match.opponent_status_received.connect(_on_opponent_status_received)
 	await process_frame
 
 	online_match.host_friend_room("ECHO-TEST")
@@ -41,6 +45,17 @@ func _initialize() -> void:
 	assert(is_equal_approx(_countdown_duration, online_match.countdown_duration))
 
 	online_match.begin_race()
+	online_match.submit_local_status(0.4, 55.0, true)
+	service.receive_message(2, OnlineProtocol.make_message(
+		"player_status",
+		"ECHO-TEST",
+		2,
+		{"boost_active": false, "loudness": 63.0, "progress": 0.7},
+	))
+	assert(is_equal_approx(_opponent_progress, 0.7))
+	assert(is_equal_approx(_opponent_loudness, 63.0))
+	assert(not _opponent_boost_active)
+
 	online_match.submit_local_finish(12.5)
 	service.receive_message(2, OnlineProtocol.make_message(
 		"player_finished",
@@ -52,6 +67,18 @@ func _initialize() -> void:
 	assert(_finished_winner == 1)
 	assert(is_equal_approx(float(_finished_times[1]), 12.5))
 	assert(is_equal_approx(float(_finished_times[2]), 13.0))
+
+	online_match.request_rematch()
+	assert(online_match.state == OnlineMatch.MatchState.REMATCH_WAITING)
+	service.receive_message(2, OnlineProtocol.make_message(
+		"rematch_vote",
+		"ECHO-TEST",
+		3,
+		{"accepted": true, "slot": 2},
+	))
+	assert(online_match.state == OnlineMatch.MatchState.CONFIGURING)
+	assert(_configured_slots == [1, 1])
+	assert(online_match.finish_times.is_empty())
 
 	online_match.queue_free()
 	service.queue_free()
@@ -71,3 +98,9 @@ func _on_countdown_started(duration: float) -> void:
 func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> void:
 	_finished_times = finish_times
 	_finished_winner = winner_slot
+
+
+func _on_opponent_status_received(progress: float, loudness: float, boost_active: bool) -> void:
+	_opponent_progress = progress
+	_opponent_loudness = loudness
+	_opponent_boost_active = boost_active

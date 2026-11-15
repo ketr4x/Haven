@@ -92,6 +92,23 @@ func course_signature() -> String:
 	return _generator.course_signature
 
 
+func progress_fraction() -> float:
+	var spawn := _generator.to_global(_generator.player_spawn)
+	var finish := _generator.to_global(_generator.finish_position)
+	var course_distance := absf(finish.x - spawn.x)
+	if is_zero_approx(course_distance):
+		return 0.0
+	return clampf(absf(_player.global_position.x - spawn.x) / course_distance, 0.0, 1.0)
+
+
+func current_loudness() -> float:
+	return _player.loudness
+
+
+func has_rebound_boost() -> bool:
+	return _player.is_rebound_boost_active()
+
+
 func _apply_player_configuration() -> void:
 	_player.left_action = left_action
 	_player.right_action = right_action

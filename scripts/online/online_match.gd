@@ -7,6 +7,9 @@ signal match_failed(reason: String)
 signal match_finished(finish_times: Dictionary, winner_slot: int)
 signal opponent_finished(player_slot: int, elapsed: float)
 signal opponent_left(client_id: int)
+signal opponent_named(display_name: String)
+signal opponent_status_received(progress: float, loudness: float, boost_active: bool)
+signal rematch_waiting
 signal room_code_ready(room_code: String)
 
 enum MatchState {
@@ -18,6 +21,7 @@ enum MatchState {
 	COUNTDOWN,
 	RACING,
 	FINISHED,
+	REMATCH_WAITING,
 	FAILED,
 }
 
@@ -49,8 +53,11 @@ var player_slot: int = 0
 var race_seed: int = 0
 var room_code: String = ""
 var state: MatchState = MatchState.IDLE
+var local_display_name: String = ""
+var opponent_display_name: String = ""
 
 var _course_signatures: Dictionary = {}
+var _rematch_votes: Dictionary = {}
 var _next_sequence: int = 0
 var _quick_match_join_retries: int = 0
 var _random: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -130,6 +137,26 @@ func submit_local_finish(elapsed: float) -> void:
 		_try_finish_match()
 
 
+func submit_local_status(progress: float, loudness: float, boost_active: bool) -> void:
+	if state != MatchState.RACING:
+		return
+	_send("player_status", {
+		"boost_active": boost_active,
+		"loudness": clampf(loudness, 0.0, 100.0),
+		"progress": clampf(progress, 0.0, 1.0),
+	})
+
+
+func request_rematch() -> void:
+	if state != MatchState.FINISHED or player_slot == 0:
+		return
+	state = MatchState.REMATCH_WAITING
+	_rematch_votes[player_slot] = true
+	_send("rematch_vote", {"accepted": true, "slot": player_slot})
+	rematch_waiting.emit()
+	_try_start_rematch()
+
+
 func leave_match() -> void:
 	if online_service != null:
 		online_service.leave_lobby()
@@ -144,9 +171,10 @@ func _begin(next_role: MatchRole) -> bool:
 	return true
 
 
-func _on_online_connected(_client_id: int) -> void:
+func _on_online_connected(client_id: int) -> void:
 	if state != MatchState.CONNECTING:
 		return
+	local_display_name = "ECHO-%04d" % posmod(client_id, 10_000)
 	state = MatchState.JOINING
 	if _kind == MatchKind.QUICK:
 		online_service.list_public_lobbies()
@@ -204,6 +232,7 @@ func _on_lobby_joined(lobby_name: String) -> void:
 	if state != MatchState.JOINING or lobby_name != room_code:
 		return
 	state = MatchState.WAITING_FOR_OPPONENT
+	_send_hello()
 	if _kind == MatchKind.FRIEND and _role == MatchRole.HOST:
 		room_code_ready.emit(room_code)
 
@@ -221,6 +250,7 @@ func _on_lobby_join_failed(lobby_name: String, reason: String) -> void:
 
 func _on_peer_joined(_client_id: int) -> void:
 	if _role == MatchRole.HOST and state == MatchState.WAITING_FOR_OPPONENT:
+		_send_hello()
 		_start_setup_as_host()
 
 
@@ -237,6 +267,8 @@ func _on_message_received(_sender_id: int, message: Dictionary) -> void:
 		return
 	var payload: Dictionary = message["payload"] as Dictionary
 	match str(message["kind"]):
+		"hello":
+			_receive_hello(payload)
 		"race_setup":
 			_receive_race_setup(payload)
 		"course_ready":
@@ -245,12 +277,33 @@ func _on_message_received(_sender_id: int, message: Dictionary) -> void:
 			_receive_race_start(payload)
 		"player_finished":
 			_receive_player_finished(payload)
+		"player_status":
+			_receive_player_status(payload)
 		"match_result":
 			_receive_match_result(payload)
+		"rematch_vote":
+			_receive_rematch_vote(payload)
+
+
+func _send_hello() -> void:
+	if local_display_name.is_empty():
+		return
+	_send("hello", {"display_name": local_display_name})
+
+
+func _receive_hello(payload: Dictionary) -> void:
+	var name_value: Variant = payload.get("display_name")
+	if not name_value is String:
+		return
+	var display_name := str(name_value).strip_edges().left(20)
+	if display_name.is_empty():
+		return
+	opponent_display_name = display_name
+	opponent_named.emit(opponent_display_name)
 
 
 func _receive_race_setup(payload: Dictionary) -> void:
-	if _role != MatchRole.GUEST or state != MatchState.WAITING_FOR_OPPONENT:
+	if _role != MatchRole.GUEST or state not in [MatchState.WAITING_FOR_OPPONENT, MatchState.REMATCH_WAITING]:
 		return
 	var seed_value: Variant = payload.get("seed")
 	if not seed_value is int or int(seed_value) <= 0:
@@ -318,6 +371,23 @@ func _receive_player_finished(payload: Dictionary) -> void:
 		_try_finish_match()
 
 
+func _receive_player_status(payload: Dictionary) -> void:
+	if state != MatchState.RACING:
+		return
+	var progress_value: Variant = payload.get("progress")
+	var loudness_value: Variant = payload.get("loudness")
+	var boost_value: Variant = payload.get("boost_active")
+	if not (progress_value is float or progress_value is int):
+		return
+	if not (loudness_value is float or loudness_value is int) or not boost_value is bool:
+		return
+	opponent_status_received.emit(
+		clampf(float(progress_value), 0.0, 1.0),
+		clampf(float(loudness_value), 0.0, 100.0),
+		bool(boost_value),
+	)
+
+
 func _try_finish_match() -> void:
 	if not finish_times.has(1) or not finish_times.has(2):
 		return
@@ -342,6 +412,28 @@ func _receive_match_result(payload: Dictionary) -> void:
 	finish_times = times.duplicate(true)
 	state = MatchState.FINISHED
 	match_finished.emit(finish_times.duplicate(true), int(winner_value))
+
+
+func _receive_rematch_vote(payload: Dictionary) -> void:
+	if state not in [MatchState.FINISHED, MatchState.REMATCH_WAITING]:
+		return
+	var slot_value: Variant = payload.get("slot")
+	if not slot_value is int or int(slot_value) == player_slot or not bool(payload.get("accepted", false)):
+		return
+	_rematch_votes[int(slot_value)] = true
+	if state == MatchState.FINISHED:
+		state = MatchState.REMATCH_WAITING
+	rematch_waiting.emit()
+	_try_start_rematch()
+
+
+func _try_start_rematch() -> void:
+	if _role != MatchRole.HOST or not _rematch_votes.has(1) or not _rematch_votes.has(2):
+		return
+	finish_times.clear()
+	_course_signatures.clear()
+	_rematch_votes.clear()
+	_start_setup_as_host()
 
 
 func _on_peer_left(client_id: int) -> void:
@@ -374,9 +466,12 @@ func _fail(reason: String) -> void:
 func _reset() -> void:
 	finish_times.clear()
 	_course_signatures.clear()
+	_rematch_votes.clear()
 	player_slot = 0
 	race_seed = 0
 	room_code = ""
+	local_display_name = ""
+	opponent_display_name = ""
 	_next_sequence = 0
 	_quick_match_join_retries = 0
 	state = MatchState.IDLE
