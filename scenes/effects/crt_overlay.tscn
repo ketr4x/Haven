@@ -1,0 +1,53 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/effects/crt_overlay.gd" id="1_crt_overlay"]
+[ext_resource type="Shader" path="res://assets/shaders/crt_filter.gdshader" id="2_crt_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_crt"]
+shader = ExtResource("2_crt_shader")
+shader_parameter/curvature_x = 0.11
+shader_parameter/curvature_y = 0.14
+shader_parameter/screen_scale = 0.995
+shader_parameter/glass_bulge = 0.04
+shader_parameter/corner_radius = 0.085
+shader_parameter/corner_smoothness = 0.012
+shader_parameter/vignette_intensity = 0.36
+shader_parameter/vignette_opacity = 0.82
+shader_parameter/vignette_roundness = 0.30
+shader_parameter/bezel_reflection = 0.05
+shader_parameter/bezel_color = Color(0.012, 0.012, 0.018, 1)
+shader_parameter/scanline_count = 240.0
+shader_parameter/scanline_density = 1.0
+shader_parameter/scanline_opacity = 0.44
+shader_parameter/scanline_sharpness = 1.5
+shader_parameter/scanline_brightness_boost = 0.20
+shader_parameter/scanline_scroll_speed = 0.0
+shader_parameter/scanline_curvature_follow = 1.0
+shader_parameter/mask_intensity = 0.45
+shader_parameter/mask_scale = 1.5
+shader_parameter/mask_grid_strength = 0.55
+shader_parameter/mask_bright_boost = 0.75
+shader_parameter/aberration_offset = 2.8
+shader_parameter/aberration_edge_power = 1.55
+shader_parameter/aberration_center_weight = 0.25
+shader_parameter/color_bleed_strength = 0.58
+shader_parameter/edge_blur_radius = 2.0
+shader_parameter/bloom_intensity = 0.55
+shader_parameter/bloom_threshold = 0.34
+shader_parameter/bloom_soft_knee = 0.20
+shader_parameter/bloom_radius = 3.2
+shader_parameter/brightness_boost = 1.15
+
+[node name="CrtOverlay" type="CanvasLayer"]
+layer = 120
+script = ExtResource("1_crt_overlay")
+
+[node name="CrtRect" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_crt")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)

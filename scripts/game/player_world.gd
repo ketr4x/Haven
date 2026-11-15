@@ -40,7 +40,7 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/player_vignette.gdshader"
 @export_range(0.15, 0.9, 0.01) var scream_vignette_inner_radius: float = 0.44
 @export_range(0.3, 1.4, 0.01) var scream_vignette_outer_radius: float = 0.98
 @export_range(0.15, 1.0, 0.01) var scream_vignette_darkness: float = 0.42
-@export var scream_vignette_hold_duration: float = 3.4
+@export var scream_vignette_hold_duration: float = 4.0
 
 @onready var _generator: CourseGenerator = $CourseGenerator
 @onready var _player: RezonansPlayer = $Player

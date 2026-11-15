@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3]
+[gd_scene load_steps=34 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/generator_lab.gd" id="1_lab"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
@@ -32,6 +32,7 @@
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_break_through.tscn" id="33_break_through"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_wall_blast.tscn" id="34_wall_blast"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="12_finish"]
+[ext_resource type="PackedScene" path="res://scenes/effects/crt_overlay.tscn" id="35_crt_overlay"]
 
 [node name="GeneratorLab" type="Node2D"]
 script = ExtResource("1_lab")
@@ -121,3 +122,6 @@ offset_bottom = 188.0
 theme_override_colors/font_color = Color(0.68, 0.72, 0.86, 1)
 theme_override_font_sizes/font_size = 16
 text = "The same seed must produce the same chunk order. This lab uses safe placeholders only."
+
+[node name="CrtOverlay" parent="." instance=ExtResource("35_crt_overlay")]
+

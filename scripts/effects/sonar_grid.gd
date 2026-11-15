@@ -54,7 +54,9 @@ const ARC_SUBDIVISIONS: int = 2
 @export var peripheral_range_tiles: float = 3.5
 @export var peripheral_max_bounces: int = 2
 @export_range(0.05, 0.5, 0.05) var bounce_energy_loss: float = 0.2
-@export_range(3, 8, 1) var max_trail_points: int = 5
+@export_range(0.2, 4.0, 0.1) var alpha_drop_window: float = 2.0
+@export_range(0.1, 0.98, 0.01) var alpha_loss_after_window: float = 0.80
+@export var max_active_rays: int = 540
 @export var ripple_duration: float = 0.28
 @export var wave_undulation_cycles: float = 8.0
 @export var wave_undulation_speed: float = 3.5
@@ -75,10 +77,16 @@ var active_ripples: Array[Dictionary] = []
 
 var _next_pulse_group_id: int = 0
 var _wave_time: float = 0.0
+var _sim_tick: int = 0
+var _lit_tiles: Dictionary = {}
+var _arc_points: PackedVector2Array = PackedVector2Array()
+var _arc_colors: PackedColorArray = PackedColorArray()
+var _connected_flags: PackedByteArray = PackedByteArray()
 
 
 func _ready() -> void:
 	z_index = 5
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
 func set_player_accent_color(color: Color) -> void:
@@ -94,6 +102,7 @@ func clear_waves() -> void:
 
 func rebuild_from_generator(generator: CourseGenerator) -> void:
 	tiles.clear()
+	_lit_tiles.clear()
 	clear_waves()
 	grid_origin = generator.global_position
 
@@ -141,6 +150,7 @@ func rebuild_from_generator(generator: CourseGenerator) -> void:
 
 func rebuild_from_static_bodies(root_node: Node2D, floor_y_threshold: float = 640.0) -> void:
 	tiles.clear()
+	_lit_tiles.clear()
 	clear_waves()
 	grid_origin = Vector2.ZERO
 	for body_variant in root_node.find_children("*", "StaticBody2D", true, false):
@@ -157,6 +167,22 @@ func rebuild_from_static_bodies(root_node: Node2D, floor_y_threshold: float = 64
 	queue_redraw()
 
 
+func compute_decay_power(max_lifetime: float) -> float:
+	if max_lifetime <= 0.002:
+		return 1.0
+	var drop_time := minf(alpha_drop_window, max_lifetime * 0.5)
+	var ratio_at_drop := clampf(1.0 - drop_time / max_lifetime, 0.01, 0.99)
+	var remaining_ratio_at_drop := clampf(1.0 - alpha_loss_after_window, 0.001, 0.99)
+	return log(remaining_ratio_at_drop) / log(ratio_at_drop)
+
+
+func compute_wave_alpha_factor(remaining_lifetime: float, max_lifetime: float) -> float:
+	if remaining_lifetime <= 0.0 or max_lifetime <= 0.001:
+		return 0.0
+	var life_ratio := clampf(remaining_lifetime / max_lifetime, 0.0, 1.0)
+	return pow(life_ratio, compute_decay_power(max_lifetime))
+
+
 func emit_pulse(
 	origin: Vector2,
 	facing_direction: Vector2,
@@ -171,6 +197,17 @@ func emit_pulse(
 	if forward_dir.is_zero_approx():
 		forward_dir = Vector2.RIGHT
 
+	var visibility_scale := pow(clampf(range_multiplier / 1.5, 0.15, 1.0), 1.15)
+	var ray_lifetime := maxf(0.35, fade_duration * visibility_scale)
+	var decay_power := compute_decay_power(ray_lifetime)
+
+	if max_active_rays > 0 and active_rays.size() + ray_count > max_active_rays:
+		var overflow := active_rays.size() + ray_count - max_active_rays
+		if overflow >= active_rays.size():
+			active_rays.clear()
+		else:
+			active_rays.assign(active_rays.slice(overflow))
+
 	var cone_cos := cos(deg_to_rad(forward_cone_half_angle_degrees))
 	var spawned := 0
 	for index in ray_count:
@@ -180,13 +217,9 @@ func emit_pulse(
 		var is_forward := alignment >= cone_cos
 
 		var ray_speed := forward_speed if is_forward else peripheral_speed
-		var range_tiles := (forward_range_tiles if is_forward else peripheral_range_tiles) * range_multiplier
-		var max_distance := range_tiles * GRID_SIZE
-		var ray_lifetime := max_distance / maxf(1.0, ray_speed)
 		var allowed_bounces := maxi(0, (forward_max_bounces if is_forward else peripheral_max_bounces) + extra_bounces)
 
 		var start_pos := origin + direction * 6.0
-		var trail := PackedVector2Array([start_pos])
 		active_rays.append({
 			"pulse_id": pulse_id,
 			"ray_index": index,
@@ -195,9 +228,9 @@ func emit_pulse(
 			"velocity": direction * ray_speed,
 			"remaining_lifetime": ray_lifetime,
 			"max_lifetime": ray_lifetime,
+			"decay_power": decay_power,
 			"bounce_count": 0,
 			"max_bounces": allowed_bounces,
-			"trail": trail,
 			"is_forward": is_forward,
 			"pulse_kind": pulse_kind,
 		})
@@ -237,11 +270,21 @@ func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int
 	var tile: Dictionary = tiles[world_cell]
 	var min_light := floor_min_light_level if bool(tile["is_floor"]) else 0.0
 	var clamped_level := clampf(level, min_light, 1.0)
-	tile["light_level"] = maxf(float(tile["light_level"]), clamped_level)
+	var prev_level := float(tile["light_level"])
+	if int(tile.get("lit_tick", -1)) == _sim_tick and prev_level >= clamped_level - 0.001:
+		return
+
+	tile["lit_tick"] = _sim_tick
+	tile["light_level"] = maxf(prev_level, clamped_level)
 	tile["last_hit_color"] = _resolve_tile_hit_color(int(tile["kind"]), bounce_count)
 	if not hit_normal.is_zero_approx():
 		tile["hit_normal"] = hit_normal
+	if float(tile["light_level"]) > min_light:
+		_lit_tiles[world_cell] = true
 	tile_illuminated.emit(world_cell, int(tile["kind"]), float(tile["light_level"]))
+
+	if clamped_level <= min_light + 0.01:
+		return
 
 	for offset in NEIGHBOR_OFFSETS:
 		var neighbor_cell := world_cell + offset
@@ -252,6 +295,8 @@ func illuminate_cell(world_cell: Vector2i, level: float = 1.0, bounce_count: int
 		var boosted := clampf(float(neighbor["light_level"]) + neighbor_light_boost, neighbor_min, 1.0)
 		neighbor["light_level"] = boosted
 		neighbor["last_hit_color"] = _resolve_tile_hit_color(int(neighbor["kind"]), bounce_count)
+		if boosted > neighbor_min:
+			_lit_tiles[neighbor_cell] = true
 		if not hit_normal.is_zero_approx() and Vector2(neighbor.get("hit_normal", Vector2.ZERO)).is_zero_approx():
 			neighbor["hit_normal"] = hit_normal
 
@@ -282,36 +327,56 @@ func _process(delta: float) -> void:
 
 
 func _update_tile_fade(delta: float) -> bool:
-	if tiles.is_empty():
+	if _lit_tiles.is_empty():
 		return false
 	var decay := delta / maxf(0.05, fade_duration)
 	var changed := false
-	for cell in tiles.keys():
+	var faded_cells: Array[Vector2i] = []
+	for cell_variant in _lit_tiles.keys():
+		var cell: Vector2i = cell_variant
 		var tile: Dictionary = tiles[cell]
 		var min_light := floor_min_light_level if bool(tile["is_floor"]) else 0.0
 		var current := float(tile["light_level"])
 		if current > min_light:
-			tile["light_level"] = maxf(min_light, current - decay)
+			var next_light := maxf(min_light, current - decay)
+			tile["light_level"] = next_light
 			changed = true
+			if next_light <= min_light:
+				faded_cells.append(cell)
+		else:
+			faded_cells.append(cell)
+	for cell in faded_cells:
+		_lit_tiles.erase(cell)
 	return changed
 
 
 func _update_rays_and_ripples(delta: float) -> bool:
+	_sim_tick += 1
 	var had_activity := not active_rays.is_empty() or not active_ripples.is_empty()
 
-	var surviving_rays: Array[Dictionary] = []
-	for ray in active_rays:
+	var ray_write := 0
+	var ray_count := active_rays.size()
+	for i in ray_count:
+		var ray: Dictionary = active_rays[i]
 		if _step_ray(ray, delta):
-			surviving_rays.append(ray)
-	active_rays = surviving_rays
+			if ray_write != i:
+				active_rays[ray_write] = ray
+			ray_write += 1
+	if ray_write != ray_count:
+		active_rays.resize(ray_write)
 
-	var surviving_ripples: Array[Dictionary] = []
-	for ripple in active_ripples:
+	var ripple_write := 0
+	var ripple_count := active_ripples.size()
+	for i in ripple_count:
+		var ripple: Dictionary = active_ripples[i]
 		var age := float(ripple["age"]) + delta
 		if age < float(ripple["duration"]):
 			ripple["age"] = age
-			surviving_ripples.append(ripple)
-	active_ripples = surviving_ripples
+			if ripple_write != i:
+				active_ripples[ripple_write] = ripple
+			ripple_write += 1
+	if ripple_write != ripple_count:
+		active_ripples.resize(ripple_write)
 
 	return had_activity or not active_rays.is_empty() or not active_ripples.is_empty()
 
@@ -323,13 +388,12 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 	ray["remaining_lifetime"] = remaining_lifetime
 
 	var velocity: Vector2 = ray["velocity"]
-	var total_displacement := velocity * delta
-	var substep_count := maxi(1, ceili(total_displacement.length() / 12.0))
+	var displacement_len := velocity.length() * delta
+	var substep_count := maxi(1, ceili(displacement_len / 16.0))
 	var step_delta := delta / float(substep_count)
+	var current_pos: Vector2 = ray["position"]
 
 	for _step in substep_count:
-		var current_pos: Vector2 = ray["position"]
-		velocity = ray["velocity"]
 		var next_pos := current_pos + velocity * step_delta
 		var current_cell := world_to_grid(current_pos)
 		var next_cell := world_to_grid(next_pos)
@@ -341,7 +405,12 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 			var normal := _compute_grid_normal(current_cell, next_cell, velocity)
 			var impact_pos := _compute_impact_point(current_pos, next_pos, next_cell, normal)
 
-			illuminate_cell(next_cell, 1.0, bounce_count, normal)
+			var max_life := maxf(0.001, float(ray["max_lifetime"]))
+			var life_ratio := clampf(remaining_lifetime / max_life, 0.0, 1.0)
+			var visibility_level := clampf(remaining_lifetime / maxf(0.05, fade_duration), 0.0, 1.0)
+			if bounce_count == 1 and life_ratio >= 0.85 and max_life >= fade_duration * 0.9:
+				visibility_level = 1.0
+			illuminate_cell(next_cell, visibility_level, bounce_count, normal)
 
 			if hit_kind == TileKind.ABSORBER:
 				_spawn_impact_ripple(impact_pos, absorber_tile_color, 6.0, normal)
@@ -353,6 +422,7 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 				if pulse_kind == PulseKind.SCREAM:
 					_break_wall_at_cell(next_cell, impact_pos, velocity.normalized())
 					_spawn_impact_ripple(impact_pos, breakable_tile_color, 12.0, normal)
+					current_pos = next_pos
 					ray["position"] = next_pos
 					continue
 				else:
@@ -362,17 +432,18 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 
 			ray["bounce_count"] = bounce_count
 			velocity = velocity.bounce(normal)
+			var min_ricochet_speed := 240.0 if bool(ray["is_forward"]) else 170.0
+			var current_speed := velocity.length()
 			if hit_kind == TileKind.BOUNCE_PAD:
-				velocity *= 1.12
-				ray["remaining_lifetime"] = float(ray["remaining_lifetime"]) * 0.92
+				current_speed = minf(forward_speed * 1.15, current_speed * 1.10)
 			elif hit_kind == TileKind.BREAKABLE:
-				ray["remaining_lifetime"] = float(ray["remaining_lifetime"]) * (1.0 - bounce_energy_loss * 0.8)
+				current_speed = maxf(min_ricochet_speed, current_speed * (1.0 - bounce_energy_loss * 0.6))
 			else:
-				ray["remaining_lifetime"] = float(ray["remaining_lifetime"]) * (1.0 - bounce_energy_loss)
+				current_speed = maxf(min_ricochet_speed, current_speed * (1.0 - bounce_energy_loss * 0.45))
 
+			velocity = velocity.normalized() * current_speed
 			ray["velocity"] = velocity
-			ray["position"] = impact_pos + normal * 2.0
-			_append_trail_point(ray, impact_pos)
+			current_pos = impact_pos + normal * 2.0
 			_spawn_impact_ripple(
 				impact_pos,
 				_resolve_ray_color(bounce_count, int(ray["pulse_kind"])),
@@ -380,25 +451,16 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 				normal,
 			)
 			wave_bounced.emit(impact_pos, normal, bounce_count)
-
-			if bounce_count >= int(ray["max_bounces"]) or float(ray["remaining_lifetime"]) <= 0.0:
-				return false
 		else:
-			ray["position"] = next_pos
+			current_pos = next_pos
 
-	_append_trail_point(ray, ray["position"])
+	ray["position"] = current_pos
 	return true
 
 
-func _append_trail_point(ray: Dictionary, point: Vector2) -> void:
-	var trail: PackedVector2Array = ray["trail"]
-	trail.append(point)
-	while trail.size() > max_trail_points:
-		trail.remove_at(0)
-	ray["trail"] = trail
-
-
 func _spawn_impact_ripple(world_position: Vector2, color: Color, max_radius: float = 7.0, normal: Vector2 = Vector2.UP) -> void:
+	if active_ripples.size() >= 256:
+		return
 	active_ripples.append({
 		"position": world_position,
 		"color": color,
@@ -443,29 +505,55 @@ func _compute_impact_point(from_pos: Vector2, to_pos: Vector2, hit_cell: Vector2
 
 
 func _draw() -> void:
-	for cell_variant in tiles.keys():
-		var cell: Vector2i = cell_variant
-		var tile: Dictionary = tiles[cell]
-		var rect := grid_to_world_rect(cell)
-		var local_rect := Rect2(to_local(rect.position), rect.size)
-		var light_level := clampf(float(tile["light_level"]), 0.0, 1.0)
-		var is_floor := bool(tile["is_floor"])
-		var visibility := (0.34 + 0.66 * light_level) if is_floor else (0.20 + 0.80 * light_level)
+	var drawn_with_culling := false
+	var viewport := get_viewport()
+	if viewport != null and not tiles.is_empty():
+		var visible_size := viewport.get_visible_rect().size
+		if visible_size.x > 0.0 and visible_size.y > 0.0:
+			var inv_xform := get_global_transform_with_canvas().affine_inverse()
+			var local_tl := inv_xform * Vector2.ZERO
+			var local_br := inv_xform * visible_size
+			var world_tl := to_global(Vector2(minf(local_tl.x, local_br.x), minf(local_tl.y, local_br.y))) - Vector2(GRID_SIZE * 2.0, GRID_SIZE * 2.0)
+			var world_br := to_global(Vector2(maxf(local_tl.x, local_br.x), maxf(local_tl.y, local_br.y))) + Vector2(GRID_SIZE * 2.0, GRID_SIZE * 2.0)
+			var min_cell := world_to_grid(world_tl)
+			var max_cell := world_to_grid(world_br)
+			var span_x := maxi(0, max_cell.x - min_cell.x + 1)
+			var span_y := maxi(0, max_cell.y - min_cell.y + 1)
+			if span_x * span_y < tiles.size():
+				drawn_with_culling = true
+				for cx in range(min_cell.x, max_cell.x + 1):
+					for cy in range(min_cell.y, max_cell.y + 1):
+						var cell := Vector2i(cx, cy)
+						if tiles.has(cell):
+							_draw_tile_cell(cell, tiles[cell])
 
-		# Use #21263f shadow mask so the bottom of tiles (which already fades to #21263f) blends seamlessly into the background
-		var shadow_alpha := clampf(1.0 - visibility, 0.0, 1.0)
-		if shadow_alpha > 0.001:
-			draw_rect(local_rect, Color(0.129412, 0.14902, 0.247059, shadow_alpha), true)
-
-		# Only illuminate the top or the specific face that the wave hit (never the bottom of floor blocks or the whole 48x48 box)
-		if light_level > floor_min_light_level + 0.02 or (not is_floor and light_level > 0.05):
-			var base_color: Color = tile["last_hit_color"]
-			var face_alpha := light_level * (0.28 if is_floor else 0.36)
-			var face_color := Color(base_color.r, base_color.g, base_color.b, face_alpha)
-			var face_normal := _resolve_tile_face_normal(cell, tile)
-			_draw_tile_face_highlight(local_rect, face_normal, face_color)
+	if not drawn_with_culling:
+		for cell_variant in tiles.keys():
+			var cell: Vector2i = cell_variant
+			_draw_tile_cell(cell, tiles[cell])
 
 	_draw_wave_arcs()
+
+
+func _draw_tile_cell(cell: Vector2i, tile: Dictionary) -> void:
+	var rect := grid_to_world_rect(cell)
+	var local_rect := Rect2(to_local(rect.position), rect.size)
+	var light_level := clampf(float(tile["light_level"]), 0.0, 1.0)
+	var is_floor := bool(tile["is_floor"])
+	var visibility := (0.34 + 0.66 * light_level) if is_floor else (0.20 + 0.80 * light_level)
+
+	# Use #21263f shadow mask so the bottom of tiles (which already fades to #21263f) blends seamlessly into the background
+	var shadow_alpha := clampf(1.0 - visibility, 0.0, 1.0)
+	if shadow_alpha > 0.001:
+		draw_rect(local_rect, Color(0.129412, 0.14902, 0.247059, shadow_alpha), true)
+
+	# Only illuminate the top or the specific face that the wave hit (never the bottom of floor blocks or the whole 48x48 box)
+	if light_level > floor_min_light_level + 0.02 or (not is_floor and light_level > 0.05):
+		var base_color: Color = tile["last_hit_color"]
+		var face_alpha := light_level * (0.28 if is_floor else 0.36)
+		var face_color := Color(base_color.r, base_color.g, base_color.b, face_alpha)
+		var face_normal := _resolve_tile_face_normal(cell, tile)
+		_draw_tile_face_highlight(local_rect, face_normal, face_color)
 
 
 func _resolve_tile_face_normal(cell: Vector2i, tile: Dictionary) -> Vector2:
@@ -514,137 +602,153 @@ func _draw_tile_face_highlight(local_rect: Rect2, face_normal: Vector2, color: C
 		)
 
 
+func _snap_wave_point(world_pt: Vector2) -> Vector2:
+	var local_pt := to_local(world_pt)
+	var half_px := WAVE_PIXEL_SIZE * 0.5
+	return Vector2(
+		floorf(local_pt.x / WAVE_PIXEL_SIZE) * WAVE_PIXEL_SIZE + half_px,
+		floorf(local_pt.y / WAVE_PIXEL_SIZE) * WAVE_PIXEL_SIZE + half_px,
+	)
+
+
 func _draw_wave_arcs() -> void:
-	if active_rays.is_empty():
+	var total_rays := active_rays.size()
+	if total_rays == 0:
 		return
 
-	var pulses: Dictionary = {}
-	for ray in active_rays:
-		var pid := int(ray.get("pulse_id", 0))
-		if not pulses.has(pid):
-			pulses[pid] = []
-		(pulses[pid] as Array).append(ray)
-
-	var pixel_canvas: Dictionary = {}
+	_arc_points.clear()
+	_arc_colors.clear()
 	var quantized_time := floorf(_wave_time * 8.0) / 8.0
+	var band_count := ARC_BAND_OFFSETS.size()
+	var pulse_start := 0
 
-	for pid in pulses.keys():
-		var group: Array = pulses[pid]
-		if group.is_empty():
-			continue
-		var by_index: Dictionary = {}
-		var ray_count := maxi(1, int((group[0] as Dictionary).get("ray_count", 90)))
-		for ray_variant in group:
-			var ray: Dictionary = ray_variant
-			by_index[int(ray["ray_index"])] = ray
+	while pulse_start < total_rays:
+		var pid := int(active_rays[pulse_start]["pulse_id"])
+		var pulse_end := pulse_start + 1
+		while pulse_end < total_rays and int(active_rays[pulse_end]["pulse_id"]) == pid:
+			pulse_end += 1
 
-		for ray_variant in group:
-			var ray_a: Dictionary = ray_variant
-			var idx_a := int(ray_a["ray_index"])
-			var idx_b := (idx_a + 1) % ray_count
-			if not by_index.has(idx_b):
+		var slice_len := pulse_end - pulse_start
+		if _connected_flags.size() < slice_len:
+			_connected_flags.resize(slice_len)
+		for f_idx in slice_len:
+			_connected_flags[f_idx] = 0
+
+		var ray_count := maxi(1, int(active_rays[pulse_start]["ray_count"]))
+
+		if slice_len > 1:
+			for local_a in slice_len:
+				var local_b := (local_a + 1) if local_a + 1 < slice_len else 0
+				var ray_a: Dictionary = active_rays[pulse_start + local_a]
+				var ray_b: Dictionary = active_rays[pulse_start + local_b]
+				var idx_a := int(ray_a["ray_index"])
+				var idx_b := int(ray_b["ray_index"])
+				if (idx_a + 1) % ray_count != idx_b:
+					continue
+
+				var bounce_a := int(ray_a["bounce_count"])
+				var bounce_b := int(ray_b["bounce_count"])
+				if absi(bounce_a - bounce_b) > 1:
+					continue
+
+				var pos_a: Vector2 = ray_a["position"]
+				var pos_b: Vector2 = ray_b["position"]
+				var span_sq := pos_a.distance_squared_to(pos_b)
+				var max_span := 54.0 if bounce_a == 0 else 48.0
+				if span_sq > max_span * max_span:
+					continue
+
+				var dir_a := Vector2(ray_a["velocity"]).normalized()
+				var dir_b := Vector2(ray_b["velocity"]).normalized()
+				if dir_a.dot(dir_b) < 0.58:
+					continue
+
+				_connected_flags[local_a] = 1
+				_connected_flags[local_b] = 1
+
+				var life_a := clampf(float(ray_a["remaining_lifetime"]) / maxf(0.001, float(ray_a["max_lifetime"])), 0.0, 1.0)
+				var life_b := clampf(float(ray_b["remaining_lifetime"]) / maxf(0.001, float(ray_b["max_lifetime"])), 0.0, 1.0)
+				var life_ratio := minf(life_a, life_b)
+				var decay_power := float(ray_a["decay_power"])
+				var alpha_fade := pow(life_ratio, decay_power)
+				var is_forward := bool(ray_a["is_forward"]) or bool(ray_b["is_forward"])
+				var raw_alpha := alpha_fade * (0.72 if is_forward else 0.48)
+				if raw_alpha < 0.002:
+					continue
+
+				var arc_color := _resolve_ray_color(maxi(bounce_a, bounce_b), int(ray_a["pulse_kind"]))
+				var amp_scale := (1.0 if is_forward else 0.6) * (0.35 + 0.65 * life_ratio)
+				var subdivisions := ARC_SUBDIVISIONS if (bounce_a == 0 and span_sq > 144.0) else 1
+
+				for band_idx in band_count:
+					var band_scale := 1.0 if band_idx == 1 else 0.52
+					var band_alpha := raw_alpha * band_scale
+					if band_alpha < 0.002:
+						continue
+					var offset_px := ARC_BAND_OFFSETS[band_idx]
+					var band_amp := wave_undulation_amplitude * (1.0 if band_idx == 1 else 0.65) * amp_scale
+					var band_phase := quantized_time * wave_undulation_speed + float(band_idx) * 1.4
+					var seg_color := Color(arc_color.r, arc_color.g, arc_color.b, band_alpha)
+
+					var prev_pt := Vector2.ZERO
+					for step in range(subdivisions + 1):
+						var t := float(step) / float(subdivisions)
+						var base_pos := pos_a.lerp(pos_b, t)
+						var interp_dir := dir_a.lerp(dir_b, t).normalized()
+						if interp_dir.is_zero_approx():
+							interp_dir = dir_a
+						var theta := TAU * (float(idx_a) + t) / float(ray_count)
+						var ripple := sin(theta * wave_undulation_cycles + band_phase) * band_amp
+						var snapped := _snap_wave_point(base_pos + interp_dir * (offset_px + ripple))
+						if step > 0:
+							_arc_points.append(prev_pt)
+							_arc_points.append(snapped)
+							_arc_colors.append(seg_color)
+						prev_pt = snapped
+
+		# Draw ricocheting wavelet crests for bounced rays that separated from their neighbors
+		for local_idx in slice_len:
+			if _connected_flags[local_idx] != 0:
 				continue
-			var ray_b: Dictionary = by_index[idx_b]
-
-			var bounce_a := int(ray_a["bounce_count"])
-			var bounce_b := int(ray_b["bounce_count"])
-			if bounce_a != bounce_b:
+			var ray: Dictionary = active_rays[pulse_start + local_idx]
+			var life_ratio := clampf(float(ray["remaining_lifetime"]) / maxf(0.001, float(ray["max_lifetime"])), 0.0, 1.0)
+			if life_ratio <= 0.005:
+				continue
+			var alpha_fade := pow(life_ratio, float(ray["decay_power"]))
+			var is_forward := bool(ray["is_forward"])
+			var raw_alpha := alpha_fade * (0.68 if is_forward else 0.44)
+			if raw_alpha < 0.002:
 				continue
 
-			var pos_a: Vector2 = ray_a["position"]
-			var pos_b: Vector2 = ray_b["position"]
-			var max_span := 46.0 if bounce_a == 0 else 38.0
-			if pos_a.distance_to(pos_b) > max_span:
-				continue
+			var dir := Vector2(ray["velocity"]).normalized()
+			if dir.is_zero_approx():
+				dir = Vector2.RIGHT
+			var tangent := Vector2(-dir.y, dir.x)
+			var pos: Vector2 = ray["position"]
+			var arc_color := _resolve_ray_color(int(ray["bounce_count"]), int(ray["pulse_kind"]))
+			var half_width := (6.5 if is_forward else 4.5) * (0.55 + 0.45 * life_ratio)
 
-			var dir_a := Vector2(ray_a["velocity"]).normalized()
-			var dir_b := Vector2(ray_b["velocity"]).normalized()
-			if dir_a.dot(dir_b) < 0.72:
-				continue
-
-			var life_a := clampf(float(ray_a["remaining_lifetime"]) / maxf(0.001, float(ray_a["max_lifetime"])), 0.0, 1.0)
-			var life_b := clampf(float(ray_b["remaining_lifetime"]) / maxf(0.001, float(ray_b["max_lifetime"])), 0.0, 1.0)
-			var life_ratio := minf(life_a, life_b)
-			var is_forward := bool(ray_a["is_forward"]) or bool(ray_b["is_forward"])
-			var arc_color := _resolve_ray_color(bounce_a, int(ray_a["pulse_kind"]))
-			# Subtle, thin pixel-art alpha quantized to 4 steps so it blends gently over textures
-			var raw_alpha := life_ratio * (0.54 if is_forward else 0.34)
-			var stepped_alpha := ceilf(raw_alpha * 4.0) / 4.0
-			var amp_scale := (1.0 if is_forward else 0.6) * (0.5 + 0.5 * life_ratio)
-
-			for band_idx in ARC_BAND_OFFSETS.size():
-				var offset_px := ARC_BAND_OFFSETS[band_idx]
+			for band_idx in band_count:
 				var band_scale := 1.0 if band_idx == 1 else 0.48
-				var band_amp := wave_undulation_amplitude * (1.0 if band_idx == 1 else 0.65) * amp_scale
-				var band_phase := quantized_time * wave_undulation_speed + float(band_idx) * 1.4
-				var pixel_col := Color(arc_color.r, arc_color.g, arc_color.b, stepped_alpha * band_scale)
+				var band_alpha := raw_alpha * band_scale
+				if band_alpha < 0.002:
+					continue
+				var offset_px := ARC_BAND_OFFSETS[band_idx]
+				var seg_color := Color(arc_color.r, arc_color.g, arc_color.b, band_alpha)
+				var left_pt := _snap_wave_point(pos - tangent * half_width + dir * (offset_px - 1.5))
+				var mid_pt := _snap_wave_point(pos + dir * offset_px)
+				var right_pt := _snap_wave_point(pos + tangent * half_width + dir * (offset_px - 1.5))
+				_arc_points.append(left_pt)
+				_arc_points.append(mid_pt)
+				_arc_colors.append(seg_color)
+				_arc_points.append(mid_pt)
+				_arc_points.append(right_pt)
+				_arc_colors.append(seg_color)
 
-				var prev_cell := Vector2i.ZERO
-				for step in range(ARC_SUBDIVISIONS + 1):
-					var t := float(step) / float(ARC_SUBDIVISIONS)
-					var base_pos := pos_a.lerp(pos_b, t)
-					var interp_dir := dir_a.lerp(dir_b, t).normalized()
-					if interp_dir.is_zero_approx():
-						interp_dir = dir_a
-					var theta := TAU * (float(idx_a) + t) / float(ray_count)
-					var ripple := sin(theta * wave_undulation_cycles + band_phase) * band_amp
-					var world_pt := base_pos + interp_dir * (offset_px + ripple)
-					var local_pt := to_local(world_pt)
-					var cur_cell := Vector2i(
-						floori(local_pt.x / WAVE_PIXEL_SIZE),
-						floori(local_pt.y / WAVE_PIXEL_SIZE),
-					)
-					if step > 0:
-						_rasterize_pixel_line(pixel_canvas, prev_cell, cur_cell, pixel_col)
-					else:
-						_plot_art_pixel(pixel_canvas, cur_cell, pixel_col)
-					prev_cell = cur_cell
+		pulse_start = pulse_end
 
-	var pixel_size_vec := Vector2(WAVE_PIXEL_SIZE, WAVE_PIXEL_SIZE)
-	for pixel_cell_variant in pixel_canvas.keys():
-		var pixel_cell: Vector2i = pixel_cell_variant
-		var col: Color = pixel_canvas[pixel_cell]
-		draw_rect(
-			Rect2(Vector2(float(pixel_cell.x) * WAVE_PIXEL_SIZE, float(pixel_cell.y) * WAVE_PIXEL_SIZE), pixel_size_vec),
-			col,
-			true,
-		)
-
-
-func _rasterize_pixel_line(canvas: Dictionary, from_cell: Vector2i, to_cell: Vector2i, color: Color) -> void:
-	var x0 := from_cell.x
-	var y0 := from_cell.y
-	var x1 := to_cell.x
-	var y1 := to_cell.y
-	var dx := absi(x1 - x0)
-	var sx := 1 if x0 < x1 else -1
-	var dy := -absi(y1 - y0)
-	var sy := 1 if y0 < y1 else -1
-	var err := dx + dy
-	var steps := 0
-	while true:
-		_plot_art_pixel(canvas, Vector2i(x0, y0), color)
-		if x0 == x1 and y0 == y1:
-			break
-		steps += 1
-		if steps > 32:
-			break
-		var e2 := 2 * err
-		if e2 >= dy:
-			err += dy
-			x0 += sx
-		if e2 <= dx:
-			err += dx
-			y0 += sy
-
-
-func _plot_art_pixel(canvas: Dictionary, cell: Vector2i, color: Color) -> void:
-	if not canvas.has(cell):
-		canvas[cell] = color
-		return
-	var existing: Color = canvas[cell]
-	if color.a >= existing.a:
-		canvas[cell] = color
+	if not _arc_points.is_empty():
+		draw_multiline_colors(_arc_points, _arc_colors, WAVE_PIXEL_SIZE, false)
 
 
 func _resolve_tile_hit_color(kind: int, bounce_count: int) -> Color:
@@ -755,8 +859,10 @@ func _break_wall_at_cell(world_cell: Vector2i, impact_pos: Vector2, impact_dir: 
 				to_remove.append(cell)
 		for cell in to_remove:
 			tiles.erase(cell)
+			_lit_tiles.erase(cell)
 	else:
 		tiles.erase(world_cell)
+		_lit_tiles.erase(world_cell)
 	wall_broken.emit(impact_pos, world_cell)
 	queue_redraw()
 

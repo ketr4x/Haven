@@ -45,8 +45,8 @@ func play_shout() -> void:
 	_shout.play()
 
 
-func play_wave_bounce(_position: Vector2, _normal: Vector2, _bounce_count: int) -> void:
-	if _bounce_cooldown_remaining > 0.0:
+func play_wave_bounce(_position: Vector2, _normal: Vector2, bounce_count: int) -> void:
+	if bounce_count > 3 or _bounce_cooldown_remaining > 0.0:
 		return
 	_bounce_cooldown_remaining = wave_bounce_cooldown
 	_wave_bounce.play()
