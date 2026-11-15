@@ -2,7 +2,7 @@
 
 ## Decision and scope
 
-This plan targets the hackathon release for Windows, distributed as a direct `.exe` download. **Phases 0 and 1 are complete. Phase 2 provides private friend rooms, and the title menu now exposes their create/join flow. GD-Sync is the selected integration.**
+This plan targets the hackathon release for Windows, distributed as a direct `.exe` download. **Phases 0 through 3 are complete: private friend rooms and public quick-match discovery are both reachable from the title menu. GD-Sync is the selected integration.**
 
 The release will support:
 

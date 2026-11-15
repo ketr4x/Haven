@@ -81,6 +81,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - GD-Sync 1.0.2 is pinned under `addons/GD-Sync/` for a completed proof of concept. `gd_sync_poc.tscn` connects, creates or joins a room-code lobby, browses public lobbies, exchanges an explicitly exposed remote-call probe, and reports a departing peer without registering GD-Sync as a global autoload. Two exported Windows clients on separate connections completed the proof.
 - `OnlineService` is an idle project autoload backed by `GdSyncOnlineService`. It creates GD-Sync only when an online flow calls `connect_online()`, provides validated lobby and protocol-message APIs, and has an in-memory `LocalMatchService` test double.
 - `OnlineMatch` runs private two-player friend rooms. It assigns mirrored slots, exchanges a shared seed and course signatures before the countdown, relays finishes, and ends the session if an opponent leaves. `race.tscn` exposes the flow through `GRA ONLINE` → `ZE ZNAJOMYM` → create or join by code; the command-line entry points remain for development tests.
+- `GRA ONLINE` → `SZYBKI MECZ` browses compatible public GD-Sync lobbies, joins a random open two-player room, or creates one when none is available. A join collision triggers one refresh/retry before returning an error.
 
 ## TO DO
 
@@ -91,13 +92,11 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Use the existing `allows_wall_jump` and `requires_shout` chunk metadata in generator compatibility or validation. They are declared but are not read by `CourseGenerator`.
 - Verify that all configured course chunks allow a player to reach the finish. The generator currently assembles chunks but has no pathfinding or traversal simulation.
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
-- Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
 - Integrate the staged player sprite sheet (`assets/art/pierwszy_usmazony.png`) and standalone logo (`assets/art/rezonans_logo.png`) if needed outside the main menu artwork. They are present in `assets/art/` but are not referenced by the active gameplay scenes.
-- Add public lobby discovery for quick matches after the dedicated online menu can invoke the existing `OnlineMatch` session. Do not couple `Race`, `PlayerWorld`, or UI directly to the service plugin.
 - Add a common-seed event leaderboard and a separate online match-wins board only after the private online race flow works. Treat client results as casual until server-side validation exists.
 
 ## NEXT STEPS
 
-**Add quick match.** Use public-lobby discovery through `OnlineService` to join an open compatible two-player room or create one, then reuse the existing `OnlineMatch` handshake.
 **Complete the online presentation.** Replace temporary Player 1/Player 2 labels with display names, opponent progress, network status, online result states, and mutual rematch before adding the fixed-seed event leaderboard.
 **Add the event leaderboard.** Use the same online identity and a common fixed course seed. Keep random and friend-race results separate from comparable time-trial scores.
+**Playtest online race flow.** Run friend rooms and quick match from different networks, exercise cancel, join-collision, finish, and departure paths, then tune status text and timing.

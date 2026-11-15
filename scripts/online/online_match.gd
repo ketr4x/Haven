@@ -26,11 +26,20 @@ enum MatchRole {
 	GUEST,
 }
 
+enum MatchKind {
+	FRIEND,
+	QUICK,
+}
+
 const ROOM_CODE_ALPHABET: String = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const ROOM_CODE_LENGTH: int = 8
 const RACE_TAGS: Dictionary = {
 	"mode": "friend_race",
 }
+const QUICK_MATCH_TAGS: Dictionary = {
+	"mode": "quick_race",
+}
+const MAX_QUICK_MATCH_JOIN_RETRIES: int = 1
 
 @export_range(1.0, 5.0, 0.1) var countdown_duration: float = 3.0
 
@@ -43,7 +52,9 @@ var state: MatchState = MatchState.IDLE
 
 var _course_signatures: Dictionary = {}
 var _next_sequence: int = 0
+var _quick_match_join_retries: int = 0
 var _random: RandomNumberGenerator = RandomNumberGenerator.new()
+var _kind: MatchKind
 var _role: MatchRole
 
 
@@ -57,6 +68,7 @@ func _ready() -> void:
 	online_service.lobby_created.connect(_on_lobby_created)
 	online_service.lobby_joined.connect(_on_lobby_joined)
 	online_service.lobby_join_failed.connect(_on_lobby_join_failed)
+	online_service.lobbies_listed.connect(_on_lobbies_listed)
 	online_service.peer_joined.connect(_on_peer_joined)
 	online_service.peer_left.connect(_on_peer_left)
 	online_service.message_received.connect(_on_message_received)
@@ -65,6 +77,7 @@ func _ready() -> void:
 func host_friend_room(requested_room_code: String = "") -> void:
 	if not _begin(MatchRole.HOST):
 		return
+	_kind = MatchKind.FRIEND
 	room_code = requested_room_code.to_upper()
 	if room_code.is_empty():
 		room_code = _create_room_code()
@@ -78,10 +91,19 @@ func host_friend_room(requested_room_code: String = "") -> void:
 func join_friend_room(requested_room_code: String) -> void:
 	if not _begin(MatchRole.GUEST):
 		return
+	_kind = MatchKind.FRIEND
 	room_code = requested_room_code.to_upper()
 	if not _is_valid_room_code(room_code):
 		_fail("Room code must contain 3 to 32 characters.")
 		return
+	online_service.connect_online()
+
+
+func queue_quick_match() -> void:
+	if state != MatchState.IDLE:
+		return
+	_kind = MatchKind.QUICK
+	state = MatchState.CONNECTING
 	online_service.connect_online()
 
 
@@ -125,12 +147,51 @@ func _begin(next_role: MatchRole) -> bool:
 func _on_online_connected(_client_id: int) -> void:
 	if state != MatchState.CONNECTING:
 		return
+	state = MatchState.JOINING
+	if _kind == MatchKind.QUICK:
+		online_service.list_public_lobbies()
+		return
 	if _role == MatchRole.HOST:
-		state = MatchState.JOINING
 		online_service.create_lobby(room_code, "", false, 2, RACE_TAGS)
 	else:
-		state = MatchState.JOINING
 		online_service.join_lobby(room_code)
+
+
+func _on_lobbies_listed(lobbies: Array) -> void:
+	if _kind != MatchKind.QUICK or state != MatchState.JOINING:
+		return
+	var candidates: Array[Dictionary] = []
+	for lobby_value in lobbies:
+		if not lobby_value is Dictionary:
+			continue
+		var lobby: Dictionary = lobby_value
+		if _is_joinable_quick_lobby(lobby):
+			candidates.append(lobby)
+	if candidates.is_empty():
+		_create_quick_lobby()
+		return
+	candidates.shuffle()
+	room_code = str(candidates[0].get("Name", ""))
+	_role = MatchRole.GUEST
+	online_service.join_lobby(room_code)
+
+
+func _create_quick_lobby() -> void:
+	_role = MatchRole.HOST
+	room_code = _create_room_code()
+	online_service.create_lobby(room_code, "", true, 2, QUICK_MATCH_TAGS)
+
+
+func _is_joinable_quick_lobby(lobby: Dictionary) -> bool:
+	var tags_value: Variant = lobby.get("Tags", {})
+	if not tags_value is Dictionary:
+		return false
+	var tags: Dictionary = tags_value
+	return bool(lobby.get("Open", false)) \
+		and int(lobby.get("PlayerCount", 0)) == 1 \
+		and int(lobby.get("PlayerLimit", 0)) == 2 \
+		and str(tags.get("mode", "")) == QUICK_MATCH_TAGS["mode"] \
+		and int(tags.get("protocol", -1)) == OnlineProtocol.PROTOCOL_VERSION
 
 
 func _on_lobby_created(lobby_name: String) -> void:
@@ -143,13 +204,19 @@ func _on_lobby_joined(lobby_name: String) -> void:
 	if state != MatchState.JOINING or lobby_name != room_code:
 		return
 	state = MatchState.WAITING_FOR_OPPONENT
-	if _role == MatchRole.HOST:
+	if _kind == MatchKind.FRIEND and _role == MatchRole.HOST:
 		room_code_ready.emit(room_code)
 
 
 func _on_lobby_join_failed(lobby_name: String, reason: String) -> void:
-	if lobby_name == room_code:
-		_fail(reason)
+	if lobby_name != room_code:
+		return
+	if _kind == MatchKind.QUICK and _quick_match_join_retries < MAX_QUICK_MATCH_JOIN_RETRIES:
+		_quick_match_join_retries += 1
+		room_code = ""
+		online_service.list_public_lobbies()
+		return
+	_fail(reason)
 
 
 func _on_peer_joined(_client_id: int) -> void:
@@ -311,6 +378,7 @@ func _reset() -> void:
 	race_seed = 0
 	room_code = ""
 	_next_sequence = 0
+	_quick_match_join_retries = 0
 	state = MatchState.IDLE
 
 

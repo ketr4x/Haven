@@ -307,6 +307,13 @@ func _on_player_finished(player_number: int) -> void:
 	_set_race_state(RaceState.FINISHED)
 
 
+func start_quick_match() -> void:
+	_begin_online_session()
+	if _menu_screen == MenuScreen.WAITING:
+		_title_panel.show_waiting("SZUKANIE PRZECIWNIKA…", "ESC  ANULUJ")
+	_online_match.queue_quick_match()
+
+
 func host_friend_room(room_code: String = "") -> void:
 	_begin_online_session()
 	_online_match.host_friend_room(room_code)
@@ -446,8 +453,8 @@ func _on_menu_option_selected(index: int) -> void:
 				get_tree().quit()
 		MenuScreen.ONLINE:
 			if index == 0:
-				_menu_screen = MenuScreen.WAITING
-				_title_panel.show_waiting("SZYBKI MECZ", "TRYB BĘDZIE DOSTĘPNY PO TESTACH POKOI.  ESC  POWRÓT")
+				_show_menu(MenuScreen.WAITING)
+				start_quick_match()
 			else:
 				_show_menu(MenuScreen.FRIENDS)
 		MenuScreen.FRIENDS:
