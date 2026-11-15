@@ -4,12 +4,14 @@ extends Node2D
 signal tile_illuminated(world_cell: Vector2i, tile_kind: int, light_level: float)
 signal wave_bounced(world_position: Vector2, normal: Vector2, bounce_count: int)
 signal wave_absorbed(world_position: Vector2)
+signal wall_broken(world_position: Vector2, world_cell: Vector2i)
 
 enum TileKind {
 	SAFE = 0,
 	HAZARD = 1,
 	BOUNCE_PAD = 2,
 	ABSORBER = 3,
+	BREAKABLE = 4,
 }
 
 enum PulseKind {
@@ -63,6 +65,7 @@ const ARC_SUBDIVISIONS: int = 2
 @export var hazard_tile_color: Color = Color(0.75, 0.41, 0.47, 1.0)
 @export var bounce_pad_tile_color: Color = Color(0.94, 0.92, 0.75, 1.0)
 @export var absorber_tile_color: Color = Color(0.28, 0.29, 0.45, 1.0)
+@export var breakable_tile_color: Color = Color(0.98, 0.62, 0.25, 1.0)
 @export var player_accent_color: Color = Color(0.76, 0.95, 0.95, 1.0)
 
 var grid_origin: Vector2 = Vector2.ZERO
@@ -120,6 +123,8 @@ func rebuild_from_generator(generator: CourseGenerator) -> void:
 			for child in chunk.get_children():
 				if child is StaticBody2D and child.is_in_group(&"sound_absorber"):
 					_register_static_body_cells(generator, child as StaticBody2D, TileKind.ABSORBER, false)
+				elif child is StaticBody2D and child.is_in_group(&"breakable_wall"):
+					_register_static_body_cells(generator, child as StaticBody2D, TileKind.BREAKABLE, false, child)
 
 	var roof := generator.get_node_or_null("Roof") as TileMapLayer
 	if roof != null:
@@ -139,9 +144,13 @@ func rebuild_from_static_bodies(root_node: Node2D, floor_y_threshold: float = 64
 		var body := body_variant as StaticBody2D
 		if body == null:
 			continue
-		var kind := TileKind.ABSORBER if body.is_in_group(&"sound_absorber") else TileKind.SAFE
+		var kind := TileKind.SAFE
+		if body.is_in_group(&"sound_absorber"):
+			kind = TileKind.ABSORBER
+		elif body.is_in_group(&"breakable_wall"):
+			kind = TileKind.BREAKABLE
 		var is_floor := body.global_position.y >= floor_y_threshold
-		_register_static_body_cells(null, body, kind, is_floor)
+		_register_static_body_cells(null, body, kind, is_floor, body if kind == TileKind.BREAKABLE else null)
 	queue_redraw()
 
 
@@ -332,11 +341,25 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 				wave_absorbed.emit(impact_pos)
 				return false
 
+			if hit_kind == TileKind.BREAKABLE:
+				var pulse_kind := int(ray.get("pulse_kind", PulseKind.RUN))
+				if pulse_kind == PulseKind.SCREAM:
+					_break_wall_at_cell(next_cell, impact_pos, velocity.normalized())
+					_spawn_impact_ripple(impact_pos, breakable_tile_color, 12.0, normal)
+					ray["position"] = next_pos
+					continue
+				else:
+					var wall_node = hit_tile.get("wall_node")
+					if wall_node != null and is_instance_valid(wall_node) and wall_node.has_method("pulse_resonance"):
+						wall_node.pulse_resonance()
+
 			ray["bounce_count"] = bounce_count
 			velocity = velocity.bounce(normal)
 			if hit_kind == TileKind.BOUNCE_PAD:
 				velocity *= 1.12
 				ray["remaining_lifetime"] = float(ray["remaining_lifetime"]) * 0.92
+			elif hit_kind == TileKind.BREAKABLE:
+				ray["remaining_lifetime"] = float(ray["remaining_lifetime"]) * (1.0 - bounce_energy_loss * 0.8)
 			else:
 				ray["remaining_lifetime"] = float(ray["remaining_lifetime"]) * (1.0 - bounce_energy_loss)
 
@@ -598,6 +621,8 @@ func _base_color_for_kind(kind: int) -> Color:
 			return bounce_pad_tile_color
 		TileKind.ABSORBER:
 			return absorber_tile_color
+		TileKind.BREAKABLE:
+			return breakable_tile_color
 		_:
 			return safe_tile_color
 
@@ -623,7 +648,7 @@ func _classify_chunk_cell(chunk: CourseChunk, local_cell: Vector2i, is_floor: bo
 	return TileKind.SAFE
 
 
-func _register_cell(world_cell: Vector2i, kind: int, is_floor: bool) -> void:
+func _register_cell(world_cell: Vector2i, kind: int, is_floor: bool, wall_node: Node = null) -> void:
 	var initial_light := floor_min_light_level if is_floor else 0.0
 	var base_color := _base_color_for_kind(kind)
 	tiles[world_cell] = {
@@ -631,6 +656,7 @@ func _register_cell(world_cell: Vector2i, kind: int, is_floor: bool) -> void:
 		"last_hit_color": base_color,
 		"kind": kind,
 		"is_floor": is_floor,
+		"wall_node": wall_node,
 	}
 
 
@@ -638,7 +664,8 @@ func _register_static_body_cells(
 	generator: CourseGenerator,
 	body: StaticBody2D,
 	kind: int,
-	is_floor: bool
+	is_floor: bool,
+	wall_node: Node = null
 ) -> void:
 	var shape_node := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if shape_node == null or shape_node.shape == null:
@@ -657,4 +684,25 @@ func _register_static_body_cells(
 	var max_cell_y := floori((max_pos.y + HALF_GRID - 0.01) / GRID_SIZE)
 	for cx in range(min_cell_x, max_cell_x + 1):
 		for cy in range(min_cell_y, max_cell_y + 1):
-			_register_cell(Vector2i(cx, cy), kind, is_floor)
+			_register_cell(Vector2i(cx, cy), kind, is_floor, wall_node)
+
+
+func _break_wall_at_cell(world_cell: Vector2i, impact_pos: Vector2, impact_dir: Vector2) -> void:
+	if not tiles.has(world_cell):
+		return
+	var hit_tile: Dictionary = tiles[world_cell]
+	var wall_node = hit_tile.get("wall_node")
+	if wall_node != null and is_instance_valid(wall_node):
+		if wall_node.has_method("break_wall"):
+			wall_node.break_wall(impact_dir)
+		var to_remove: Array[Vector2i] = []
+		for cell in tiles.keys():
+			if tiles[cell].get("wall_node") == wall_node:
+				to_remove.append(cell)
+		for cell in to_remove:
+			tiles.erase(cell)
+	else:
+		tiles.erase(world_cell)
+	wall_broken.emit(impact_pos, world_cell)
+	queue_redraw()
+

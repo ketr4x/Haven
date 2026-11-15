@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3]
+[gd_scene load_steps=38 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/player_world.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/generator/course_generator.gd" id="2_generator"]
@@ -30,6 +30,8 @@
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_double_floor_gap.tscn" id="31_double_floor_gap"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_dead_end_balcony.tscn" id="32_dead_end_balcony"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_dead_end_well.tscn" id="33_dead_end_well"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_break_through.tscn" id="34_break_through"]
+[ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_wall_blast.tscn" id="35_wall_blast"]
 [ext_resource type="PackedScene" path="res://scenes/levels/chunks/chunk_finish.tscn" id="13_finish"]
 [ext_resource type="PackedScene" path="res://scenes/effects/sound_wave.tscn" id="11_wave"]
 [ext_resource type="PackedScene" path="res://scenes/effects/reveal_ring.tscn" id="12_ring"]
@@ -51,7 +53,7 @@ color = Color(0, 0, 0, 1)
 position = Vector2(120, 650)
 script = ExtResource("2_generator")
 start_chunk = ExtResource("5_start")
-traversal_chunks = Array[PackedScene]([ExtResource("6_flat"), ExtResource("7_up"), ExtResource("8_down"), ExtResource("9_bridge"), ExtResource("10_gap"), ExtResource("11_wall_jump"), ExtResource("12_bounce_reward"), ExtResource("16_foam_ceiling"), ExtResource("17_maze_ascent"), ExtResource("18_maze_chimney"), ExtResource("19_maze_descent"), ExtResource("21_stacked_ladders"), ExtResource("22_stacked_gallery"), ExtResource("23_stacked_switchback"), ExtResource("24_wall_jump_tower"), ExtResource("25_stacked_canopy"), ExtResource("26_stacked_fork"), ExtResource("27_stacked_channels"), ExtResource("28_stacked_overlook"), ExtResource("29_wall_jump_gauntlet"), ExtResource("30_double_floor_arcade"), ExtResource("31_double_floor_gap"), ExtResource("32_dead_end_balcony"), ExtResource("33_dead_end_well")])
+traversal_chunks = Array[PackedScene]([ExtResource("6_flat"), ExtResource("7_up"), ExtResource("8_down"), ExtResource("9_bridge"), ExtResource("10_gap"), ExtResource("11_wall_jump"), ExtResource("12_bounce_reward"), ExtResource("16_foam_ceiling"), ExtResource("17_maze_ascent"), ExtResource("18_maze_chimney"), ExtResource("19_maze_descent"), ExtResource("21_stacked_ladders"), ExtResource("22_stacked_gallery"), ExtResource("23_stacked_switchback"), ExtResource("24_wall_jump_tower"), ExtResource("25_stacked_canopy"), ExtResource("26_stacked_fork"), ExtResource("27_stacked_channels"), ExtResource("28_stacked_overlook"), ExtResource("29_wall_jump_gauntlet"), ExtResource("30_double_floor_arcade"), ExtResource("31_double_floor_gap"), ExtResource("32_dead_end_balcony"), ExtResource("33_dead_end_well"), ExtResource("34_break_through"), ExtResource("35_wall_blast")])
 safe_fallback_chunk = ExtResource("6_flat")
 finish_chunk = ExtResource("13_finish")
 traversal_count = 15

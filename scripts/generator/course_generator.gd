@@ -12,6 +12,7 @@ signal course_generated(seed: int, signature: String)
 @export var mirror_horizontally: bool = false
 @export_range(1, 24) var traversal_count: int = 5
 @export_range(0, 3) var max_noise_foam_chunks: int = 1
+@export_range(0, 4) var max_breakable_wall_chunks: int = 2
 @export_range(0, 6) var max_branching_path_chunks: int = 4
 @export_range(0, 3) var min_wall_climb_chunks: int = 1
 @export_range(0, 6) var max_dead_end_paths: int = 3
@@ -100,6 +101,8 @@ func _fits_feature_budget(candidate: CourseChunk, feature_counts: Dictionary) ->
 	for feature in candidate.terrain_features:
 		var count := int(feature_counts.get(feature, 0))
 		if feature == &"noise_foam" and count >= max_noise_foam_chunks:
+			return false
+		if feature == &"breakable_wall" and count >= max_breakable_wall_chunks:
 			return false
 		if feature == &"branching_paths":
 			var pending_wall_climbs := maxi(0, min_wall_climb_chunks - int(feature_counts.get(&"wall_climb", 0)))

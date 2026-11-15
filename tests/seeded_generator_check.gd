@@ -61,8 +61,9 @@ func _assert_chunk_terrain_uses_common_grid(chunks: Node, generator: CourseGener
 		for cell in chunk.terrain_cells:
 			assert(terrain.get_cell_source_id(cell) == 0)
 		for body in chunk.find_children("*", "StaticBody2D", true, false):
-			assert(body.is_in_group(&"sound_absorber"))
+			assert(body.is_in_group(&"sound_absorber") or body.is_in_group(&"breakable_wall"))
 	assert(int(feature_counts.get(&"noise_foam", 0)) <= generator.max_noise_foam_chunks)
+	assert(int(feature_counts.get(&"breakable_wall", 0)) <= generator.max_breakable_wall_chunks)
 	assert(int(feature_counts.get(&"branching_paths", 0)) <= generator.max_branching_path_chunks)
 	assert(int(feature_counts.get(&"wall_climb", 0)) >= generator.min_wall_climb_chunks)
 	assert(int(feature_counts.get(&"dead_end_paths", 0)) <= generator.max_dead_end_paths)

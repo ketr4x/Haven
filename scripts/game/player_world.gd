@@ -71,6 +71,7 @@ func _ready() -> void:
 	sonar_grid.set_player_accent_color(accent)
 	add_child(sonar_grid)
 	sonar_grid.wave_bounced.connect(_audio_feedback.play_wave_bounce)
+	sonar_grid.wall_broken.connect(_on_sonar_wall_broken)
 
 	_setup_vignette_overlay(accent)
 	var camera := _player.get_node("Camera2D") as Camera2D
@@ -322,6 +323,13 @@ func _on_player_sonic_shouted(origin: Vector2, direction: Vector2, loudness: flo
 		scream_extra_bounces,
 		SonarGrid.PulseKind.SCREAM,
 	)
+
+
+func _on_sonar_wall_broken(_position: Vector2, _cell: Vector2i) -> void:
+	_audio_feedback.play_wall_break()
+	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.45)
+	_update_vignette_uniforms(_vignette_pulse_strength)
+
 
 
 func _on_player_footstep_emitted(_origin: Vector2, _direction: Vector2, _loudness: float) -> void:
