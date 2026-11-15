@@ -2,7 +2,7 @@
 
 ## INFO
 
-Rezonans is a local two-player, horizontal split-screen parkour race built with Godot 4.7 Forward+. The entry scene is `scenes/game/race.tscn`. Player 1 plays in the top viewport with `A`/`D` to move, `W` to jump, `S` to slide, and `E` to shout. Player 2 plays in the bottom viewport with the arrow keys: left/right to move, up to jump, down to slide, and Right Shift / Right Ctrl to shout. `R` and `N` both generate a new random course, and `Escape` pauses during a race.
+Rezonans is a local two-player, horizontal split-screen parkour race built with Godot 4.7 GL Compatibility. The entry scene is `scenes/game/race.tscn`. Player 1 plays in the top viewport with `A`/`D` to move, `W` to jump, `S` to slide, and `E` to shout. Player 2 plays in the bottom viewport with the arrow keys: left/right to move, up to jump, down to slide, and Right Shift / Right Ctrl to shout. `R` and `N` both generate a new random course, and `Escape` pauses during a race.
 
 The game’s player-facing text is in Polish. Use Polish for new UI copy, prompts, and other text shown to players. Keep source code, identifiers, comments, and project documentation in English.
 
@@ -59,7 +59,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 
 ## DONE
 
-- The Godot project is configured for Forward+ and launches `scenes/game/race.tscn`.
+- The Godot project is configured for the GL Compatibility renderer (required for the Web export) and launches `scenes/game/race.tscn`.
 - The Input Map defines both players' movement, jump, slide (`S` for Player 1, Down Arrow for Player 2), and shout/scream actions (`E` for Player 1, Right Shift / Right Ctrl for Player 2), plus restart, new-course, and pause actions.
 - `race.tscn` presents independent top and bottom `SubViewport` player worlds.
 - The race has main menu (`scenes/game/main_menu.tscn`, instanced as `TitlePanel` with an 11-frame idle loop at 4 FPS, an 8-frame match-start outro animation at 6 FPS from `assets/art/main_menu_sheet.png`, subtle pixel-art wind streak and wind dust particles via `WindStreaks` and `WindDust` `CPUParticles2D`, and frameless arrow-selectable `GRAJ` / `WYJDŹ` text items), starting transition, three-second countdown, racing, paused, and finished states (documented in `art-mainmenu.md`). Each player has a timer that freezes on their finish, and the race remains active until both players finish so the result panel can show both times.
@@ -85,6 +85,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - SceneTree checks exist for the race shell, deterministic generation and end-to-end reachability, sound-wave behavior, terrain features, breakable walls, fall resets, and the owner-local echo path.
 - The committed `t3.json` exposes actions to start the Godot game and build a Windows export.
 - A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
+- A Web export preset (single-threaded, no thread/extension support so it needs no COOP/COEP headers) writes the game to `build/web/index.html` via `scripts/build_web.sh` (`Build Web` in `t3.json`). Serve `build/web/` over HTTP to play; the Web build has not yet been playtested in a browser.
 - GD-Sync 1.0.2 is pinned under `addons/GD-Sync/` for a completed proof of concept. `gd_sync_poc.tscn` connects, creates or joins a room-code lobby, browses public lobbies, exchanges an explicitly exposed remote-call probe, and reports a departing peer without registering GD-Sync as a global autoload. Two exported Windows clients on separate connections completed the proof.
 - `OnlineService` is an idle project autoload backed by `GdSyncOnlineService`. It creates GD-Sync only when an online flow calls `connect_online()`, provides validated lobby and protocol-message APIs, and has an in-memory `LocalMatchService` test double.
 - `OnlineMatch` runs private two-player friend rooms. It assigns player slots, exchanges a shared seed and course signatures before the countdown, relays finishes, and ends the session if an opponent leaves. `race.tscn` exposes the flow through `GRA ONLINE` → `ZE ZNAJOMYM` → create or join by code; the command-line entry points remain for development tests.
