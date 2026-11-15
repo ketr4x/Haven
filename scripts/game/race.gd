@@ -1,7 +1,11 @@
 extends Control
 
+signal countdown_started
+signal transition_finished
+
 enum RaceState {
 	TITLE,
+	STARTING,
 	COUNTDOWN,
 	RACING,
 	PAUSED,
@@ -14,6 +18,7 @@ enum SessionMode {
 }
 
 @export_range(1.0, 5.0, 0.1) var countdown_duration: float = 3.0
+@export_range(0.1, 2.0, 0.05) var pixel_transition_half_duration: float = 0.45
 
 @onready var _player_one_world: PlayerWorld = $Presentation/SplitScreen/TopContainer/TopViewport/PlayerOneWorld
 @onready var _player_two_world: PlayerWorld = $Presentation/SplitScreen/BottomContainer/BottomViewport/PlayerTwoWorld
@@ -28,10 +33,12 @@ enum SessionMode {
 @onready var _finish_status_label: Label = $GlobalUi/FinishStatus
 @onready var _winner_label: Label = $GlobalUi/ResultPanel/Winner
 @onready var _times_label: Label = $GlobalUi/ResultPanel/Times
-@onready var _title_panel: Control = $GlobalUi/TitlePanel
+@onready var _title_panel: MainMenu = $GlobalUi/TitlePanel
 @onready var _countdown_label: Label = $GlobalUi/Countdown
 @onready var _pause_panel: Control = $GlobalUi/PausePanel
 @onready var _result_panel: Control = $GlobalUi/ResultPanel
+@onready var _palette_post_process: CanvasLayer = $Luap40PostProcess
+@onready var _transition_rect: ColorRect = $TransitionLayer/TransitionRect
 
 var _seed: int = 0
 var _seed_random: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -41,12 +48,16 @@ var _race_elapsed: float = 0.0
 var _player_finish_times: Dictionary = {}
 var _online_match: OnlineMatch
 var _session_mode: SessionMode = SessionMode.LOCAL
+var _transition_tween: Tween
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_player_one_world.player_finished.connect(_on_player_finished)
 	_player_two_world.player_finished.connect(_on_player_finished)
+	_title_panel.start_requested.connect(_begin_match_start)
+	_title_panel.quit_requested.connect(_on_title_panel_quit_requested)
+	_title_panel.outro_finished.connect(_on_title_panel_outro_finished)
 	_online_match = OnlineMatch.new()
 	add_child(_online_match)
 	_online_match.room_code_ready.connect(_on_room_code_ready)
@@ -93,9 +104,9 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	if _session_mode == SessionMode.LOCAL and _race_state == RaceState.TITLE and _is_start_input(event):
-		_start_countdown()
-		get_viewport().set_input_as_handled()
+	if _race_state == RaceState.TITLE:
+		if _title_panel.handle_menu_input(event):
+			get_viewport().set_input_as_handled()
 		return
 
 
@@ -115,6 +126,7 @@ func _generate_race(seed: int) -> void:
 
 
 func _restart_course() -> void:
+	_cancel_transition()
 	get_tree().paused = false
 	_generate_race(_next_random_seed())
 	_set_race_state(RaceState.TITLE)
@@ -125,6 +137,70 @@ func _next_random_seed() -> int:
 	while next_seed == _seed:
 		next_seed = _seed_random.randi_range(1, 2_147_483_647)
 	return next_seed
+
+
+func _begin_match_start() -> void:
+	if _race_state != RaceState.TITLE:
+		return
+	_set_race_state(RaceState.STARTING)
+	_title_panel.play_outro()
+
+
+func _on_title_panel_outro_finished() -> void:
+	if _race_state == RaceState.STARTING:
+		_play_pixel_transition_to_countdown()
+
+
+func _on_title_panel_quit_requested() -> void:
+	get_tree().quit()
+
+
+func _play_pixel_transition_to_countdown() -> void:
+	_cancel_transition()
+	_transition_rect.visible = true
+	_set_transition_progress(0.0)
+	_transition_tween = create_tween()
+	_transition_tween.tween_method(
+		_set_transition_progress,
+		0.0,
+		1.0,
+		pixel_transition_half_duration,
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_transition_tween.tween_callback(_on_transition_midpoint)
+	_transition_tween.tween_interval(0.08)
+	_transition_tween.tween_method(
+		_set_transition_progress,
+		1.0,
+		0.0,
+		pixel_transition_half_duration,
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_transition_tween.tween_callback(_on_transition_completed)
+
+
+func _on_transition_midpoint() -> void:
+	if _race_state == RaceState.STARTING:
+		_start_countdown()
+		countdown_started.emit()
+
+
+func _on_transition_completed() -> void:
+	_transition_rect.visible = false
+	_transition_tween = null
+	transition_finished.emit()
+
+
+func _cancel_transition() -> void:
+	if _transition_tween != null and _transition_tween.is_valid():
+		_transition_tween.kill()
+	_transition_tween = null
+	_set_transition_progress(0.0)
+	_transition_rect.visible = false
+
+
+func _set_transition_progress(value: float) -> void:
+	var transition_material := _transition_rect.material as ShaderMaterial
+	if transition_material != null:
+		transition_material.set_shader_parameter(&"progress", value)
 
 
 func _start_countdown(duration: float = countdown_duration) -> void:
@@ -145,7 +221,10 @@ func _toggle_pause() -> void:
 func _set_race_state(next_state: RaceState) -> void:
 	var previous_state := _race_state
 	_race_state = next_state
-	_title_panel.visible = next_state == RaceState.TITLE
+	_title_panel.visible = next_state == RaceState.TITLE or next_state == RaceState.STARTING
+	if next_state == RaceState.TITLE:
+		_title_panel.reset_to_idle()
+	_palette_post_process.visible = next_state != RaceState.TITLE and next_state != RaceState.STARTING
 	_countdown_label.visible = next_state == RaceState.COUNTDOWN
 	_pause_panel.visible = next_state == RaceState.PAUSED
 	_result_panel.visible = next_state == RaceState.FINISHED
@@ -161,17 +240,6 @@ func _set_race_state(next_state: RaceState) -> void:
 		_player_one_world.emit_intro_pulse()
 		if _session_mode == SessionMode.LOCAL:
 			_player_two_world.emit_intro_pulse()
-
-
-func _is_start_input(event: InputEvent) -> bool:
-	return event.is_action_pressed(&"p1_left") \
-		or event.is_action_pressed(&"p1_right") \
-		or event.is_action_pressed(&"p1_jump") \
-		or event.is_action_pressed(&"p1_shout") \
-		or event.is_action_pressed(&"p2_left") \
-		or event.is_action_pressed(&"p2_right") \
-		or event.is_action_pressed(&"p2_jump") \
-		or event.is_action_pressed(&"p2_shout")
 
 
 func _on_player_finished(player_number: int) -> void:
