@@ -9,7 +9,7 @@ signal opponent_finished(player_slot: int, elapsed: float)
 signal opponent_left(client_id: int)
 signal opponent_named(display_name: String)
 signal opponent_status_received(progress: float, loudness: float, boost_active: bool)
-signal opponent_snapshot_received(position: Vector2, velocity: Vector2, facing: float, loudness: float, boost_active: bool, events: Array)
+signal opponent_snapshot_received(position: Vector2, velocity: Vector2, facing: float, on_floor: bool, loudness: float, boost_active: bool, events: Array)
 signal rematch_waiting
 signal room_code_ready(room_code: String)
 
@@ -145,6 +145,7 @@ func submit_local_status(
 	position: Vector2 = Vector2.ZERO,
 	velocity: Vector2 = Vector2.ZERO,
 	facing: float = 1.0,
+	on_floor: bool = false,
 	events: Array = []
 ) -> void:
 	if state != MatchState.RACING:
@@ -154,10 +155,11 @@ func submit_local_status(
 		"loudness": clampf(loudness, 0.0, 100.0),
 		"progress": clampf(progress, 0.0, 1.0),
 	}
-	if position != Vector2.ZERO or velocity != Vector2.ZERO or not events.is_empty() or not is_equal_approx(facing, 1.0):
+	if position != Vector2.ZERO or velocity != Vector2.ZERO or not events.is_empty() or not is_equal_approx(facing, 1.0) or on_floor:
 		payload["pos"] = [position.x, position.y]
 		payload["vel"] = [velocity.x, velocity.y]
 		payload["facing"] = facing
+		payload["on_floor"] = on_floor
 		payload["events"] = events
 	_send("player_status", payload)
 
@@ -404,6 +406,7 @@ func _receive_player_status(payload: Dictionary) -> void:
 	var pos_value: Variant = payload.get("pos")
 	var vel_value: Variant = payload.get("vel")
 	var facing_value: Variant = payload.get("facing", 1.0)
+	var on_floor_value: Variant = payload.get("on_floor", false)
 	var events_value: Variant = payload.get("events", [])
 	if pos_value is Array and (pos_value as Array).size() >= 2:
 		var pos := Vector2(float((pos_value as Array)[0]), float((pos_value as Array)[1]))
@@ -411,8 +414,9 @@ func _receive_player_status(payload: Dictionary) -> void:
 		if vel_value is Array and (vel_value as Array).size() >= 2:
 			vel = Vector2(float((vel_value as Array)[0]), float((vel_value as Array)[1]))
 		var facing := float(facing_value)
+		var on_floor := bool(on_floor_value) or (vel != Vector2.ZERO and absf(vel.y) < 60.0)
 		var events: Array = events_value if events_value is Array else []
-		opponent_snapshot_received.emit(pos, vel, facing, loudness, boost_active, events)
+		opponent_snapshot_received.emit(pos, vel, facing, on_floor, loudness, boost_active, events)
 
 
 func _try_finish_match() -> void:

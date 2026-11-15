@@ -69,6 +69,7 @@ var _was_on_floor: bool = false
 var _remote_target_position: Vector2 = Vector2.ZERO
 var _remote_target_velocity: Vector2 = Vector2.ZERO
 var _remote_has_target: bool = false
+var remote_on_floor: bool = false
 
 func _ready() -> void:
 	_camera.enabled = camera_enabled
@@ -115,15 +116,20 @@ func _process_remote_puppet(delta: float) -> void:
 		velocity = _remote_target_velocity
 
 
-func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float) -> void:
+func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: bool = false) -> void:
 	if not _remote_has_target:
 		global_position = pos
 		_remote_has_target = true
 	_remote_target_position = pos
 	_remote_target_velocity = vel
+	remote_on_floor = on_floor
 	set_facing_direction(facing)
 	if is_rebound_boost_active():
 		_boost_trail.direction = Vector2(-facing_direction, -0.15).normalized()
+
+
+func is_player_on_floor() -> bool:
+	return remote_on_floor if is_remote else is_on_floor()
 
 
 func reset_remote_target(pos: Vector2) -> void:

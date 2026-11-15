@@ -115,6 +115,7 @@ func _process(delta: float) -> void:
 					_player_one_world.player_global_position(),
 					_player_one_world.player_velocity(),
 					_player_one_world.player_facing_direction(),
+					_player_one_world.player_is_on_floor(),
 					_player_one_world.consume_pending_events(),
 				)
 		_update_timer_labels()
@@ -431,9 +432,9 @@ func _on_online_opponent_finished(player_slot: int, elapsed: float) -> void:
 	_update_timer_labels()
 
 
-func _on_online_opponent_snapshot_received(pos: Vector2, vel: Vector2, facing: float, loudness: float, boost_active: bool, events: Array) -> void:
+func _on_online_opponent_snapshot_received(pos: Vector2, vel: Vector2, facing: float, on_floor: bool, loudness: float, boost_active: bool, events: Array) -> void:
 	if _session_mode == SessionMode.ONLINE and _player_two_world != null:
-		_player_two_world.apply_remote_snapshot(pos, vel, facing, loudness, boost_active, events)
+		_player_two_world.apply_remote_snapshot(pos, vel, facing, on_floor, loudness, boost_active, events)
 
 
 func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> void:

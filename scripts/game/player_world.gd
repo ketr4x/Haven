@@ -58,21 +58,19 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _player.is_remote:
-		return
+	if not _player.is_remote:
+		if _respawn_time_remaining > 0.0:
+			_respawn_time_remaining = maxf(0.0, _respawn_time_remaining - delta)
+			if is_zero_approx(_respawn_time_remaining) and _race_active:
+				_respawn_player()
+			return
 
-	if _respawn_time_remaining > 0.0:
-		_respawn_time_remaining = maxf(0.0, _respawn_time_remaining - delta)
-		if is_zero_approx(_respawn_time_remaining) and _race_active:
-			_respawn_player()
-		return
+		if _race_active and _player.global_position.y > death_height:
+			_handle_player_fall()
+			return
 
-	if _race_active and _player.global_position.y > death_height:
-		_handle_player_fall()
-		return
-
-	if _player.is_physics_processing() \
-		and _player.is_on_floor() \
+	if _race_active \
+		and _player.is_player_on_floor() \
 		and absf(_player.velocity.x) >= walking_echo_speed_threshold:
 		_echo_overlay.walking_preview(_player.loudness)
 
@@ -147,6 +145,10 @@ func player_facing_direction() -> float:
 	return _player.facing_direction
 
 
+func player_is_on_floor() -> bool:
+	return _player.is_player_on_floor()
+
+
 func _queue_local_event(event_name: String) -> void:
 	if _pending_events.size() < 10:
 		_pending_events.append(event_name)
@@ -158,13 +160,15 @@ func consume_pending_events() -> Array[String]:
 	return events
 
 
-func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, loudness: float, boost_active: bool, events: Array) -> void:
+func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: bool, loudness: float, boost_active: bool, events: Array) -> void:
 	_player.loudness = loudness
 	if boost_active and not _player.is_rebound_boost_active():
 		_player.apply_rebound_boost()
 	elif not boost_active and _player.is_rebound_boost_active():
 		_player.cancel_rebound_boost()
-	_player.apply_remote_snapshot(pos, vel, facing)
+	_player.apply_remote_snapshot(pos, vel, facing, on_floor)
+	if on_floor and absf(vel.x) >= walking_echo_speed_threshold:
+		_echo_overlay.walking_preview(loudness)
 	for event in events:
 		match str(event):
 			"shout":
