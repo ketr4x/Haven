@@ -11,6 +11,7 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/player_vignette.gdshader"
 @export var right_action: StringName = &"p1_right"
 @export var jump_action: StringName = &"p1_jump"
 @export var shout_action: StringName = &"p1_shout"
+@export var slide_action: StringName = &"p1_slide"
 @export var player_color: Color = Color(1, 0.32, 0.62, 1)
 @export var mirror_course_horizontally: bool = false
 @export var sound_wave_scene: PackedScene
@@ -85,12 +86,14 @@ func _ready() -> void:
 	_player.landed.connect(_on_player_landed)
 	_player.jumped.connect(_on_player_jumped)
 	_player.wall_jumped.connect(_on_player_wall_jumped)
+	_player.slide_started.connect(_on_player_slide_started)
 
 	_player.sonic_shouted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("shout"))
 	_player.footstep_emitted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("footstep"))
 	_player.jumped.connect(func(_p: Vector2) -> void: _queue_local_event("jump"))
 	_player.landed.connect(func(_p: Vector2) -> void: _queue_local_event("land"))
 	_player.wall_jumped.connect(func(_p: Vector2, _n: Vector2) -> void: _queue_local_event("wall_jump"))
+	_player.slide_started.connect(func(_p: Vector2, _d: Vector2) -> void: _queue_local_event("slide"))
 	player_died.connect(func(_p: int) -> void: _queue_local_event("died"))
 
 
@@ -167,6 +170,7 @@ func configure_for_local_slot(slot: int) -> void:
 	right_action = &"p1_right" if slot == 1 else &"p2_right"
 	jump_action = &"p1_jump" if slot == 1 else &"p2_jump"
 	shout_action = &"p1_shout" if slot == 1 else &"p2_shout"
+	slide_action = &"p1_slide" if slot == 1 else &"p2_slide"
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = false
@@ -179,6 +183,7 @@ func configure_for_online_slot(slot: int) -> void:
 	right_action = &"p1_right"
 	jump_action = &"p1_jump"
 	shout_action = &"p1_shout"
+	slide_action = &"p1_slide"
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = false
@@ -191,6 +196,7 @@ func configure_as_remote_opponent(slot: int) -> void:
 	right_action = &""
 	jump_action = &""
 	shout_action = &""
+	slide_action = &""
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = true
@@ -252,7 +258,7 @@ func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: 
 		_player.apply_rebound_boost()
 	elif not boost_active and _player.is_rebound_boost_active():
 		_player.cancel_rebound_boost()
-	_player.apply_remote_snapshot(pos, vel, facing, on_floor)
+	_player.apply_remote_snapshot(pos, vel, facing, on_floor, _player.remote_is_sliding)
 	if on_floor and absf(vel.x) >= walking_echo_speed_threshold:
 		_echo_overlay.walking_preview(loudness)
 	for event in events:
@@ -267,6 +273,8 @@ func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: 
 				_player.trigger_remote_land()
 			"wall_jump":
 				_player.trigger_remote_wall_jump(Vector2.LEFT if facing > 0.0 else Vector2.RIGHT)
+			"slide":
+				_player.trigger_remote_slide()
 			"died":
 				_clear_waves()
 				_player.global_position = _generator.to_global(_generator.player_spawn)
@@ -278,6 +286,7 @@ func _apply_player_configuration() -> void:
 	_player.right_action = right_action
 	_player.jump_action = jump_action
 	_player.shout_action = shout_action
+	_player.slide_action = slide_action
 	_player.modulate = player_color
 	_player.set_visual_slot(player_number)
 	_generator.mirror_horizontally = mirror_course_horizontally
@@ -330,6 +339,21 @@ func _on_player_sonic_shouted(origin: Vector2, direction: Vector2, loudness: flo
 
 func _on_player_footstep_emitted(_origin: Vector2, _direction: Vector2, _loudness: float) -> void:
 	_audio_feedback.play_footstep()
+
+
+func _on_player_slide_started(position: Vector2, direction: Vector2) -> void:
+	_audio_feedback.play_landing()
+	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.24)
+	_update_vignette_uniforms(_vignette_pulse_strength)
+	if sonar_grid != null:
+		sonar_grid.emit_pulse(
+			position,
+			direction,
+			footstep_ray_count,
+			footstep_range_multiplier * 1.4,
+			0,
+			SonarGrid.PulseKind.RUN,
+		)
 
 
 func _on_player_landed(position: Vector2) -> void:

@@ -128,20 +128,24 @@ polygon = PackedVector2Array(-120, -16, 120, -16, 120, 16, -120, 16)
 color = Color(0.2, 0.62, 0.65, 1)
 
 [node name="PlayerOne" parent="." instance=ExtResource("2_player")]
-position = Vector2(220, 620)
+position = Vector2(220, 610)
 modulate = Color(1, 0.32, 0.62, 1)
 left_action = &"p1_left"
 right_action = &"p1_right"
 jump_action = &"p1_jump"
 shout_action = &"p1_shout"
+slide_action = &"p1_slide"
+visual_slot = 1
 
 [node name="PlayerTwo" parent="." instance=ExtResource("2_player")]
-position = Vector2(360, 620)
+position = Vector2(360, 610)
 modulate = Color(0.25, 0.85, 1, 1)
 left_action = &"p2_left"
 right_action = &"p2_right"
 jump_action = &"p2_jump"
 shout_action = &"p2_shout"
+slide_action = &"p2_slide"
+visual_slot = 2
 
 [node name="Interface" type="CanvasLayer" parent="."]
 
@@ -157,26 +161,26 @@ text = "REZONANS  ·  MOVEMENT LAB"
 [node name="PlayerOneControls" type="Label" parent="Interface"]
 offset_left = 42.0
 offset_top = 86.0
-offset_right = 540.0
+offset_right = 680.0
 offset_bottom = 148.0
 theme_override_colors/font_color = Color(1, 0.48, 0.7, 1)
 theme_override_font_sizes/font_size = 20
-text = "P1   A / D  move     W  jump     E / S  scream"
+text = "P1   A / D  move     W  jump     S  slide     E  scream"
 
 [node name="PlayerTwoControls" type="Label" parent="Interface"]
 offset_left = 42.0
 offset_top = 120.0
-offset_right = 530.0
+offset_right = 680.0
 offset_bottom = 182.0
 theme_override_colors/font_color = Color(0.4, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 20
-text = "P2   ← / →  move     ↑  jump     ↓  shout"
+text = "P2   ← / →  move     ↑  jump     ↓  slide     RShift / RCtrl  scream"
 
 [node name="Hint" type="Label" parent="Interface"]
 offset_left = 42.0
 offset_top = 202.0
-offset_right = 555.0
+offset_right = 640.0
 offset_bottom = 232.0
 theme_override_colors/font_color = Color(0.68, 0.72, 0.86, 1)
 theme_override_font_sizes/font_size = 16
-text = "Test coyote jumps, jump buffering, wall slides, and wall jumps.  R restarts."
+text = "Test coyote jumps, jump buffering, ground slides, wall slides, and wall jumps.  R restarts."

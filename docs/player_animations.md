@@ -5,7 +5,7 @@ The player character uses a `160×80` pixel sprite sheet divided into a `10×5` 
 - **Player 1 (Maroon Cloak)**: `res://assets/art/player.png`
 - **Player 2 (Blue Cloak)**: `res://assets/art/playe1r.png`
 
-Both textures are rendered with `CanvasItem.TEXTURE_FILTER_NEAREST` and scaled to `2.5×` (`40×40` pixels) inside `scenes/player/player.tscn` (`PlayerSprite`) so the cloaked runner aligns cleanly with the `24×36` collision box.
+Both textures are rendered with `CanvasItem.TEXTURE_FILTER_NEAREST`, a `1px` crisp white pixel-art outline (`res://assets/shaders/player_outline.gdshader`), and scaled to `5.0×` (`80×80` pixels, `2×` larger than the previous `2.5×` scale) inside `scenes/player/player.tscn` (`PlayerSprite`) so the cloaked runner fits the `48×48` terrain tilemap with a `36×68` standing collision box (lowering to `36×38` during a slide).
 
 ---
 
@@ -15,31 +15,20 @@ Both textures are rendered with `CanvasItem.TEXTURE_FILTER_NEAREST` and scaled t
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Row 0** (1st) | `y = 0` | `9` | `0..8` | `idle` | Loops continuously (`0..8`) |
 | **Row 1** (2nd) | `y = 16` | `10` | `0..9` | `run` | Loops continuously (`0..9`) |
-| **Row 2** (3rd) | `y = 32` | `8` | `0..7` | `slide` *(documented for future implementation)* | Frame 1 (`x = 0`) and Frame 8 (`x = 7`) are idle transition poses; Frames 2–7 (`x = 1..6`) are the active slide |
+| **Row 2** (3rd) | `y = 32` | `8` | `0..7` | `slide_enter` / `slide_loop` / `slide_exit` | Frames `0..1` (`slide_enter`, non-looping), Frames `2..5` (`slide_loop`, looping while sliding), and Frames `6..7` (`slide_exit`, non-looping recovery) |
 | **Row 3** (4th) | `y = 48` | `8` | `0..7` | `flip_start` / `flip_loop` | Frame 1 (`x = 0`) is idle, Frame 2 (`x = 1`) is wind-up (`flip_start`, non-looping), and Frames 3–8 (`x = 2..7`) loop continuously during the air flip (`flip_loop`) |
 | **Row 4** (5th) | `y = 64` | `5` | `0..4` | `jump` / `fall` / `land` | Rising (`jump`) plays `3, 2, 1, 0` (reversed); falling (`fall`) plays `0, 1, 2, 3` and holds on Frame 4 (`x = 3`, second-to-last frame) while airborne; Frame 5 (`x = 4`, last frame) is the crouched landing frame (`land`) |
 
 ---
 
-## Row 2 (3rd Row): Slide Animation Specification (For Future Implementation)
+## Row 2 (3rd Row): Ground Slide Mechanic & Animation
 
-The **3rd row** (`y = 32..47`, 8 frames total across `x = 0..7`) contains the **Slide** animation. Per design requirements, slide is **not** active in gameplay yet, and this document serves as the reference for anyone implementing a ground slide mechanic later on.
+The **3rd row** (`y = 32..47`, 8 frames total across `x = 0..7`) powers the active ground slide mechanic (`p1_slide` on `S`, `p2_slide` on `Down Arrow`).
 
 ### Frame-by-Frame Layout (`y = 32`, `width = 16`, `height = 16`)
-1. **Frame 1 (`col = 0`, `Rect2(0, 32, 16, 16)`) — Entry Idle Pose**:
-   - Upright idle transition frame entering the crouch/slide.
-2. **Frames 2–7 (`col = 1..6`, `Rect2(16..96, 32, 16, 16)`) — Active Slide**:
-   - Low-profile sliding frames where the character drops down and slides forward along the floor.
-   - Specifically:
-     - `col = 1` (`Rect2(16, 32, 16, 16)`): Transition into low slide.
-     - `col = 2..5` (`Rect2(32..80, 32, 16, 16)`): Full low-profile slide hold/loop frames (suitable for holding or looping while sliding under low `1`-tile gaps).
-     - `col = 6` (`Rect2(96, 32, 16, 16)`): Recovery transition rising out of the slide.
-3. **Frame 8 (`col = 7`, `Rect2(112, 32, 16, 16)`) — Exit Idle Pose**:
-   - Upright idle pose returning smoothly to `idle` or `run`.
-
-### Recommended Implementation Steps When Adding Slide Later
-- Split Row 2 into three `SpriteFrames` clips or manage frame indices in `scripts/player/player.gd`:
-  - `slide_enter`: columns `0, 1` (`loop = false`).
-  - `slide_loop`: columns `2, 3, 4, 5` (`loop = true` while slide velocity/timer is active).
-  - `slide_exit`: columns `6, 7` (`loop = false`, transitioning back to `idle` or `run`).
-- Lower the `CollisionShape2D` height during `slide_loop` if the slide is intended to pass underneath low ceiling obstacles.
+1. **Frames 1–2 (`col = 0..1`, `slide_enter`) — Entry Transition**:
+   - Transitions from upright into the low-profile crouch/slide (`18 FPS`, `loop = false`).
+2. **Frames 3–6 (`col = 2..5`, `slide_loop`) — Active Slide Loop**:
+   - Low-profile sliding frames (`14 FPS`, `loop = true`) held while `is_sliding()` is active or while passing underneath a low ceiling overhang.
+3. **Frames 7–8 (`col = 6..7`, `slide_exit`) — Exit Transition**:
+   - Recovery pose (`16 FPS`, `loop = false`) rising smoothly back into `idle` or `run`.
