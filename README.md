@@ -4,14 +4,15 @@
 
 **Dwuosobowa, konkurencyjna gra platformowa typu sidescroller bazująca na mechanice odbijania fal dźwiękowych.**
 
-## Sterowanie
+## Sterowanie / Controls
 
-| Akcja | Gracz 1 (góra) | Gracz 2 (dół) |
+| Akcja / Action | Gracz 1 / Player 1 (góra) | Gracz 2 / Player 2 (dół) |
 | :--- | :--- | :--- |
 | **Ruch (lewo / prawo)** | `A` / `D` | `←` / `→` |
-| **Skok** | `W` | `↑` |
-| **Wślizg** | `S` | `↓` |
-| **Krzyk** | `E` | prawy `Shift` / prawy `Ctrl` |
+| **Skok / Jump** | `Space` lub `W` | `↑` |
+| **Akustyczna trampolina (Double Jump)** | `Q` | `/` |
+| **Wślizg / Slide** | `S` | `↓` |
+| **Krzyk / Scream** | `E` | prawy `Shift` / prawy `Ctrl` |
 
 ### Pozostałe klawisze:
 * `Esc` – Pauza (w menu: cofnięcie o krok)
@@ -26,9 +27,11 @@
 ## Jak się gra?
 
 * **Fale dźwięku:** Im głośniej, tym dalej widać. Bieg, skoki i lądowanie generują ciche fale, natomiast użycie krzyku uwalnia najsilniejszą falę.
+* **Akustyczna trampolina (`Q` / `/`):** Skok w powietrzu wysyła impuls dźwiękowy w dół, wyrzucając postać wysoko w górę z obrotem.
 * **Skok ze ściany:** Przy ścianie możesz się po niej zsuwać i odbijać, co pozwala docierać na wysokie wieże i platformy.
 * **Odbita fala:** Zapewnia chwilowe przyspieszenie. Pamiętaj, że krzyk posiada czas odnowienia (cooldown), więc używaj go strategicznie.
 * **Kruche ściany:** Możesz je rozbić wyłącznie za pomocą krzyku. Zwykłe fale jedynie je podświetlają, ale ich nie niszczą (często stanowią ukryte skróty).
+* **Żółte bloki przeszkód:** Niezniszczalne bloki w półprzezroczystym żółtym kolorze. Odsłaniają się rozbłyskiem przy uderzeniu w nie lub po użyciu krzyku (`E`).
 
 ---
 
@@ -46,4 +49,4 @@
 ### Konfiguracja środowiska testowego
 1. Sklonuj repozytorium.
 2. Umieść swój plik konfiguracyjny w: `addons/GD-Sync/keys.cfg`.
-3. Otwórz projekt w silniku Godot Engine.
+3. Otwórz projekt w silniku Godot Engine 4.7.

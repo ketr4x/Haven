@@ -3,6 +3,7 @@ extends StaticBody2D
 
 signal broken(position: Vector2)
 signal resonated(position: Vector2)
+signal revealed(position: Vector2)
 
 @export var wall_size: Vector2 = Vector2(48.0, 96.0):
 	set(value):
@@ -11,14 +12,20 @@ signal resonated(position: Vector2)
 
 @export var field_color: Color = Color(0.42, 0.86, 1.0, 0.22)
 @export var edge_color: Color = Color(0.78, 0.96, 1.0, 0.92)
+@export var wall_color: Color = Color(1.0, 1.0, 0.0, 0.55)
+@export var crack_color: Color = Color(1.0, 1.0, 0.0, 0.55)
 @export var debris_color: Color = Color(0.62, 0.94, 1.0, 0.95)
+@export var is_destructible: bool = true
+@export var hidden_until_scream: bool = false
 
 var is_broken: bool = false
+var is_revealed: bool = true
 
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 @onready var _body_visual: Polygon2D = $Body
 @onready var _field_light: PointLight2D = get_node_or_null("FieldLight") as PointLight2D
-@onready var _debris_particles: CPUParticles2D = $DebrisParticles
+@onready var _cracks_visual: Polygon2D = get_node_or_null("Cracks") as Polygon2D
+@onready var _debris_particles: CPUParticles2D = get_node_or_null("DebrisParticles") as CPUParticles2D
 
 var _resonance_tween: Tween
 
@@ -26,7 +33,17 @@ var _resonance_tween: Tween
 func _ready() -> void:
 	add_to_group(&"breakable_wall")
 	_ensure_field_light_texture()
+	if not is_destructible or hidden_until_scream:
+		add_to_group(&"yellow_block")
 	_update_geometry()
+	is_revealed = not hidden_until_scream
+	if hidden_until_scream:
+		if _body_visual != null:
+			_body_visual.visible = false
+		if _cracks_visual != null:
+			_cracks_visual.visible = false
+		if _field_light != null:
+			_field_light.enabled = false
 	if _debris_particles != null:
 		_debris_particles.emitting = false
 
@@ -63,7 +80,14 @@ func _update_geometry() -> void:
 		rect_shape.size = wall_size
 
 	if _body_visual != null:
-		_body_visual.color = Color.WHITE
+		var mat := _body_visual.material as ShaderMaterial
+		if mat != null:
+			_body_visual.color = Color.WHITE
+			mat.set_shader_parameter(&"field_color", field_color)
+			mat.set_shader_parameter(&"edge_color", edge_color)
+			mat.set_shader_parameter(&"field_size", wall_size)
+		else:
+			_body_visual.color = wall_color
 		_body_visual.polygon = PackedVector2Array([
 			Vector2(-half_w, -half_h),
 			Vector2(half_w, -half_h),
@@ -76,15 +100,19 @@ func _update_geometry() -> void:
 			Vector2(1.0, 1.0),
 			Vector2(0.0, 1.0),
 		])
-		var mat := _body_visual.material as ShaderMaterial
-		if mat != null:
-			mat.set_shader_parameter(&"field_color", field_color)
-			mat.set_shader_parameter(&"edge_color", edge_color)
-			mat.set_shader_parameter(&"field_size", wall_size)
+
+	if _cracks_visual != null:
+		_cracks_visual.color = crack_color
 
 	if _debris_particles != null:
-		_debris_particles.emission_rect_extents = Vector2(half_w * 0.8, half_h * 0.8)
 		_debris_particles.color = debris_color
+		_debris_particles.emission_rect_extents = Vector2(half_w * 0.8, half_h * 0.8)
+
+
+func get_sonar_tile_color() -> Color:
+	if not is_destructible or hidden_until_scream:
+		return wall_color
+	return edge_color
 
 
 func apply_horizontal_mirror(is_mirrored: bool) -> void:
@@ -92,8 +120,42 @@ func apply_horizontal_mirror(is_mirrored: bool) -> void:
 		position.x = -position.x
 
 
-func pulse_resonance() -> void:
+func reveal_with_flash() -> void:
+	reveal_block()
+
+
+func reveal_block() -> void:
 	if is_broken:
+		return
+	if is_revealed:
+		pulse_resonance()
+		return
+	is_revealed = true
+	_play_reveal_flash()
+	revealed.emit(global_position)
+
+
+func _play_reveal_flash() -> void:
+	if _body_visual == null:
+		return
+	_body_visual.visible = true
+	if _cracks_visual != null:
+		_cracks_visual.visible = true
+	if _field_light != null:
+		_field_light.enabled = true
+	if not is_inside_tree():
+		_body_visual.modulate = Color.WHITE
+		return
+	var tween := create_tween()
+	# Fast flashing: bright flash -> dim flash -> bright flash -> settled
+	for i in range(4):
+		tween.tween_property(_body_visual, "modulate", Color(3.5, 3.5, 3.5, 1.0), 0.05)
+		tween.tween_property(_body_visual, "modulate", Color(0.2, 0.2, 0.0, 0.2), 0.05)
+	tween.tween_property(_body_visual, "modulate", Color.WHITE, 0.08)
+
+
+func pulse_resonance() -> void:
+	if is_broken or not is_revealed:
 		return
 	resonated.emit(global_position)
 	if _body_visual != null:
@@ -110,10 +172,17 @@ func pulse_resonance() -> void:
 				0.0,
 				0.28,
 			).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if _cracks_visual != null and is_inside_tree():
+		var tween := create_tween()
+		tween.tween_property(_cracks_visual, "modulate", Color(1.8, 1.4, 1.0, 1.0), 0.08)
+		tween.tween_property(_cracks_visual, "modulate", Color.WHITE, 0.22)
 
 
 func break_wall(impact_direction: Vector2 = Vector2.RIGHT) -> void:
 	if is_broken:
+		return
+	if not is_destructible:
+		reveal_block()
 		return
 	is_broken = true
 

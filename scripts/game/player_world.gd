@@ -12,6 +12,7 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/player_vignette.gdshader"
 @export var jump_action: StringName = &"p1_jump"
 @export var shout_action: StringName = &"p1_shout"
 @export var slide_action: StringName = &"p1_slide"
+@export var trampoline_action: StringName = &"p1_trampoline"
 @export var player_color: Color = Color(1, 0.32, 0.62, 1)
 @export var mirror_course_horizontally: bool = false
 @export var sound_wave_scene: PackedScene
@@ -21,6 +22,7 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/player_vignette.gdshader"
 @export_range(0.1, 1.0) var footstep_loudness_multiplier: float = 0.35
 @export_range(0.1, 1.0) var footstep_ring_scale: float = 0.45
 @export_range(0.05, 2.0, 0.05) var respawn_delay: float = 0.35
+@export_range(0.05, 1.0, 0.05) var jump_pulse_cooldown: float = 0.4
 
 @export_category("Sonar Overhaul")
 @export var scream_ray_count: int = 90
@@ -60,6 +62,7 @@ var _activated_pulses: Dictionary = {}
 var death_height: float = INF
 var _race_active: bool = false
 var _respawn_time_remaining: float = 0.0
+var _jump_pulse_cooldown_remaining: float = 0.0
 var _blind_collision_cooldown: float = 0.0
 var _pending_events: Array[String] = []
 
@@ -94,6 +97,7 @@ func _ready() -> void:
 	_player.impact_stunned.connect(_on_player_impact_stunned)
 	_player.blind_impact_slowed.connect(_on_player_blind_impact_slowed)
 	player_died.connect(_on_player_died_audio)
+	_player.trampoline_jumped.connect(_on_player_trampoline_jumped)
 
 	_player.sonic_shouted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("shout"))
 	_player.footstep_emitted.connect(func(_o: Vector2, _d: Vector2, _l: float) -> void: _queue_local_event("footstep"))
@@ -102,6 +106,7 @@ func _ready() -> void:
 	_player.wall_jumped.connect(func(_p: Vector2, _n: Vector2) -> void: _queue_local_event("wall_jump"))
 	_player.slide_started.connect(func(_p: Vector2, _d: Vector2) -> void: _queue_local_event("slide"))
 	_player.impact_stunned.connect(func(_p: Vector2) -> void: _queue_local_event("impact_stun"))
+	_player.trampoline_jumped.connect(func(_p: Vector2) -> void: _queue_local_event("trampoline"))
 	player_died.connect(func(_p: int) -> void: _queue_local_event("died"))
 
 
@@ -122,6 +127,7 @@ func _setup_vignette_overlay(_accent: Color) -> void:
 
 func _process(delta: float) -> void:
 	_blind_collision_cooldown = maxf(0.0, _blind_collision_cooldown - delta)
+	_jump_pulse_cooldown_remaining = maxf(0.0, _jump_pulse_cooldown_remaining - delta)
 	_update_vignette_overlay(delta)
 	var dust := get_node_or_null("DustParticles") as CPUParticles2D
 	if dust != null and _player != null:
@@ -197,6 +203,7 @@ func configure_for_local_slot(slot: int) -> void:
 	jump_action = &"p1_jump" if slot == 1 else &"p2_jump"
 	shout_action = &"p1_shout" if slot == 1 else &"p2_shout"
 	slide_action = &"p1_slide" if slot == 1 else &"p2_slide"
+	trampoline_action = &"p1_trampoline" if slot == 1 else &"p2_trampoline"
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = false
@@ -210,6 +217,7 @@ func configure_for_online_slot(slot: int) -> void:
 	jump_action = &"p1_jump"
 	shout_action = &"p1_shout"
 	slide_action = &"p1_slide"
+	trampoline_action = &"p1_trampoline"
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = false
@@ -223,6 +231,7 @@ func configure_as_remote_opponent(slot: int) -> void:
 	jump_action = &""
 	shout_action = &""
 	slide_action = &""
+	trampoline_action = &""
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = true
@@ -295,6 +304,8 @@ func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: 
 				_player.trigger_remote_footstep(loudness)
 			"jump":
 				_player.trigger_remote_jump()
+			"trampoline":
+				_player.trigger_remote_trampoline()
 			"land":
 				_player.trigger_remote_land()
 			"wall_jump":
@@ -316,6 +327,7 @@ func _apply_player_configuration() -> void:
 	_player.jump_action = jump_action
 	_player.shout_action = shout_action
 	_player.slide_action = slide_action
+	_player.trampoline_action = trampoline_action
 	_player.modulate = player_color
 	_player.set_visual_slot(player_number)
 	_generator.mirror_horizontally = mirror_course_horizontally
@@ -418,6 +430,9 @@ func _on_player_landed(position: Vector2) -> void:
 
 func _on_player_jumped(position: Vector2) -> void:
 	_audio_feedback.play_jump()
+	if _jump_pulse_cooldown_remaining > 0.0:
+		return
+	_jump_pulse_cooldown_remaining = jump_pulse_cooldown
 	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.32)
 	_update_vignette_uniforms(_vignette_pulse_strength)
 	if sonar_grid != null:
@@ -433,6 +448,9 @@ func _on_player_jumped(position: Vector2) -> void:
 
 func _on_player_wall_jumped(position: Vector2, normal: Vector2) -> void:
 	_audio_feedback.play_wall_jump()
+	if _jump_pulse_cooldown_remaining > 0.0:
+		return
+	_jump_pulse_cooldown_remaining = jump_pulse_cooldown
 	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.4)
 	_update_vignette_uniforms(_vignette_pulse_strength)
 	if sonar_grid != null:
@@ -444,6 +462,15 @@ func _on_player_wall_jumped(position: Vector2, normal: Vector2) -> void:
 			0,
 			SonarGrid.PulseKind.JUMP,
 		)
+
+
+func _on_player_trampoline_jumped(position: Vector2) -> void:
+	_audio_feedback.play_jump()
+	_audio_feedback.play_echo_return()
+	_vignette_pulse_strength = maxf(_vignette_pulse_strength, 0.5)
+	_update_vignette_uniforms(_vignette_pulse_strength)
+	if sonar_grid != null:
+		sonar_grid.emit_downward_pulse(position, 56)
 
 
 func _on_footstep_emitted(origin: Vector2, direction: Vector2, loudness: float) -> void:
@@ -501,6 +528,12 @@ func _check_unlit_airborne_collision() -> void:
 		var collision := _player.get_slide_collision(idx)
 		if collision == null:
 			continue
+		var collider = collision.get_collider()
+		if collider != null and collider.is_in_group(&"yellow_block"):
+			if collider.has_method("reveal_with_flash"):
+				collider.reveal_with_flash()
+			elif collider.has_method("reveal_block"):
+				collider.reveal_block()
 		var normal := collision.get_normal()
 		# Ignore standing on top of a surface or grazing low ceilings; penalize running horizontally into unlit airborne blocks.
 		if absf(normal.y) > 0.65:

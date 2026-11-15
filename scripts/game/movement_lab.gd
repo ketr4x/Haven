@@ -16,12 +16,14 @@ func _ready() -> void:
 		player_one.sonic_shouted.connect(_on_player_shouted)
 		player_one.jumped.connect(_on_player_jumped.bind(player_one))
 		player_one.landed.connect(_on_player_landed.bind(player_one))
+		player_one.trampoline_jumped.connect(_on_player_trampoline_jumped)
 
 	var player_two := get_node_or_null("PlayerTwo") as RezonansPlayer
 	if player_two != null:
 		player_two.sonic_shouted.connect(_on_player_shouted)
 		player_two.jumped.connect(_on_player_jumped.bind(player_two))
 		player_two.landed.connect(_on_player_landed.bind(player_two))
+		player_two.trampoline_jumped.connect(_on_player_trampoline_jumped)
 
 
 func _populate_lab_tilemap() -> void:
@@ -70,7 +72,14 @@ func _on_player_shouted(origin: Vector2, direction: Vector2, _loudness: float) -
 		sonar_grid.emit_pulse(origin, direction, 90, 1.5, 1, SonarGrid.PulseKind.SCREAM)
 
 
+var _last_jump_time: float = -999.0
+
+
 func _on_player_jumped(origin: Vector2, player: RezonansPlayer) -> void:
+	var now: float = float(Time.get_ticks_msec()) * 0.001
+	if now - _last_jump_time < 0.4:
+		return
+	_last_jump_time = now
 	if sonar_grid != null:
 		sonar_grid.emit_pulse(origin, Vector2(player.facing_direction, 0.0), 120, 0.68, 0, SonarGrid.PulseKind.JUMP)
 
@@ -78,3 +87,8 @@ func _on_player_jumped(origin: Vector2, player: RezonansPlayer) -> void:
 func _on_player_landed(origin: Vector2, player: RezonansPlayer) -> void:
 	if sonar_grid != null:
 		sonar_grid.emit_pulse(origin, Vector2(player.facing_direction, 0.0), 120, 0.68, 0, SonarGrid.PulseKind.LAND)
+
+
+func _on_player_trampoline_jumped(origin: Vector2) -> void:
+	if sonar_grid != null:
+		sonar_grid.emit_downward_pulse(origin, 56)

@@ -12,6 +12,7 @@ signal rebound_boost_started
 signal rebound_boost_ended
 signal blind_impact_slowed(position: Vector2)
 signal impact_stunned(position: Vector2)
+signal trampoline_jumped(position: Vector2)
 
 @export_category("Input")
 @export var left_action: StringName = &"p1_left"
@@ -19,6 +20,7 @@ signal impact_stunned(position: Vector2)
 @export var jump_action: StringName = &"p1_jump"
 @export var shout_action: StringName = &"p1_shout"
 @export var slide_action: StringName = &"p1_slide"
+@export var trampoline_action: StringName = &"p1_trampoline"
 
 @export_category("Movement")
 @export var run_speed: float = 300.0
@@ -27,6 +29,7 @@ signal impact_stunned(position: Vector2)
 @export var ground_deceleration: float = 2_800.0
 @export var gravity: float = 1_600.0
 @export var jump_velocity: float = -560.0
+@export var trampoline_velocity: float = -620.0
 @export var wall_slide_speed: float = 120.0
 @export var wall_jump_horizontal_speed: float = 340.0
 @export_range(0.05, 0.3, 0.01) var wall_jump_coyote_time: float = 0.16
@@ -108,6 +111,7 @@ var _footstep_time_remaining: float = 0.0
 var _slide_time_remaining: float = 0.0
 var _slide_cooldown_remaining: float = 0.0
 var _slide_exit_time_remaining: float = 0.0
+var _trampoline_charges: int = 1
 var _is_sliding: bool = false
 var _was_on_floor: bool = false
 var _remote_target_position: Vector2 = Vector2.ZERO
@@ -412,6 +416,7 @@ func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
 	_try_jump()
 	_apply_jump_cut()
+	_try_trampoline()
 	_apply_wall_slide()
 
 	var was_on_floor_before := is_on_floor()
@@ -420,6 +425,7 @@ func _physics_process(delta: float) -> void:
 	_check_high_speed_wall_bonk(was_on_floor_before, pre_move_velocity)
 	_update_ground_state(delta, pre_move_velocity.y)
 	_update_wall_jump_state(delta)
+	_check_yellow_block_collisions()
 	_emit_footstep_if_running(delta)
 	_emit_shout_if_requested()
 	_update_sprite_animation(delta)
@@ -691,6 +697,15 @@ func trigger_remote_jump() -> void:
 	jumped.emit(global_position)
 
 
+func trigger_remote_trampoline() -> void:
+	remote_is_sliding = false
+	_apply_collision_profile(false)
+	_is_flipping = true
+	if _player_sprite != null:
+		_player_sprite.play(&"flip_start")
+	trampoline_jumped.emit(global_position)
+
+
 func trigger_remote_wall_jump(normal: Vector2) -> void:
 	remote_is_sliding = false
 	_apply_collision_profile(false)
@@ -792,6 +807,7 @@ func _jump_multiplier() -> float:
 var _jump_action_was_pressed: bool = false
 var _slide_action_was_pressed: bool = false
 var _shout_action_was_pressed: bool = false
+var _trampoline_action_was_pressed: bool = false
 
 
 func _is_action_newly_pressed(action: StringName, was_pressed_flag: bool) -> bool:
@@ -937,6 +953,7 @@ func _try_jump() -> void:
 		set_facing_direction(_last_wall_normal.x)
 		_jump_buffer_remaining = 0.0
 		_wall_jump_time_remaining = 0.0
+		_trampoline_charges = 1
 		_is_flipping = true
 		_sprite_squash = Vector2(0.82, 1.20)
 		if _player_sprite != null:
@@ -962,6 +979,24 @@ func _try_jump() -> void:
 		jumped.emit(global_position)
 
 
+func _try_trampoline() -> void:
+	var currently_pressed := not trampoline_action.is_empty() and InputMap.has_action(trampoline_action) and Input.is_action_pressed(trampoline_action)
+	var newly_pressed := _is_action_newly_pressed(trampoline_action, _trampoline_action_was_pressed)
+	_trampoline_action_was_pressed = currently_pressed
+	if not newly_pressed:
+		return
+	if is_on_floor() or _trampoline_charges <= 0:
+		return
+	_trampoline_charges -= 1
+	if _is_sliding:
+		_end_slide(false)
+	velocity.y = trampoline_velocity * _jump_multiplier()
+	_is_flipping = true
+	if _player_sprite != null:
+		_player_sprite.play(&"flip_start")
+	trampoline_jumped.emit(global_position)
+
+
 func _apply_wall_slide() -> void:
 	if is_on_wall_only() and not is_on_floor() and velocity.y > wall_slide_speed:
 		velocity.y = wall_slide_speed
@@ -970,6 +1005,7 @@ func _apply_wall_slide() -> void:
 func _update_ground_state(delta: float, pre_land_vy: float = 0.0) -> void:
 	if is_on_floor():
 		_coyote_time_remaining = coyote_time
+		_trampoline_charges = 1
 		if not _was_on_floor:
 			_is_flipping = false
 			_land_anim_time_remaining = LAND_ANIM_HOLD_TIME
@@ -990,6 +1026,7 @@ func _update_wall_jump_state(delta: float) -> void:
 	if is_on_wall_only():
 		_last_wall_normal = get_wall_normal()
 		_wall_jump_time_remaining = wall_jump_coyote_time
+		_trampoline_charges = 1
 	else:
 		_wall_jump_time_remaining = maxf(0.0, _wall_jump_time_remaining - delta)
 
@@ -1029,6 +1066,19 @@ func _trigger_shout_zoom_punch() -> void:
 	_shout_zoom_tween.tween_property(self, "_camera_zoom_kick", 0.11, 0.06).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_shout_zoom_tween.tween_property(self, "_camera_zoom_kick", -0.025, 0.11).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	_shout_zoom_tween.tween_property(self, "_camera_zoom_kick", 0.0, 0.09).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+func _check_yellow_block_collisions() -> void:
+	for i in get_slide_collision_count():
+		var collision := get_slide_collision(i)
+		if collision == null:
+			continue
+		var collider := collision.get_collider()
+		if collider != null and collider.is_in_group(&"yellow_block"):
+			if collider.has_method("reveal_with_flash"):
+				collider.reveal_with_flash()
+			elif collider.has_method("reveal_block"):
+				collider.reveal_block()
 
 
 func _play_particle_burst(particles: CPUParticles2D) -> void:
