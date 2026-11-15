@@ -2,6 +2,8 @@
 
 ## Purpose
 
+**Status: complete.** The proof passed its external-network gate: two Windows exports on separate connections created and joined a room-code lobby, exchanged remote calls, and notified the host after the joining client left. Public-lobby browsing and a simultaneous-join collision were also verified.
+
 This proof of concept verifies the smallest online path required by Rezonans before the race scene, player movement, menu, or leaderboard code is changed:
 
 - managed GD-Sync connection;
@@ -107,11 +109,13 @@ Build output is ignored. Test the exported host and client from separate interne
 - A direct `lobby_leave()` from the joining client did not produce a `client_left` event on the host during a local twenty-second test. Treat host-side disconnect detection as unresolved and repeat it on the external-network gate before using the signal in gameplay.
 - An exported Windows proof client connected and browsed lobbies.
 - Two local instances of the exported Windows proof client completed the same private-lobby and probe exchange.
+- Two Windows exports on separate connections completed the private room-code flow, exchanged both probe messages, and notified the host that the second client left.
+- A simultaneous join test yielded one successful join and one expected full-lobby failure (`error=2`).
 - `tests/race_shell_check.gd` passes without GD-Sync startup errors because the plugin is not a global autoload.
 
-## Required external-network gate
+## External-network gate result
 
-The proof is not complete until all checks below pass on two clean Windows machines on distinct internet connections:
+The external-network gate passed. Keep the commands below as a reproducible release check whenever GD-Sync, the export process, or network code changes.
 
 1. Run an exported host with no port-forwarding configuration.
 2. Join using the displayed room code from the second exported client.
@@ -121,4 +125,4 @@ The proof is not complete until all checks below pass on two clean Windows machi
 6. Start two join attempts for the same public room and record the expected single success and single full/closed failure.
 7. Confirm `addons/GD-Sync/keys.cfg` is ignored and no API key appears in the build logs or repository status.
 
-If the external-network test fails, capture only the non-sensitive connection error code and stop the multiplayer implementation. Reassess EOS or Nakama before changing race gameplay.
+If a later external-network test fails, capture only the non-sensitive connection error code and stop the multiplayer implementation. Reassess EOS or Nakama before changing race gameplay.
