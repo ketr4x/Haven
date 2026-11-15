@@ -1,7 +1,11 @@
 extends Control
 
+signal countdown_started
+signal transition_finished
+
 enum RaceState {
 	TITLE,
+	STARTING,
 	COUNTDOWN,
 	RACING,
 	PAUSED,
@@ -22,6 +26,7 @@ enum MenuScreen {
 }
 
 @export_range(1.0, 5.0, 0.1) var countdown_duration: float = 3.0
+@export_range(0.1, 2.0, 0.05) var pixel_transition_half_duration: float = 0.45
 
 @onready var _player_one_world: PlayerWorld = $Presentation/SplitScreen/TopContainer/TopViewport/PlayerOneWorld
 @onready var _player_two_world: PlayerWorld = $Presentation/SplitScreen/BottomContainer/BottomViewport/PlayerTwoWorld
@@ -38,18 +43,14 @@ enum MenuScreen {
 @onready var _finish_status_label: Label = $GlobalUi/FinishStatus
 @onready var _winner_label: Label = $GlobalUi/ResultPanel/Winner
 @onready var _times_label: Label = $GlobalUi/ResultPanel/Times
-@onready var _title_panel: Control = $GlobalUi/TitlePanel
-@onready var _title_tagline: Label = $GlobalUi/TitlePanel/Tagline
-@onready var _player_one_controls: Label = $GlobalUi/TitlePanel/PlayerOneControls
-@onready var _player_two_controls: Label = $GlobalUi/TitlePanel/PlayerTwoControls
-@onready var _menu_prompt: Label = $GlobalUi/TitlePanel/Prompt
-@onready var _menu_hint: Label = $GlobalUi/TitlePanel/Hint
-@onready var _room_code_input: LineEdit = $GlobalUi/TitlePanel/RoomCodeInput
+@onready var _result_reminder: Label = $GlobalUi/ResultPanel/Reminder
+@onready var _result_actions: Label = $GlobalUi/ResultPanel/Actions
+@onready var _title_panel: MainMenu = $GlobalUi/TitlePanel
 @onready var _countdown_label: Label = $GlobalUi/Countdown
 @onready var _pause_panel: Control = $GlobalUi/PausePanel
 @onready var _result_panel: Control = $GlobalUi/ResultPanel
-@onready var _result_actions: Label = $GlobalUi/ResultPanel/Actions
-@onready var _result_reminder: Label = $GlobalUi/ResultPanel/Reminder
+@onready var _palette_post_process: CanvasLayer = $Luap40PostProcess
+@onready var _transition_rect: ColorRect = $TransitionLayer/TransitionRect
 
 var _seed: int = 0
 var _seed_random: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -59,16 +60,18 @@ var _race_elapsed: float = 0.0
 var _player_finish_times: Dictionary = {}
 var _online_match: OnlineMatch
 var _session_mode: SessionMode = SessionMode.LOCAL
-var _menu_index: int = 0
 var _menu_screen: MenuScreen = MenuScreen.MAIN
 var _status_send_remaining: float = 0.0
+var _transition_tween: Tween
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_player_one_world.player_finished.connect(_on_player_finished)
 	_player_two_world.player_finished.connect(_on_player_finished)
-	_room_code_input.text_submitted.connect(_on_room_code_submitted)
+	_title_panel.option_selected.connect(_on_menu_option_selected)
+	_title_panel.room_code_submitted.connect(_on_room_code_submitted)
+	_title_panel.outro_finished.connect(_on_title_panel_outro_finished)
 	_online_match = OnlineMatch.new()
 	add_child(_online_match)
 	_online_match.room_code_ready.connect(_on_room_code_ready)
@@ -114,9 +117,30 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if _race_state == RaceState.TITLE:
-		if _handle_menu_input(event):
+		if _menu_screen == MenuScreen.JOIN_CODE:
+			if event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
+				_show_menu(MenuScreen.FRIENDS)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed(&"ui_accept"):
+				_submit_room_code("")
+				get_viewport().set_input_as_handled()
+				return
+		elif _menu_screen == MenuScreen.WAITING:
+			if event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
+				_return_to_main_menu()
+				get_viewport().set_input_as_handled()
+				return
+		elif event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
+			if _menu_screen == MenuScreen.ONLINE:
+				_show_menu(MenuScreen.MAIN)
+			elif _menu_screen == MenuScreen.FRIENDS:
+				_show_menu(MenuScreen.ONLINE)
 			get_viewport().set_input_as_handled()
-		return
+			return
+		elif _title_panel.handle_menu_input(event):
+			get_viewport().set_input_as_handled()
+			return
 
 	if _session_mode == SessionMode.ONLINE and _race_state == RaceState.FINISHED:
 		if event.is_action_pressed(&"ui_accept"):
@@ -134,14 +158,9 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if _session_mode == SessionMode.LOCAL and _race_state in [RaceState.RACING, RaceState.PAUSED, RaceState.FINISHED]:
-		if event.is_action_pressed(&"restart"):
+		if event.is_action_pressed(&"restart") or event.is_action_pressed(&"new_seed"):
 			_restart_course()
 			get_viewport().set_input_as_handled()
-			return
-		if event.is_action_pressed(&"new_seed"):
-			_restart_course()
-			get_viewport().set_input_as_handled()
-			return
 
 
 func _generate_race(seed: int) -> void:
@@ -160,6 +179,7 @@ func _generate_race(seed: int) -> void:
 
 
 func _restart_course() -> void:
+	_cancel_transition()
 	get_tree().paused = false
 	_generate_race(_next_random_seed())
 	_set_race_state(RaceState.TITLE)
@@ -170,6 +190,70 @@ func _next_random_seed() -> int:
 	while next_seed == _seed:
 		next_seed = _seed_random.randi_range(1, 2_147_483_647)
 	return next_seed
+
+
+func _begin_match_start() -> void:
+	if _race_state != RaceState.TITLE:
+		return
+	_set_race_state(RaceState.STARTING)
+	_title_panel.play_outro()
+
+
+func _on_title_panel_outro_finished() -> void:
+	if _race_state == RaceState.STARTING:
+		_play_pixel_transition_to_countdown()
+
+
+func _on_title_panel_quit_requested() -> void:
+	get_tree().quit()
+
+
+func _play_pixel_transition_to_countdown() -> void:
+	_cancel_transition()
+	_transition_rect.visible = true
+	_set_transition_progress(0.0)
+	_transition_tween = create_tween()
+	_transition_tween.tween_method(
+		_set_transition_progress,
+		0.0,
+		1.0,
+		pixel_transition_half_duration,
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_transition_tween.tween_callback(_on_transition_midpoint)
+	_transition_tween.tween_interval(0.08)
+	_transition_tween.tween_method(
+		_set_transition_progress,
+		1.0,
+		0.0,
+		pixel_transition_half_duration,
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_transition_tween.tween_callback(_on_transition_completed)
+
+
+func _on_transition_midpoint() -> void:
+	if _race_state == RaceState.STARTING:
+		_start_countdown()
+		countdown_started.emit()
+
+
+func _on_transition_completed() -> void:
+	_transition_rect.visible = false
+	_transition_tween = null
+	transition_finished.emit()
+
+
+func _cancel_transition() -> void:
+	if _transition_tween != null and _transition_tween.is_valid():
+		_transition_tween.kill()
+	_transition_tween = null
+	_set_transition_progress(0.0)
+	_transition_rect.visible = false
+
+
+func _set_transition_progress(value: float) -> void:
+	var transition_material := _transition_rect.material as ShaderMaterial
+	if transition_material != null:
+		transition_material.set_shader_parameter(&"progress", value)
 
 
 func _start_countdown(duration: float = countdown_duration) -> void:
@@ -190,7 +274,10 @@ func _toggle_pause() -> void:
 func _set_race_state(next_state: RaceState) -> void:
 	var previous_state := _race_state
 	_race_state = next_state
-	_title_panel.visible = next_state == RaceState.TITLE
+	_title_panel.visible = next_state == RaceState.TITLE or next_state == RaceState.STARTING
+	if next_state == RaceState.TITLE:
+		_title_panel.reset_to_idle()
+	_palette_post_process.visible = next_state != RaceState.TITLE and next_state != RaceState.STARTING
 	_countdown_label.visible = next_state == RaceState.COUNTDOWN
 	_pause_panel.visible = next_state == RaceState.PAUSED
 	_result_panel.visible = next_state == RaceState.FINISHED
@@ -206,17 +293,6 @@ func _set_race_state(next_state: RaceState) -> void:
 		_player_one_world.emit_intro_pulse()
 		if _session_mode == SessionMode.LOCAL:
 			_player_two_world.emit_intro_pulse()
-
-
-func _is_start_input(event: InputEvent) -> bool:
-	return event.is_action_pressed(&"p1_left") \
-		or event.is_action_pressed(&"p1_right") \
-		or event.is_action_pressed(&"p1_jump") \
-		or event.is_action_pressed(&"p1_shout") \
-		or event.is_action_pressed(&"p2_left") \
-		or event.is_action_pressed(&"p2_right") \
-		or event.is_action_pressed(&"p2_jump") \
-		or event.is_action_pressed(&"p2_shout")
 
 
 func _on_player_finished(player_number: int) -> void:
@@ -253,8 +329,7 @@ func _on_player_finished(player_number: int) -> void:
 func start_quick_match() -> void:
 	_begin_online_session()
 	if _menu_screen == MenuScreen.WAITING:
-		_menu_prompt.text = "SZUKANIE PRZECIWNIKA…"
-		_menu_hint.text = "ESC  ANULUJ"
+		_title_panel.show_waiting("SZUKANIE PRZECIWNIKA…", "ESC  ANULUJ")
 	_online_match.queue_quick_match()
 
 
@@ -308,8 +383,7 @@ func _on_room_code_ready(room_code: String) -> void:
 	_seed_label.text = "KOD POKOJU  %s" % room_code
 	_finish_status_label.text = "CZEKA NA DRUGIEGO GRACZA…"
 	if _menu_screen == MenuScreen.WAITING:
-		_menu_prompt.text = "KOD POKOJU\n%s" % room_code
-		_menu_hint.text = "PRZEKAŻ KOD ZNAJOMEMU.    ESC  ANULUJ"
+		_title_panel.show_waiting("KOD POKOJU: %s" % room_code, "PRZEKAŻ KOD ZNAJOMEMU.  ESC  ANULUJ")
 
 
 func _on_online_match_configured(player_slot: int, seed: int) -> void:
@@ -389,134 +463,67 @@ func _on_online_match_failed(reason: String) -> void:
 
 func _show_menu(next_screen: MenuScreen) -> void:
 	_menu_screen = next_screen
-	_menu_index = 0
 	_title_panel.visible = true
-	_room_code_input.visible = next_screen == MenuScreen.JOIN_CODE
-	_player_one_controls.visible = false
-	_player_two_controls.visible = false
-	_title_tagline.text = "WYŚCIG ECHA"
-
 	match next_screen:
 		MenuScreen.MAIN:
-			_menu_prompt.text = _menu_options(["GRA LOKALNA", "GRA ONLINE"])
-			_menu_hint.text = "STRZAŁKI + ENTER  WYBIERZ"
+			_title_panel.show_options(
+				["GRAJ", "GRA ONLINE", "WYJDŹ"],
+				"STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ",
+				"WYŚCIG ECHA",
+			)
 		MenuScreen.ONLINE:
-			_title_tagline.text = "GRA ONLINE"
-			_menu_prompt.text = _menu_options(["SZYBKI MECZ", "ZE ZNAJOMYM", "POWRÓT"])
-			_menu_hint.text = "STRZAŁKI + ENTER  WYBIERZ    ESC  POWRÓT"
+			_title_panel.show_options(
+				["SZYBKI MECZ", "ZE ZNAJOMYM"],
+				"WYBIERZ TRYB ONLINE      ESC  POWRÓT",
+				"POŁĄCZENIE ZNAJDZIE LUB UTWORZY POKÓJ.",
+			)
 		MenuScreen.FRIENDS:
-			_title_tagline.text = "ZE ZNAJOMYM"
-			_menu_prompt.text = _menu_options(["STWÓRZ POKÓJ", "DOŁĄCZ KODEM", "POWRÓT"])
-			_menu_hint.text = "STRZAŁKI + ENTER  WYBIERZ    ESC  POWRÓT"
+			_title_panel.show_options(
+				["STWÓRZ POKÓJ", "DOŁĄCZ KODEM"],
+				"WYBIERZ OPCJĘ      ESC  POWRÓT",
+				"PRYWATNY WYŚCIG DLA DWÓCH GRACZY.",
+			)
 		MenuScreen.JOIN_CODE:
-			_title_tagline.text = "DOŁĄCZ DO POKOJU"
-			_menu_prompt.text = "WPISZ KOD POKOJU"
-			_menu_hint.text = "ENTER  DOŁĄCZ    ESC  POWRÓT"
-			_room_code_input.clear()
-			_room_code_input.grab_focus()
+			_title_panel.show_room_code_entry("DOŁĄCZ DO POKOJU", "WPISZ KOD I NACIŚNIJ ENTER.  ESC  POWRÓT")
 		MenuScreen.WAITING:
-			_title_tagline.text = "GRA ONLINE"
-			_menu_prompt.text = "ŁĄCZENIE…"
-			_menu_hint.text = "ESC  ANULUJ"
+			_title_panel.show_waiting("ŁĄCZENIE…", "ESC  ANULUJ")
 
 
-func _handle_menu_input(event: InputEvent) -> bool:
-	if _menu_screen == MenuScreen.JOIN_CODE:
-		if event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
-			_show_menu(MenuScreen.FRIENDS)
-			return true
-		if event.is_action_pressed(&"ui_accept"):
-			_submit_room_code()
-			return true
-		return false
-
-	if _menu_screen == MenuScreen.WAITING:
-		if event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
-			_return_to_main_menu()
-			return true
-		return false
-
-	if event.is_action_pressed(&"ui_up"):
-		_menu_index = posmod(_menu_index - 1, _menu_option_count())
-		_refresh_menu_options()
-		return true
-	if event.is_action_pressed(&"ui_down"):
-		_menu_index = posmod(_menu_index + 1, _menu_option_count())
-		_refresh_menu_options()
-		return true
-	if event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
-		_show_menu(MenuScreen.MAIN if _menu_screen == MenuScreen.ONLINE else MenuScreen.ONLINE)
-		return true
-	if event.is_action_pressed(&"ui_accept"):
-		_activate_menu_option()
-		return true
-	return false
-
-
-func _activate_menu_option() -> void:
+func _on_menu_option_selected(index: int) -> void:
 	match _menu_screen:
 		MenuScreen.MAIN:
-			if _menu_index == 0:
-				_title_panel.visible = false
-				_start_countdown()
-			else:
+			if index == 0:
+				_begin_match_start()
+			elif index == 1:
 				_show_menu(MenuScreen.ONLINE)
+			else:
+				get_tree().quit()
 		MenuScreen.ONLINE:
-			if _menu_index == 0:
+			if index == 0:
 				_show_menu(MenuScreen.WAITING)
 				start_quick_match()
-			elif _menu_index == 1:
+			else:
 				_show_menu(MenuScreen.FRIENDS)
-			else:
-				_show_menu(MenuScreen.MAIN)
 		MenuScreen.FRIENDS:
-			if _menu_index == 0:
-				_show_menu(MenuScreen.WAITING)
+			_show_menu(MenuScreen.WAITING)
+			if index == 0:
 				host_friend_room()
-			elif _menu_index == 1:
-				_show_menu(MenuScreen.JOIN_CODE)
 			else:
-				_show_menu(MenuScreen.ONLINE)
+				_show_menu(MenuScreen.JOIN_CODE)
 
 
-func _submit_room_code() -> void:
-	var room_code := _room_code_input.text.strip_edges().to_upper()
-	if room_code.is_empty():
-		_menu_hint.text = "WPISZ KOD OTRZYMANY OD GOSPODARZA."
+func _on_room_code_submitted(room_code: String) -> void:
+	if _menu_screen == MenuScreen.JOIN_CODE:
+		_submit_room_code(room_code)
+
+
+func _submit_room_code(room_code: String) -> void:
+	var normalized_code := room_code.strip_edges().to_upper()
+	if normalized_code.is_empty():
+		_title_panel.show_room_code_entry("DOŁĄCZ DO POKOJU", "WPISZ KOD OTRZYMANY OD GOSPODARZA.")
 		return
 	_show_menu(MenuScreen.WAITING)
-	join_friend_room(room_code)
-
-
-func _on_room_code_submitted(_room_code: String) -> void:
-	if _menu_screen == MenuScreen.JOIN_CODE:
-		_submit_room_code()
-
-
-func _refresh_menu_options() -> void:
-	match _menu_screen:
-		MenuScreen.MAIN:
-			_menu_prompt.text = _menu_options(["GRA LOKALNA", "GRA ONLINE"])
-		MenuScreen.ONLINE:
-			_menu_prompt.text = _menu_options(["SZYBKI MECZ", "ZE ZNAJOMYM", "POWRÓT"])
-		MenuScreen.FRIENDS:
-			_menu_prompt.text = _menu_options(["STWÓRZ POKÓJ", "DOŁĄCZ KODEM", "POWRÓT"])
-
-
-func _menu_options(options: Array[String]) -> String:
-	var lines: PackedStringArray = PackedStringArray()
-	for index in options.size():
-		lines.append((">  " if index == _menu_index else "   ") + options[index])
-	return "\n".join(lines)
-
-
-func _menu_option_count() -> int:
-	match _menu_screen:
-		MenuScreen.MAIN:
-			return 2
-		MenuScreen.ONLINE, MenuScreen.FRIENDS:
-			return 3
-	return 1
+	join_friend_room(normalized_code)
 
 
 func _return_to_main_menu() -> void:

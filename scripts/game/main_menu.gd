@@ -1,0 +1,207 @@
+class_name MainMenu
+extends Control
+
+signal option_selected(index: int)
+signal quit_requested
+signal outro_finished
+signal room_code_submitted(room_code: String)
+
+const FRAME_SIZE := Vector2(144.0, 96.0)
+const ANIM_IDLE := &"idle"
+const ANIM_OUTRO := &"outro"
+const SELECTED_COLOR := Color(0.960784, 0.960784, 0.960784, 1.0)
+const UNSELECTED_COLOR := Color(0.74902, 0.74902, 0.74902, 0.92)
+const DEFAULT_OPTIONS: Array[String] = ["GRAJ", "WYJDŹ"]
+
+@onready var _background_sprite: AnimatedSprite2D = $BackgroundSprite
+@onready var _menu_overlay: Control = $MenuOverlay
+@onready var _prompt_label: Label = $MenuOverlay/Prompt
+@onready var _hint_label: Label = $MenuOverlay/Hint
+@onready var _room_code_input: LineEdit = $MenuOverlay/RoomCodeInput
+@onready var _option_rows: Array[Control] = [
+	$MenuOverlay/MenuItems/PlayOption,
+	$MenuOverlay/MenuItems/OnlineOption,
+	$MenuOverlay/MenuItems/QuitOption,
+]
+@onready var _cursor_labels: Array[Label] = [
+	$MenuOverlay/MenuItems/PlayOption/Cursor,
+	$MenuOverlay/MenuItems/OnlineOption/Cursor,
+	$MenuOverlay/MenuItems/QuitOption/Cursor,
+]
+@onready var _option_labels: Array[Label] = [
+	$MenuOverlay/MenuItems/PlayOption/Text,
+	$MenuOverlay/MenuItems/OnlineOption/Text,
+	$MenuOverlay/MenuItems/QuitOption/Text,
+]
+
+var _selected_index: int = 0
+var _is_playing_outro: bool = false
+var _option_texts: Array[String] = DEFAULT_OPTIONS.duplicate()
+
+
+func _ready() -> void:
+	resized.connect(_update_background_layout)
+	_background_sprite.animation_finished.connect(_on_background_animation_finished)
+	_room_code_input.text_submitted.connect(_on_room_code_text_submitted)
+	for index in _option_rows.size():
+		var row := _option_rows[index]
+		row.mouse_entered.connect(_on_option_mouse_entered.bind(index))
+		row.gui_input.connect(_on_option_gui_input.bind(index))
+	_update_background_layout()
+	reset_to_idle()
+
+
+func reset_to_idle() -> void:
+	_is_playing_outro = false
+	_selected_index = 0
+	_set_options(DEFAULT_OPTIONS)
+	_set_room_code_visible(false)
+	_set_footer(
+		"STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ",
+		"Odbijaj fale dźwiękowe, aby zobaczyć otoczenie!",
+	)
+	_menu_overlay.visible = true
+	_background_sprite.play(ANIM_IDLE)
+
+
+func play_outro() -> void:
+	if _is_playing_outro:
+		return
+	_is_playing_outro = true
+	_menu_overlay.visible = false
+	_background_sprite.play(ANIM_OUTRO)
+
+
+func is_playing_outro() -> bool:
+	return _is_playing_outro
+
+
+func get_selected_index() -> int:
+	return _selected_index
+
+
+func get_option_text(index: int) -> String:
+	if index < 0 or index >= _option_texts.size():
+		return ""
+	return _option_texts[index]
+
+
+func show_options(options: Array[String], prompt: String, hint: String) -> void:
+	_set_options(options)
+	_set_room_code_visible(false)
+	_set_footer(prompt, hint)
+	_menu_overlay.visible = true
+
+
+func show_room_code_entry(prompt: String, hint: String) -> void:
+	_set_options([])
+	_set_footer(prompt, hint)
+	_set_room_code_visible(true)
+	_room_code_input.clear()
+	_room_code_input.grab_focus()
+	_menu_overlay.visible = true
+
+
+func show_waiting(prompt: String, hint: String) -> void:
+	_set_options([])
+	_set_room_code_visible(false)
+	_set_footer(prompt, hint)
+	_menu_overlay.visible = true
+
+
+func handle_menu_input(event: InputEvent) -> bool:
+	if _is_playing_outro or _option_texts.is_empty() or _room_code_input.visible:
+		return false
+
+	if event.is_action_pressed(&"ui_up") \
+		or event.is_action_pressed(&"p1_jump") \
+		or event.is_action_pressed(&"p2_jump"):
+		_move_selection(-1)
+		return true
+
+	if event.is_action_pressed(&"ui_down") \
+		or event.is_action_pressed(&"p1_shout") \
+		or event.is_action_pressed(&"p2_shout"):
+		_move_selection(1)
+		return true
+
+	if event.is_action_pressed(&"ui_accept"):
+		option_selected.emit(_selected_index)
+		return true
+
+	return false
+
+
+func _set_options(options: Array[String]) -> void:
+	_option_texts = options.duplicate()
+	_selected_index = 0
+	for index in _option_rows.size():
+		_option_rows[index].visible = index < _option_texts.size()
+	_update_option_visuals()
+
+
+func _set_footer(prompt: String, hint: String) -> void:
+	_prompt_label.text = prompt
+	_hint_label.text = hint
+
+
+func _set_room_code_visible(is_visible: bool) -> void:
+	_room_code_input.visible = is_visible
+
+
+func _move_selection(delta: int) -> void:
+	_selected_index = posmod(_selected_index + delta, _option_texts.size())
+	_update_option_visuals()
+
+
+func _update_option_visuals() -> void:
+	for index in _option_rows.size():
+		if index >= _option_texts.size():
+			continue
+		var is_selected := index == _selected_index
+		var color := SELECTED_COLOR if is_selected else UNSELECTED_COLOR
+		_cursor_labels[index].text = ">" if is_selected else ""
+		_cursor_labels[index].add_theme_color_override(&"font_color", color)
+		_option_labels[index].text = _option_texts[index]
+		_option_labels[index].add_theme_color_override(&"font_color", color)
+
+
+func _update_background_layout() -> void:
+	if _background_sprite == null:
+		return
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+
+	# Top-aligned cover scaling fills the screen without cropping the upper logo or character.
+	var cover_scale := maxf(size.x / FRAME_SIZE.x, size.y / FRAME_SIZE.y)
+	_background_sprite.scale = Vector2(cover_scale, cover_scale)
+	var scaled_width := FRAME_SIZE.x * cover_scale
+	_background_sprite.position = Vector2((size.x - scaled_width) * 0.5, 0.0)
+
+
+func _on_option_mouse_entered(index: int) -> void:
+	if _is_playing_outro or index >= _option_texts.size():
+		return
+	_selected_index = index
+	_update_option_visuals()
+
+
+func _on_option_gui_input(event: InputEvent, index: int) -> void:
+	if _is_playing_outro or index >= _option_texts.size():
+		return
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+			_selected_index = index
+			_update_option_visuals()
+			option_selected.emit(index)
+
+
+func _on_room_code_text_submitted(room_code: String) -> void:
+	room_code_submitted.emit(room_code)
+
+
+func _on_background_animation_finished() -> void:
+	if _is_playing_outro and _background_sprite.animation == ANIM_OUTRO:
+		_is_playing_outro = false
+		outro_finished.emit()
