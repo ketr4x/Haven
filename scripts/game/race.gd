@@ -360,9 +360,8 @@ func _begin_online_session() -> void:
 	_player_two_timer_label.position.y = 412.0
 	_network_status_label.visible = true
 	_network_status_label.text = "ŁĄCZENIE…"
-	_opponent_progress_label.visible = true
-	_opponent_progress_label.position.y = 442.0
-	_opponent_progress_label.text = "POSTĘP  0%"
+	_opponent_progress_label.visible = false
+	_opponent_progress_label.text = ""
 	if _menu_screen != MenuScreen.WAITING:
 		_title_panel.visible = false
 	_finish_status_label.text = "ŁĄCZENIE Z PRZECIWNIKIEM…"
@@ -415,13 +414,8 @@ func _on_online_opponent_named(display_name: String) -> void:
 	_player_two_label.text = display_name
 
 
-func _on_online_opponent_status_received(progress: float, loudness: float, boost_active: bool) -> void:
-	var boost_text := "  ZRYW" if boost_active else ""
-	_opponent_progress_label.text = "POSTĘP  %d%%  GŁOŚNOŚĆ  %d%%%s" % [
-		roundi(progress * 100.0),
-		roundi(loudness),
-		boost_text,
-	]
+func _on_online_opponent_status_received(_progress: float, _loudness: float, _boost_active: bool) -> void:
+	pass
 
 
 func _on_online_rematch_waiting() -> void:

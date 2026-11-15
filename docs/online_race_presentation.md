@@ -1,6 +1,6 @@
 # Online Race Presentation
 
-Online races retain the horizontal split-screen presentation from local play. The top viewport displays the local player (`TY`), and the bottom viewport displays the remote opponent (`PRZECIWNIK`) running on the same course seed without course mirroring. The top-left HUD displays both player names, timers, and the opponent's reported progress, loudness, and active rebound boost. The top-right status reads `POŁĄCZONO` after a match configures.
+Online races retain the horizontal split-screen presentation from local play. The top viewport displays the local player (`TY`), and the bottom viewport displays the remote opponent (`PRZECIWNIK`) running on the same course seed without course mirroring. The top-left HUD displays player names and timers, and the top-right HUD displays the connection state (`POŁĄCZONO`) and room code vertically stacked without text overlap. Opponent progress is observed directly through the opponent's split-screen viewport rather than textual percentage overlays.
 
 The current names are session pseudonyms in the form `ECHO-1234`, generated from the GD-Sync client ID. A player-editable persistent profile name is deferred until the settings screen is added.
 

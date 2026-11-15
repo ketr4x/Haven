@@ -82,7 +82,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - `OnlineService` is an idle project autoload backed by `GdSyncOnlineService`. It creates GD-Sync only when an online flow calls `connect_online()`, provides validated lobby and protocol-message APIs, and has an in-memory `LocalMatchService` test double.
 - `OnlineMatch` runs private two-player friend rooms. It assigns player slots, exchanges a shared seed and course signatures before the countdown, relays finishes, and ends the session if an opponent leaves. `race.tscn` exposes the flow through `GRA ONLINE` → `ZE ZNAJOMYM` → create or join by code; the command-line entry points remain for development tests.
 - `GRA ONLINE` → `SZYBKI MECZ` browses compatible public GD-Sync lobbies, joins a random open two-player room, or creates one when none is available. A join collision triggers one refresh/retry before returning an error.
-- Online races retain the horizontal split-screen presentation from local play. The remote opponent is rendered in the bottom viewport as an interpolated puppet with synchronized position, velocity, facing direction, loudness, particles, and echolocation waves. Both race timers, opponent progress, connection state, and mutual rematch remain fully functional.
+- Online races retain the horizontal split-screen presentation from local play. The remote opponent is rendered in the bottom viewport as an interpolated puppet with synchronized position, velocity, facing direction, loudness, particles, and echolocation waves. Both race timers, room connection state, and mutual rematch remain fully functional without textual progress overlays.
 
 ## TO DO
 
