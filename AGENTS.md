@@ -92,21 +92,20 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - `GRA ONLINE` → `SZYBKI MECZ` browses compatible public GD-Sync lobbies, joins a random open two-player room, or creates one when none is available. A join collision triggers one refresh/retry before returning an error.
 - Online races retain the horizontal split-screen presentation from local play. The remote opponent is rendered in the bottom viewport as an interpolated puppet with synchronized position, velocity, facing direction, loudness, particles, and echolocation waves. Both race timers, room connection state, and mutual rematch remain fully functional without textual progress overlays.
 - Breakable walls (`BreakableWall`, `scenes/terrain/breakable_wall.tscn`, `scripts/terrain/breakable_wall.gd`) serve as interactive barriers and shortcut gates that shatter when hit by the high-energy wave at Scream/E (`PulseKind.SCREAM` or loudness >= 90.0). Non-scream sound waves (running footsteps, jumps, landings) illuminate the wall in resonant amber (`breakable_tile_color = Color(0.98, 0.62, 0.25)`) and pulse its fracture lines without breaking it. Shattering disables collision, clears `SonarGrid` cells so subsequent waves and players pass through unimpeded, triggers directional stone debris particles (`CPUParticles2D`), pulses the screen vignette, and plays a dedicated shatter audio cue (`assets/audio/wall_break.wav`). Authored chunks `chunk_break_through.tscn` and `chunk_wall_blast.tscn` integrate breakable walls into course generation under a dedicated budget (`min_breakable_wall_chunks = 1`, `max_breakable_wall_chunks = 2`) so every generated seed includes at least one destructible barricade.
+- After completing either an offline or online race, `ResultPanel` (`scenes/game/race.tscn`, `scripts/game/race.gd`) prompts the player for a nickname (`UsernameInput`) and saves their finish time (in milliseconds, lower is faster) to the global GD-Sync leaderboard (`global_times`) via `OnlineService.submit_leaderboard_time()`, while displaying the top 10 global scores alongside the match summary.
 
 ## TO DO
 
+- Initialize and link the GD-Sync database and `global_times` leaderboard (sort order: Ascending / Low-to-High, Email Verification: Disabled) in the GD-Sync dashboard for the active API key.
 - Playtest breakable wall placements and shout timing across diverse course seeds to fine-tune the synergy between shout distance, rebound boost duration, and sprint velocity.
 - Playtest the two-player keyboard layout in Godot, including movement plus jump, slide, or shout combinations, to identify keyboard ghosting.
 - Define simultaneous-finish behavior. Matching finish times currently award the win to Player 1.
 - Confirm whether a rematch should return to the title state, as it currently does, or start immediately.
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
-- Add editable, locally persisted player display names. Online races currently use a session pseudonym derived from the GD-Sync client ID.
 - Integrate the standalone logo (`assets/art/rezonans_logo.png`) if needed outside the main menu artwork.
-- Add a common-seed event leaderboard and a separate online match-wins board only after the private online race flow works. Treat client results as casual until server-side validation exists.
 
 ## NEXT STEPS
 
-**Add the event leaderboard.** Use the same online identity and a common fixed course seed. Keep random and friend-race results separate from comparable time-trial scores.
-**Add editable player profiles.** Provide a settings field for a persistent display name and send it through the existing online hello message.
+**Initialize GD-Sync cloud database and playtest global leaderboard submissions.** Link a database and `global_times` leaderboard in the GD-Sync dashboard, then test end-of-match nickname submission across offline and online matches.
 **Playtest online race flow.** Run friend rooms and quick match from different networks, exercise cancel, join-collision, finish, rematch, and departure paths, then tune status text and timing.

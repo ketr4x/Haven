@@ -4,6 +4,7 @@ extends OnlineServiceBase
 var client_id: int = 1
 var lobbies: Array = []
 var sent_messages: Array = []
+var leaderboards: Dictionary = {}
 
 
 func connect_online() -> void:
@@ -104,6 +105,76 @@ func send_message(message: Dictionary) -> bool:
 
 func get_client_id() -> int:
 	return client_id
+
+
+func submit_leaderboard_time(
+	username: String,
+	elapsed_seconds: float,
+	leaderboard_name: String = DEFAULT_LEADERBOARD_NAME,
+	extra_data: Dictionary = {}
+) -> void:
+	var raw_name := username.strip_edges()
+	var sanitized_name := _sanitize_leaderboard_username(raw_name)
+	if sanitized_name.length() < 3:
+		leaderboard_submission_failed.emit(leaderboard_name, "NAZWA MUSI MIEĆ MIN. 3 ZNAKI (A-Z, 0-9).")
+		return
+	if elapsed_seconds <= 0.0:
+		leaderboard_submission_failed.emit(leaderboard_name, "NIEPRAWIDŁOWY CZAS WYŚCIGU.")
+		return
+
+	if not is_online():
+		connect_online()
+
+	var score_ms := maxi(1, roundi(elapsed_seconds * 1000.0))
+	var payload := extra_data.duplicate(true)
+	payload["username"] = raw_name
+	payload["time_sec"] = snappedf(elapsed_seconds, 0.001)
+
+	if not leaderboards.has(leaderboard_name):
+		leaderboards[leaderboard_name] = []
+	var board: Array = leaderboards[leaderboard_name]
+	var replaced := false
+	for i in board.size():
+		var item: Dictionary = board[i]
+		if str(item.get("username", "")).to_lower() == raw_name.to_lower():
+			board[i] = {
+				"username": raw_name,
+				"score_ms": score_ms,
+				"elapsed_seconds": float(score_ms) / 1000.0,
+				"data": payload,
+			}
+			replaced = true
+			break
+	if not replaced:
+		board.append({
+			"username": raw_name,
+			"score_ms": score_ms,
+			"elapsed_seconds": float(score_ms) / 1000.0,
+			"data": payload,
+		})
+	board.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("score_ms", 0)) < int(b.get("score_ms", 0))
+	)
+	for i in board.size():
+		(board[i] as Dictionary)["rank"] = i + 1
+
+	leaderboard_score_submitted.emit(leaderboard_name, raw_name, score_ms)
+
+
+func browse_leaderboard_times(
+	leaderboard_name: String = DEFAULT_LEADERBOARD_NAME,
+	page_size: int = 10,
+	page: int = 1
+) -> void:
+	if not is_online():
+		connect_online()
+	var board: Array = leaderboards.get(leaderboard_name, [])
+	var clamped_size := clampi(page_size, 1, 100)
+	var start_idx := maxi(0, (page - 1) * clamped_size)
+	var entries: Array = []
+	for i in range(start_idx, mini(board.size(), start_idx + clamped_size)):
+		entries.append((board[i] as Dictionary).duplicate(true))
+	leaderboard_scores_loaded.emit(leaderboard_name, entries)
 
 
 func receive_message(sender_id: int, message: Dictionary) -> void:

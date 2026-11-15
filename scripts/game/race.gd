@@ -48,12 +48,19 @@ enum MenuScreen {
 @onready var _times_label: Label = $GlobalUi/ResultPanel/Times
 @onready var _result_reminder: Label = $GlobalUi/ResultPanel/Reminder
 @onready var _result_actions: Label = $GlobalUi/ResultPanel/Actions
+@onready var _leaderboard_section: Control = $GlobalUi/ResultPanel/LeaderboardSection
+@onready var _leaderboard_prompt: Label = $GlobalUi/ResultPanel/LeaderboardSection/Prompt
+@onready var _username_input: LineEdit = $GlobalUi/ResultPanel/LeaderboardSection/UsernameInput
+@onready var _leaderboard_status: Label = $GlobalUi/ResultPanel/LeaderboardSection/Status
+@onready var _leaderboard_entries: Label = $GlobalUi/ResultPanel/LeaderboardSection/BoardPanel/BoardEntries
 @onready var _title_panel: MainMenu = $GlobalUi/TitlePanel
 @onready var _countdown_label: Label = $GlobalUi/Countdown
 @onready var _pause_panel: Control = $GlobalUi/PausePanel
 @onready var _result_panel: Control = $GlobalUi/ResultPanel
 @onready var _invert_flash_rect: ColorRect = $InvertLayer/InvertFlashRect
 @onready var _transition_rect: ColorRect = $TransitionLayer/TransitionRect
+
+var online_service: OnlineServiceBase
 
 var _seed: int = 0
 var _seed_random: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -67,15 +74,24 @@ var _menu_screen: MenuScreen = MenuScreen.MAIN
 var _status_send_remaining: float = 0.0
 var _transition_tween: Tween
 var _invert_tween: Tween
+var _pending_leaderboard_time: float = 0.0
+var _leaderboard_submitted: bool = false
+var _leaderboard_submitting: bool = false
+var _last_username: String = ""
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	if online_service == null:
+		online_service = get_node_or_null("/root/OnlineService") as OnlineServiceBase
+	_bind_leaderboard_service_signals()
 	_player_one_world.player_finished.connect(_on_player_finished)
 	_player_two_world.player_finished.connect(_on_player_finished)
 	_title_panel.option_selected.connect(_on_menu_option_selected)
 	_title_panel.room_code_submitted.connect(_on_room_code_submitted)
 	_title_panel.outro_finished.connect(_on_title_panel_outro_finished)
+	if _username_input != null:
+		_username_input.text_submitted.connect(_on_username_submitted)
 	_online_match = OnlineMatch.new()
 	add_child(_online_match)
 	_online_match.room_code_ready.connect(_on_room_code_ready)
@@ -152,9 +168,18 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	if _race_state == RaceState.FINISHED and _is_username_input_capturing(event):
+		if event.is_action_pressed(&"ui_accept"):
+			_on_username_submitted(_username_input.text)
+			get_viewport().set_input_as_handled()
+		return
+
 	if _session_mode == SessionMode.ONLINE and _race_state == RaceState.FINISHED:
 		if event.is_action_pressed(&"ui_accept"):
-			_online_match.request_rematch()
+			if _username_input != null and _username_input.visible and not _leaderboard_submitted and not _username_input.text.strip_edges().is_empty():
+				_on_username_submitted(_username_input.text)
+			else:
+				_online_match.request_rematch()
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
@@ -177,12 +202,17 @@ func _generate_race(seed: int) -> void:
 	_seed = seed
 	_race_elapsed = 0.0
 	_player_finish_times.clear()
+	_pending_leaderboard_time = 0.0
+	_leaderboard_submitted = false
+	_leaderboard_submitting = false
 	_seed_label.text = ""
 	_winner_label.text = ""
 	_placement_summary_label.text = ""
 	_times_label.text = ""
 	_finish_status_label.text = ""
 	_finish_status_label.visible = false
+	if _leaderboard_section != null:
+		_leaderboard_section.visible = false
 	_hide_finish_banners()
 	_cancel_invert_flash()
 	_update_timer_labels()
@@ -343,6 +373,10 @@ func _on_player_finished(player_number: int) -> void:
 		_format_time(float(_player_finish_times[1])),
 		_format_time(float(_player_finish_times[2])),
 	]
+	_prepare_leaderboard_prompt(
+		float(_player_finish_times[winner_number]),
+		"WPISZ NICK ZWYCIĘZCY (GRACZ %d) — %s" % [winner_number, _format_time(float(_player_finish_times[winner_number]))]
+	)
 	_set_race_state(RaceState.FINISHED)
 
 
@@ -468,6 +502,12 @@ func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> vo
 		_format_time(float(_player_finish_times[1])),
 		_format_time(float(_player_finish_times[2])),
 	]
+	var local_slot := _online_match.player_slot if _online_match.player_slot in [1, 2] else 1
+	var local_time := float(_player_finish_times.get(local_slot, _player_finish_times.get(1, 0.0)))
+	_prepare_leaderboard_prompt(
+		local_time,
+		"WPISZ NICK DO RANKINGU — TWÓJ CZAS %s" % _format_time(local_time)
+	)
 	_set_race_state(RaceState.FINISHED)
 
 
@@ -479,6 +519,8 @@ func _on_online_opponent_left(_client_id: int) -> void:
 	_times_label.text = ""
 	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
 	_result_reminder.text = "MECZ ONLINE ZAKOŃCZONY"
+	if _leaderboard_section != null:
+		_leaderboard_section.visible = false
 	_set_race_state(RaceState.FINISHED)
 
 
@@ -490,6 +532,8 @@ func _on_online_match_failed(reason: String) -> void:
 	_times_label.text = reason
 	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
 	_result_reminder.text = "SPRAWDŹ POŁĄCZENIE I KOD POKOJU"
+	if _leaderboard_section != null:
+		_leaderboard_section.visible = false
 	_set_race_state(RaceState.FINISHED)
 
 
@@ -685,3 +729,135 @@ func _format_time(seconds: float) -> String:
 	var seconds_component := floori(float(total_milliseconds) / 1_000.0) % 60
 	var milliseconds := total_milliseconds % 1_000
 	return "%02d:%02d.%03d" % [minutes, seconds_component, milliseconds]
+
+
+func set_leaderboard_service(service: OnlineServiceBase) -> void:
+	online_service = service
+	_bind_leaderboard_service_signals()
+
+
+func _bind_leaderboard_service_signals() -> void:
+	if online_service == null:
+		return
+	if not online_service.leaderboard_score_submitted.is_connected(_on_leaderboard_score_submitted):
+		online_service.leaderboard_score_submitted.connect(_on_leaderboard_score_submitted)
+	if not online_service.leaderboard_submission_failed.is_connected(_on_leaderboard_submission_failed):
+		online_service.leaderboard_submission_failed.connect(_on_leaderboard_submission_failed)
+	if not online_service.leaderboard_scores_loaded.is_connected(_on_leaderboard_scores_loaded):
+		online_service.leaderboard_scores_loaded.connect(_on_leaderboard_scores_loaded)
+	if not online_service.leaderboard_load_failed.is_connected(_on_leaderboard_load_failed):
+		online_service.leaderboard_load_failed.connect(_on_leaderboard_load_failed)
+
+
+func _prepare_leaderboard_prompt(elapsed_seconds: float, prompt_text: String) -> void:
+	_pending_leaderboard_time = elapsed_seconds
+	_leaderboard_submitted = false
+	_leaderboard_submitting = false
+	if _leaderboard_section == null:
+		return
+	_leaderboard_section.visible = true
+	if _leaderboard_prompt != null:
+		_leaderboard_prompt.text = prompt_text
+	if _leaderboard_status != null:
+		_leaderboard_status.text = "ENTER  ZAPISZ CZAS DO GLOBALNEGO RANKINGU"
+		_leaderboard_status.add_theme_color_override(&"font_color", Color(0.760784, 0.94902, 0.94902, 1.0))
+	if _username_input != null:
+		_username_input.visible = true
+		_username_input.editable = true
+		_username_input.text = _last_username
+		_username_input.grab_focus()
+		_username_input.caret_column = _username_input.text.length()
+	if _leaderboard_entries != null:
+		_leaderboard_entries.text = "WCZYTYWANIE RANKINGU…"
+	if online_service != null:
+		online_service.browse_leaderboard_times()
+
+
+func _on_username_submitted(username_text: String) -> void:
+	if _leaderboard_submitted or _leaderboard_submitting or _pending_leaderboard_time <= 0.0:
+		return
+	var trimmed := username_text.strip_edges()
+	if trimmed.is_empty():
+		if _leaderboard_status != null:
+			_leaderboard_status.text = "WPISZ NAZWĘ GRACZA PRZED ZATWIERDZENIEM."
+			_leaderboard_status.add_theme_color_override(&"font_color", Color(0.95, 0.45, 0.45, 1.0))
+		return
+	_last_username = trimmed
+	_leaderboard_submitting = true
+	if _username_input != null:
+		_username_input.editable = false
+	if _leaderboard_status != null:
+		_leaderboard_status.text = "ZAPISYWANIE CZASU W GD-SYNC…"
+		_leaderboard_status.add_theme_color_override(&"font_color", Color(0.941176, 0.921569, 0.752941, 1.0))
+	if online_service == null:
+		online_service = get_node_or_null("/root/OnlineService") as OnlineServiceBase
+		_bind_leaderboard_service_signals()
+	if online_service == null:
+		_on_leaderboard_submission_failed(OnlineServiceBase.DEFAULT_LEADERBOARD_NAME, "BRAK USŁUGI ONLINE.")
+		return
+	online_service.submit_leaderboard_time(
+		trimmed,
+		_pending_leaderboard_time,
+		OnlineServiceBase.DEFAULT_LEADERBOARD_NAME,
+		{
+			"mode": "online" if _session_mode == SessionMode.ONLINE else "offline",
+			"seed": _seed,
+		}
+	)
+
+
+func _on_leaderboard_score_submitted(_leaderboard_name: String, username: String, score_ms: int) -> void:
+	_leaderboard_submitting = false
+	_leaderboard_submitted = true
+	if _username_input != null:
+		_username_input.editable = false
+		_username_input.release_focus()
+	if _leaderboard_status != null:
+		_leaderboard_status.text = "ZAPISANO: %s — %s" % [username, _format_time(float(score_ms) / 1000.0)]
+		_leaderboard_status.add_theme_color_override(&"font_color", Color(0.6, 0.98, 0.65, 1.0))
+	if online_service != null:
+		online_service.browse_leaderboard_times(_leaderboard_name)
+
+
+func _on_leaderboard_submission_failed(_leaderboard_name: String, reason: String) -> void:
+	_leaderboard_submitting = false
+	if _username_input != null:
+		_username_input.editable = true
+		_username_input.grab_focus()
+	if _leaderboard_status != null:
+		_leaderboard_status.text = reason
+		_leaderboard_status.add_theme_color_override(&"font_color", Color(0.95, 0.45, 0.45, 1.0))
+
+
+func _on_leaderboard_scores_loaded(_leaderboard_name: String, entries: Array) -> void:
+	if _leaderboard_entries == null:
+		return
+	if entries.is_empty():
+		_leaderboard_entries.text = "BRAK WYNIKÓW.\nBĄDŹ PIERWSZY!"
+		return
+	var lines: PackedStringArray = PackedStringArray()
+	var count := mini(entries.size(), 10)
+	for i in count:
+		var item: Dictionary = entries[i] if entries[i] is Dictionary else {}
+		var rank := int(item.get("rank", i + 1))
+		var uname := str(item.get("username", "GRACZ"))
+		var elapsed := float(item.get("elapsed_seconds", float(item.get("score_ms", 0)) / 1000.0))
+		lines.append("%d. %-14s %s" % [rank, uname.substr(0, 14), _format_time(elapsed)])
+	_leaderboard_entries.text = "\n".join(lines)
+
+
+func _on_leaderboard_load_failed(_leaderboard_name: String, reason: String) -> void:
+	if _leaderboard_entries != null:
+		_leaderboard_entries.text = reason
+
+
+func _is_username_input_capturing(event: InputEvent) -> bool:
+	if _username_input == null or not _username_input.visible or not _username_input.editable or not _username_input.has_focus():
+		return false
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.keycode == KEY_ESCAPE:
+			return false
+		return true
+	return false
+
