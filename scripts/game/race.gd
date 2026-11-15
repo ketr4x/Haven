@@ -230,6 +230,14 @@ func _on_player_finished(player_number: int) -> void:
 	_set_race_state(RaceState.FINISHED)
 
 
+func start_quick_match() -> void:
+	_begin_online_session()
+	if _menu_screen == MenuScreen.WAITING:
+		_menu_prompt.text = "SZUKANIE PRZECIWNIKA…"
+		_menu_hint.text = "ESC  ANULUJ"
+	_online_match.queue_quick_match()
+
+
 func host_friend_room(room_code: String = "") -> void:
 	_begin_online_session()
 	_online_match.host_friend_room(room_code)
@@ -346,7 +354,7 @@ func _show_menu(next_screen: MenuScreen) -> void:
 			_menu_hint.text = "STRZAŁKI + ENTER  WYBIERZ"
 		MenuScreen.ONLINE:
 			_title_tagline.text = "GRA ONLINE"
-			_menu_prompt.text = _menu_options(["SZYBKI MECZ  (WKRÓTCE)", "ZE ZNAJOMYM", "POWRÓT"])
+			_menu_prompt.text = _menu_options(["SZYBKI MECZ", "ZE ZNAJOMYM", "POWRÓT"])
 			_menu_hint.text = "STRZAŁKI + ENTER  WYBIERZ    ESC  POWRÓT"
 		MenuScreen.FRIENDS:
 			_title_tagline.text = "ZE ZNAJOMYM"
@@ -407,7 +415,8 @@ func _activate_menu_option() -> void:
 				_show_menu(MenuScreen.ONLINE)
 		MenuScreen.ONLINE:
 			if _menu_index == 0:
-				_menu_hint.text = "SZYBKI MECZ POJAWI SIĘ PO TESTACH POKOI."
+				_show_menu(MenuScreen.WAITING)
+				start_quick_match()
 			elif _menu_index == 1:
 				_show_menu(MenuScreen.FRIENDS)
 			else:
@@ -441,7 +450,7 @@ func _refresh_menu_options() -> void:
 		MenuScreen.MAIN:
 			_menu_prompt.text = _menu_options(["GRA LOKALNA", "GRA ONLINE"])
 		MenuScreen.ONLINE:
-			_menu_prompt.text = _menu_options(["SZYBKI MECZ  (WKRÓTCE)", "ZE ZNAJOMYM", "POWRÓT"])
+			_menu_prompt.text = _menu_options(["SZYBKI MECZ", "ZE ZNAJOMYM", "POWRÓT"])
 		MenuScreen.FRIENDS:
 			_menu_prompt.text = _menu_options(["STWÓRZ POKÓJ", "DOŁĄCZ KODEM", "POWRÓT"])
 
