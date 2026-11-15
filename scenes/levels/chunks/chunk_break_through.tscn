@@ -12,7 +12,7 @@ min_width = 384.0
 max_width = 384.0
 requires_shout = true
 terrain_features = Array[StringName]([&"breakable_wall"])
-terrain_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(2, -3), Vector2i(3, -3), Vector2i(4, -3), Vector2i(5, -3)])
+terrain_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(1, -2), Vector2i(3, -3), Vector2i(4, -3), Vector2i(5, -3)])
 
 [node name="EntryMarker" type="Marker2D" parent="."]
 

@@ -12,8 +12,9 @@ signal course_generated(seed: int, signature: String)
 @export var mirror_horizontally: bool = false
 @export_range(1, 24) var traversal_count: int = 5
 @export_range(0, 3) var max_noise_foam_chunks: int = 1
+@export_range(0, 3) var min_breakable_wall_chunks: int = 1
 @export_range(0, 4) var max_breakable_wall_chunks: int = 2
-@export_range(0, 6) var max_branching_path_chunks: int = 4
+@export_range(0, 12) var max_branching_path_chunks: int = 4
 @export_range(0, 3) var min_wall_climb_chunks: int = 1
 @export_range(0, 6) var max_dead_end_paths: int = 3
 @export_range(2, 8) var roof_clearance_rows: int = 3
@@ -42,15 +43,17 @@ func generate_course(seed: int = seed_value) -> void:
 	next_entry = start.position + start.exit_position()
 	sequence.append(String(start.chunk_id))
 	var previous_difficulty := start.difficulty
+	var previous_chunk_id := start.chunk_id
 	var feature_counts: Dictionary = {}
 
 	for index in traversal_count:
 		var remaining_slots := traversal_count - index
 		var required_feature := _required_feature(feature_counts, remaining_slots)
-		var chunk_scene := _choose_compatible_chunk(random, previous_difficulty, feature_counts, required_feature)
+		var chunk_scene := _choose_compatible_chunk(random, previous_difficulty, feature_counts, required_feature, previous_chunk_id)
 		var chunk := _place_chunk(chunk_scene, next_entry)
 		next_entry = chunk.position + chunk.exit_position()
 		previous_difficulty = chunk.difficulty
+		previous_chunk_id = chunk.chunk_id
 		_record_terrain_features(chunk, feature_counts)
 		sequence.append(String(chunk.chunk_id))
 
@@ -63,35 +66,71 @@ func generate_course(seed: int = seed_value) -> void:
 
 
 func _required_feature(feature_counts: Dictionary, remaining_slots: int) -> StringName:
-	var wall_climbs_remaining := min_wall_climb_chunks - int(feature_counts.get(&"wall_climb", 0))
-	var force_window := maxi(wall_climbs_remaining, traversal_count / 2)
+	var wall_climbs_remaining := maxi(0, min_wall_climb_chunks - int(feature_counts.get(&"wall_climb", 0)))
+	var breakables_remaining := maxi(0, min_breakable_wall_chunks - int(feature_counts.get(&"breakable_wall", 0)))
+	var total_required := wall_climbs_remaining + breakables_remaining
+	var force_window := maxi(total_required, (traversal_count + 1) / 2)
 	if wall_climbs_remaining > 0 and remaining_slots <= force_window:
 		return &"wall_climb"
+	if breakables_remaining > 0 and remaining_slots <= force_window:
+		return &"breakable_wall"
 	return &""
 
 
-func _choose_compatible_chunk(random: RandomNumberGenerator, previous_difficulty: int, feature_counts: Dictionary, required_feature: StringName = &"") -> PackedScene:
+func _choose_compatible_chunk(
+	random: RandomNumberGenerator,
+	previous_difficulty: int,
+	feature_counts: Dictionary,
+	required_feature: StringName = &"",
+	previous_chunk_id: StringName = &""
+) -> PackedScene:
 	var compatible_chunks: Array[PackedScene] = []
 	for chunk_scene in traversal_chunks:
-		if _scene_is_compatible(chunk_scene, previous_difficulty, feature_counts, required_feature):
+		if _scene_is_compatible(chunk_scene, previous_difficulty, feature_counts, required_feature, previous_chunk_id):
 			compatible_chunks.append(chunk_scene)
+
+	if compatible_chunks.is_empty() and previous_chunk_id != &"":
+		for chunk_scene in traversal_chunks:
+			if _scene_is_compatible(chunk_scene, previous_difficulty, feature_counts, required_feature, &""):
+				compatible_chunks.append(chunk_scene)
+
+	# If a required feature was blocked only by a 2-step difficulty jump (e.g. difficulty 3 -> 1), relax difficulty delta
+	if compatible_chunks.is_empty() and required_feature != &"":
+		for chunk_scene in traversal_chunks:
+			if _scene_is_compatible(chunk_scene, previous_difficulty, feature_counts, required_feature, &"", true):
+				compatible_chunks.append(chunk_scene)
 
 	if compatible_chunks.is_empty():
 		return safe_fallback_chunk
 	return compatible_chunks[random.randi_range(0, compatible_chunks.size() - 1)]
 
 
-func _scene_is_compatible(chunk_scene: PackedScene, previous_difficulty: int, feature_counts: Dictionary, required_feature: StringName) -> bool:
+func _scene_is_compatible(
+	chunk_scene: PackedScene,
+	previous_difficulty: int,
+	feature_counts: Dictionary,
+	required_feature: StringName,
+	previous_chunk_id: StringName = &"",
+	relax_difficulty: bool = false
+) -> bool:
 	var candidate := chunk_scene.instantiate() as CourseChunk
 	var width := candidate.path_width()
 	var matches_required_feature := required_feature == &"" or candidate.terrain_features.has(required_feature)
+	var valid_wall_climb_flag := not candidate.terrain_features.has(&"wall_climb") or candidate.allows_wall_jump
+	var valid_breakable_flag := not candidate.terrain_features.has(&"breakable_wall") or candidate.requires_shout
+	var not_repeated_vertical_climb := not (candidate.chunk_id == &"wall_jump" and previous_chunk_id == &"wall_jump")
+	var difficulty_ok: bool = relax_difficulty or absi(candidate.difficulty - previous_difficulty) <= 1
 	var is_valid: bool = candidate.has_safe_landing \
 		and matches_required_feature \
+		and valid_wall_climb_flag \
+		and valid_breakable_flag \
+		and not_repeated_vertical_climb \
 		and candidate.has_valid_grid_geometry() \
+		and candidate.has_traversable_path() \
 		and width >= candidate.min_width \
 		and width <= candidate.max_width \
 		and width > 0.0 \
-		and abs(candidate.difficulty - previous_difficulty) <= 1 \
+		and difficulty_ok \
 		and _fits_feature_budget(candidate, feature_counts)
 	candidate.free()
 	return is_valid
@@ -119,6 +158,10 @@ func _record_terrain_features(chunk: CourseChunk, feature_counts: Dictionary) ->
 	for feature in chunk.terrain_features:
 		feature_counts[feature] = int(feature_counts.get(feature, 0)) + 1
 	feature_counts[&"dead_end_paths"] = int(feature_counts.get(&"dead_end_paths", 0)) + chunk.dead_end_paths
+	if chunk.allows_wall_jump:
+		feature_counts[&"allows_wall_jump"] = int(feature_counts.get(&"allows_wall_jump", 0)) + 1
+	if chunk.requires_shout:
+		feature_counts[&"requires_shout"] = int(feature_counts.get(&"requires_shout", 0)) + 1
 
 
 func _place_chunk(chunk_scene: PackedScene, entry_position: Vector2) -> CourseChunk:
@@ -161,10 +204,12 @@ func _rebuild_roof_and_fall_boundary() -> void:
 			if not col_floor_y.has(col):
 				col_floor_y[col] = entry_row
 
+		var chunk_highest_y := entry_row
 		for cell in chunk.terrain_cells:
 			var mirrored_cell := Vector2i(-cell.x, cell.y) if chunk.mirror_horizontally else cell
 			var world_cell := chunk_offset + mirrored_cell
 			chunk_cells[world_cell] = true
+			chunk_highest_y = mini(chunk_highest_y, world_cell.y)
 			if not col_top_y.has(world_cell.x) or world_cell.y < int(col_top_y[world_cell.x]):
 				col_top_y[world_cell.x] = world_cell.y
 			if not col_bottom_y.has(world_cell.x) or world_cell.y > int(col_bottom_y[world_cell.x]):
@@ -176,6 +221,11 @@ func _rebuild_roof_and_fall_boundary() -> void:
 			else:
 				highest_row = mini(highest_row, world_cell.y)
 				lowest_row = maxi(lowest_row, world_cell.y)
+
+		# Wall-climb chunks need uniform overhead clearance across the entire chunk so ceiling steps never cap the climb
+		if chunk.allows_wall_jump or chunk.terrain_features.has(&"wall_climb"):
+			for col in range(c_min, c_max):
+				col_top_y[col] = mini(int(col_top_y.get(col, chunk_highest_y)), chunk_highest_y)
 
 	if not has_terrain:
 		return
@@ -192,35 +242,37 @@ func _rebuild_roof_and_fall_boundary() -> void:
 			col_bottom_y[column] = bottom_y
 			if not col_top_y.has(column):
 				col_top_y[column] = bottom_y
-		# Connect vertical floor steps between adjacent columns so no seam can be fallen through
+		# Connect vertical floor steps under the higher floor column so playable air above the lower floor stays open
 		if column > min_column and absi(bottom_y - prev_bottom) > 1:
 			var step_from := mini(bottom_y, prev_bottom)
 			var step_to := maxi(bottom_y, prev_bottom)
+			var step_col := column if bottom_y < prev_bottom else column - 1
 			for sy in range(step_from, step_to + 1):
-				var step_cell := Vector2i(column, sy)
+				var step_cell := Vector2i(step_col, sy)
 				if not chunk_cells.has(step_cell):
 					roof_cells[step_cell] = true
 		lowest_row = maxi(lowest_row, bottom_y)
 		prev_bottom = bottom_y
 
-	# 2. Build a single low, contour-hugging cave ceiling row per column (short floor-to-ceiling distance).
+	# 2. Build a single low, contour-hugging cave ceiling row per column with horizontal jump clearance around upper ledges.
 	for column in range(min_column, max_column):
-		var local_top := int(col_top_y.get(column, 0))
-		for neighbor_col in range(maxi(min_column, column - 1), mini(max_column - 1, column + 1) + 1):
+		var local_top := int(col_top_y.get(column, col_floor_y.get(column, 0)))
+		for neighbor_col in range(maxi(min_column, column - 3), mini(max_column - 1, column + 3) + 1):
 			local_top = mini(local_top, int(col_top_y.get(neighbor_col, local_top)))
 		var roof_row := local_top - roof_clearance_rows
 		local_roof_rows[column] = roof_row
 		roof_cells[Vector2i(column, roof_row)] = true
 
-	# Connect vertical steps in the contour-hugging ceiling so the roof is completely sealed
+	# Connect vertical steps in the contour-hugging ceiling on the outer (low-ceiling) column so steps never hang into playable air
 	for column in range(min_column + 1, max_column):
 		var r_prev := int(local_roof_rows[column - 1])
 		var r_curr := int(local_roof_rows[column])
 		if r_prev != r_curr:
 			var r_min := mini(r_prev, r_curr)
 			var r_max := maxi(r_prev, r_curr)
+			var step_col := column - 1 if r_curr < r_prev else column
 			for ry in range(r_min, r_max + 1):
-				var step_roof_cell := Vector2i(column if r_curr < r_prev else column - 1, ry)
+				var step_roof_cell := Vector2i(step_col, ry)
 				if not chunk_cells.has(step_roof_cell):
 					roof_cells[step_roof_cell] = true
 
@@ -254,14 +306,20 @@ func _rebuild_roof_and_fall_boundary() -> void:
 		var r_cell: Vector2i = r_cell_variant
 		if chunk_cells.has(r_cell):
 			continue
-		var atlas := _select_roof_or_bedrock_atlas(r_cell, world_occupied, min_column, max_column)
+		var atlas := _select_roof_or_bedrock_atlas(r_cell, world_occupied, min_column, max_column, local_roof_rows)
 		_roof.set_cell(r_cell, 0, atlas)
 
 	# Every authored chunk uses the shared 48-pixel terrain grid.
 	fall_death_y = float(lowest_row + 1) * TERRAIN_GRID_SIZE + fall_death_margin
 
 
-func _select_roof_or_bedrock_atlas(cell: Vector2i, occupied: Dictionary, min_column: int, max_column: int) -> Vector2i:
+func _select_roof_or_bedrock_atlas(
+	cell: Vector2i,
+	occupied: Dictionary,
+	min_column: int,
+	max_column: int,
+	local_roof_rows: Dictionary = {}
+) -> Vector2i:
 	var has_up := occupied.has(cell + Vector2i.UP)
 	var has_down := occupied.has(cell + Vector2i.DOWN)
 	var has_left := occupied.has(cell + Vector2i.LEFT)
@@ -280,14 +338,15 @@ func _select_roof_or_bedrock_atlas(cell: Vector2i, occupied: Dictionary, min_col
 			return CourseChunk.ATLAS_MOSS_CENTER
 		return CourseChunk.ATLAS_MOSS_LEFT
 
+	var is_ceiling_tile := local_roof_rows.has(cell.x) and cell.y <= int(local_roof_rows[cell.x])
 	# Ceiling tiles: playable area is BELOW, so moss/stone faces DOWN and fades into #21263f at the top
-	if cell.y < 0 and not has_down:
+	if (is_ceiling_tile or (local_roof_rows.is_empty() and cell.y < 0)) and not has_down:
 		if absi(cell.x) % 4 == 0:
 			return CourseChunk.ATLAS_STONE_TOP
 		return CourseChunk.ATLAS_EARTH_BOTTOM if use_earth else CourseChunk.ATLAS_MOSS_BOTTOM
 
 	# Floor seal tiles: playable area is ABOVE, so grass faces UP and fades into #21263f at the bottom
-	if not has_up:
+	if not has_up and not is_ceiling_tile:
 		return CourseChunk.ATLAS_EARTH_TOP if use_earth else CourseChunk.ATLAS_MOSS_TOP
 
 	# Vertical step connectors inside ceiling or floor steps

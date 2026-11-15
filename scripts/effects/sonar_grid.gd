@@ -130,10 +130,16 @@ func rebuild_from_generator(generator: CourseGenerator) -> void:
 	if roof != null:
 		roof.self_modulate = Color(1.0, 1.0, 1.0, 1.0)
 		roof.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		for roof_cell in roof.get_used_cells():
+		var roof_used := roof.get_used_cells()
+		var col_min_roof_y: Dictionary = {}
+		for rc in roof_used:
+			if not col_min_roof_y.has(rc.x) or rc.y < int(col_min_roof_y[rc.x]):
+				col_min_roof_y[rc.x] = rc.y
+		for roof_cell in roof_used:
 			if tiles.has(roof_cell):
 				continue
-			var is_sub_floor := roof_cell.y >= 0
+			var min_ry := int(col_min_roof_y.get(roof_cell.x, roof_cell.y))
+			var is_sub_floor := roof_cell.y >= 0 or (roof_cell.y > min_ry + 2)
 			_register_cell(roof_cell, TileKind.SAFE, is_sub_floor)
 
 	queue_redraw()
@@ -685,6 +691,8 @@ func _is_chunk_floor_cell(chunk: CourseChunk, local_cell: Vector2i) -> bool:
 	if local_cell.y >= 0:
 		return true
 	if chunk.chunk_id == &"step_up" or chunk.chunk_id == &"step_down":
+		return true
+	if chunk.chunk_id == &"wall_jump" and local_cell.x >= 5 and local_cell.y == -3:
 		return true
 	return false
 
