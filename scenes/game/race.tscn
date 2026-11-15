@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="PackedScene" path="res://scenes/game/player_world.tscn" id="2_player_world"]
@@ -7,6 +7,10 @@
 [ext_resource type="Shader" path="res://assets/shaders/retro_pixel_transition.gdshader" id="6_transition_shader"]
 [ext_resource type="Shader" path="res://assets/shaders/invert_flash.gdshader" id="7_invert_shader"]
 [ext_resource type="PackedScene" path="res://scenes/effects/crt_overlay.tscn" id="8_crt_overlay"]
+[ext_resource type="AudioStream" path="res://assets/audio/countdown_tick.wav" id="9_countdown_tick"]
+[ext_resource type="AudioStream" path="res://assets/audio/countdown_go.wav" id="10_countdown_go"]
+[ext_resource type="AudioStream" path="res://assets/audio/match_victory.wav" id="11_victory"]
+
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_transition"]
 shader = ExtResource("6_transition_shader")
@@ -556,3 +560,16 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="CrtOverlay" parent="." instance=ExtResource("8_crt_overlay")]
+
+[node name="CountdownTick" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("9_countdown_tick")
+volume_db = -6.0
+
+[node name="CountdownGo" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("10_countdown_go")
+volume_db = -5.0
+
+[node name="MatchVictory" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("11_victory")
+volume_db = -6.0
+

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/effects/audio_feedback.gd" id="1_script"]
 [ext_resource type="AudioStream" path="res://assets/audio/footstep.wav" id="2_footstep"]
@@ -10,6 +10,10 @@
 [ext_resource type="AudioStream" path="res://assets/audio/echo_return.wav" id="8_return"]
 [ext_resource type="AudioStream" path="res://assets/audio/finish.wav" id="9_finish"]
 [ext_resource type="AudioStream" path="res://assets/audio/wall_break.wav" id="10_break"]
+[ext_resource type="AudioStream" path="res://assets/audio/slide.wav" id="11_slide"]
+[ext_resource type="AudioStream" path="res://assets/audio/rebound_boost.wav" id="12_boost"]
+[ext_resource type="AudioStream" path="res://assets/audio/impact_stun.wav" id="13_impact"]
+[ext_resource type="AudioStream" path="res://assets/audio/player_death.wav" id="14_death"]
 
 [node name="AudioFeedback" type="Node"]
 script = ExtResource("1_script")
@@ -49,4 +53,21 @@ volume_db = -5.0
 [node name="WallBreak" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("10_break")
 volume_db = -6.0
+
+[node name="Slide" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("11_slide")
+volume_db = -9.0
+
+[node name="Boost" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("12_boost")
+volume_db = -7.0
+
+[node name="ImpactStun" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("13_impact")
+volume_db = -7.0
+
+[node name="Death" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("14_death")
+volume_db = -6.0
+
 

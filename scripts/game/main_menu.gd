@@ -37,6 +37,8 @@ const DEFAULT_OPTIONS: Array[String] = ["GRAJ", "WYJDŹ"]
 	$MenuOverlay/MenuItems/OnlineOption/Text,
 	$MenuOverlay/MenuItems/QuitOption/Text,
 ]
+@onready var _ui_move: AudioStreamPlayer = get_node_or_null("UIMove") as AudioStreamPlayer
+@onready var _ui_select: AudioStreamPlayer = get_node_or_null("UISelect") as AudioStreamPlayer
 
 var _selected_index: int = 0
 var _is_playing_outro: bool = false
@@ -180,6 +182,7 @@ func handle_menu_input(event: InputEvent) -> bool:
 		return true
 
 	if event.is_action_pressed(&"ui_accept"):
+		_play_ui_select()
 		option_selected.emit(_selected_index)
 		return true
 
@@ -206,6 +209,7 @@ func _set_room_code_visible(is_visible: bool) -> void:
 func _move_selection(delta: int) -> void:
 	_selected_index = posmod(_selected_index + delta, _option_texts.size())
 	_update_option_visuals()
+	_play_ui_move()
 
 
 func _update_option_visuals() -> void:
@@ -241,11 +245,24 @@ func _update_background_layout() -> void:
 		_wind_dust.emission_rect_extents = extents
 
 
+func _play_ui_move() -> void:
+	if _ui_move != null:
+		_ui_move.pitch_scale = randf_range(0.96, 1.04)
+		_ui_move.play()
+
+
+func _play_ui_select() -> void:
+	if _ui_select != null:
+		_ui_select.play()
+
+
 func _on_option_mouse_entered(index: int) -> void:
 	if _is_playing_outro or index >= _option_texts.size():
 		return
-	_selected_index = index
-	_update_option_visuals()
+	if _selected_index != index:
+		_selected_index = index
+		_update_option_visuals()
+		_play_ui_move()
 
 
 func _on_option_gui_input(event: InputEvent, index: int) -> void:
@@ -256,11 +273,14 @@ func _on_option_gui_input(event: InputEvent, index: int) -> void:
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 			_selected_index = index
 			_update_option_visuals()
+			_play_ui_select()
 			option_selected.emit(index)
 
 
 func _on_room_code_text_submitted(room_code: String) -> void:
+	_play_ui_select()
 	room_code_submitted.emit(room_code)
+
 
 
 func _on_background_animation_finished() -> void:

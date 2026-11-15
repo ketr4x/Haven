@@ -1,7 +1,9 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/main_menu.gd" id="1_main_menu"]
 [ext_resource type="Texture2D" path="res://assets/art/main_menu_sheet.png" id="2_sheet"]
+[ext_resource type="AudioStream" path="res://assets/audio/ui_move.wav" id="3_ui_move"]
+[ext_resource type="AudioStream" path="res://assets/audio/ui_select.wav" id="4_ui_select"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_idle_0"]
 atlas = ExtResource("2_sheet")
@@ -386,3 +388,12 @@ theme_override_font_sizes/font_size = 28
 placeholder_text = "KOD POKOJU"
 max_length = 32
 alignment = 1
+
+[node name="UIMove" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_ui_move")
+volume_db = -10.0
+
+[node name="UISelect" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_ui_select")
+volume_db = -8.0
+
