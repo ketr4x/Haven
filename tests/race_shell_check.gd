@@ -21,10 +21,6 @@ func _initialize() -> void:
 	assert((race.get_node("GlobalUi/TitlePanel") as Control).visible)
 	assert((race.get_node("GlobalUi/PlayerOneTimer") as Label).text == "CZAS  00:00.000")
 	assert((race.get_node("GlobalUi/PlayerTwoTimer") as Label).text == "CZAS  00:00.000")
-	assert(InputMap.has_action(&"p1_big_scream_minus"))
-	assert(InputMap.has_action(&"p1_big_scream_plus"))
-	assert(InputMap.has_action(&"p2_big_scream_minus"))
-	assert(InputMap.has_action(&"p2_big_scream_plus"))
 	assert(not player_one.is_physics_processing())
 	assert(player_one_world != player_two_world)
 	assert(player_one_generator != player_two_generator)
@@ -55,17 +51,13 @@ func _initialize() -> void:
 	assert(is_equal_approx(player_one_distance, -player_two_distance))
 	assert(player_one.facing_direction == 1.0)
 	assert(player_two.facing_direction == -1.0)
-	assert(player_one.big_scream_minus_action == &"p1_big_scream_minus")
-	assert(player_one.big_scream_plus_action == &"p1_big_scream_plus")
-	assert(player_two.big_scream_minus_action == &"p2_big_scream_minus")
-	assert(player_two.big_scream_plus_action == &"p2_big_scream_plus")
 	assert((player_two.get_node("FacingMarker") as Polygon2D).scale.x == -1.0)
 	assert(player_one_overlay.material != player_two_overlay.material)
 	assert((player_one_overlay.material as ShaderMaterial).get_shader_parameter("player_color") == player_one.modulate)
 	assert((player_two_overlay.material as ShaderMaterial).get_shader_parameter("player_color") == player_two.modulate)
-	player_one_overlay.register_hit(player_one.global_position + Vector2.RIGHT * 96.0, Vector2.LEFT, 80.0)
-	assert(player_one_overlay.get_active_echo_count() == 1)
-	assert(player_two_overlay.get_active_echo_count() == 0)
+	player_one_overlay.trigger(60.0)
+	assert(float((player_one_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength")) > 0.0)
+	assert(is_zero_approx(float((player_two_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength"))))
 
 	var start_event := InputEventKey.new()
 	start_event.keycode = KEY_D
@@ -89,16 +81,12 @@ func _initialize() -> void:
 
 	player_two.rebound_boost_started.connect(_on_player_two_boost_started)
 	player_two_world._on_player_pulsed(player_two.global_position, Vector2.LEFT, 60.0, 16)
-	for frame in 180:
+	for frame in 120:
 		await physics_frame
-		if player_two._echo_opportunity_remaining > 0.0:
-			Input.action_press(&"p2_jump")
-			await physics_frame
-			Input.action_release(&"p2_jump")
 		if _player_two_boost_started:
 			break
 	assert(_player_two_boost_started)
-	assert(player_two_overlay.get_active_echo_count() > 0)
+	assert(float((player_two_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength")) > 0.0)
 
 	race._toggle_pause()
 	assert(paused)
