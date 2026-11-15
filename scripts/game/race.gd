@@ -36,6 +36,8 @@ enum MenuScreen {
 @onready var _player_one_label: Label = $GlobalUi/PlayerOneLabel
 @onready var _player_two_label: Label = $GlobalUi/PlayerTwoLabel
 @onready var _seed_label: Label = $GlobalUi/Seed
+@onready var _network_status_label: Label = $GlobalUi/NetworkStatus
+@onready var _opponent_progress_label: Label = $GlobalUi/OpponentProgress
 @onready var _player_one_timer_label: Label = $GlobalUi/PlayerOneTimer
 @onready var _player_two_timer_label: Label = $GlobalUi/PlayerTwoTimer
 @onready var _finish_status_label: Label = $GlobalUi/FinishStatus
@@ -59,6 +61,7 @@ var _player_finish_times: Dictionary = {}
 var _online_match: OnlineMatch
 var _session_mode: SessionMode = SessionMode.LOCAL
 var _menu_screen: MenuScreen = MenuScreen.MAIN
+var _status_send_remaining: float = 0.0
 var _transition_tween: Tween
 
 
@@ -77,6 +80,9 @@ func _ready() -> void:
 	_online_match.opponent_finished.connect(_on_online_opponent_finished)
 	_online_match.match_finished.connect(_on_online_match_finished)
 	_online_match.opponent_left.connect(_on_online_opponent_left)
+	_online_match.opponent_named.connect(_on_online_opponent_named)
+	_online_match.opponent_status_received.connect(_on_online_opponent_status_received)
+	_online_match.rematch_waiting.connect(_on_online_rematch_waiting)
 	_online_match.match_failed.connect(_on_online_match_failed)
 	_seed_random.randomize()
 	_generate_race(_next_random_seed())
@@ -97,6 +103,15 @@ func _process(delta: float) -> void:
 
 	if _race_state == RaceState.RACING:
 		_race_elapsed += delta
+		if _session_mode == SessionMode.ONLINE:
+			_status_send_remaining = maxf(0.0, _status_send_remaining - delta)
+			if is_zero_approx(_status_send_remaining):
+				_status_send_remaining = 0.1
+				_online_match.submit_local_status(
+					_player_one_world.progress_fraction(),
+					_player_one_world.current_loudness(),
+					_player_one_world.has_rebound_boost(),
+				)
 		_update_timer_labels()
 
 
@@ -128,7 +143,11 @@ func _input(event: InputEvent) -> void:
 			return
 
 	if _session_mode == SessionMode.ONLINE and _race_state == RaceState.FINISHED:
-		if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
+		if event.is_action_pressed(&"ui_accept"):
+			_online_match.request_rematch()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
 			_return_to_main_menu()
 			get_viewport().set_input_as_handled()
 			return
@@ -333,6 +352,12 @@ func _begin_online_session() -> void:
 	_divider.visible = false
 	_player_one_label.text = "TY"
 	_player_two_label.text = "PRZECIWNIK"
+	_player_two_label.position.y = 88.0
+	_player_two_timer_label.position.y = 118.0
+	_network_status_label.visible = true
+	_network_status_label.text = "ŁĄCZENIE…"
+	_opponent_progress_label.visible = true
+	_opponent_progress_label.text = "POSTĘP  0%"
 	if _menu_screen != MenuScreen.WAITING:
 		_title_panel.visible = false
 	_finish_status_label.text = "ŁĄCZENIE Z PRZECIWNIKIEM…"
@@ -363,7 +388,11 @@ func _on_room_code_ready(room_code: String) -> void:
 
 func _on_online_match_configured(player_slot: int, seed: int) -> void:
 	_title_panel.visible = false
+	_player_one_label.text = _online_match.local_display_name
+	_player_two_label.text = _online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else "PRZECIWNIK"
+	_network_status_label.text = "POŁĄCZONO"
 	_player_one_world.configure_for_online_slot(player_slot)
+	_status_send_remaining = 0.0
 	_generate_race(seed)
 	_seed_label.text = "POKÓJ  %s" % _online_match.room_code
 	_finish_status_label.text = "SPRAWDZANIE TRASY…"
@@ -374,6 +403,24 @@ func _on_online_match_configured(player_slot: int, seed: int) -> void:
 func _on_online_countdown_started(duration: float) -> void:
 	_finish_status_label.visible = false
 	_start_countdown(duration)
+
+
+func _on_online_opponent_named(display_name: String) -> void:
+	_player_two_label.text = display_name
+
+
+func _on_online_opponent_status_received(progress: float, loudness: float, boost_active: bool) -> void:
+	var boost_text := "  ZRYW" if boost_active else ""
+	_opponent_progress_label.text = "POSTĘP  %d%%  GŁOŚNOŚĆ  %d%%%s" % [
+		roundi(progress * 100.0),
+		roundi(loudness),
+		boost_text,
+	]
+
+
+func _on_online_rematch_waiting() -> void:
+	_winner_label.text = "CZEKA NA REWANŻ"
+	_result_reminder.text = "DRUGI GRACZ MUSI POTWIERDZIĆ."
 
 
 func _on_online_opponent_finished(player_slot: int, elapsed: float) -> void:
@@ -387,7 +434,7 @@ func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> vo
 	_player_finish_times = finish_times.duplicate(true)
 	_finish_status_label.visible = false
 	_winner_label.text = "WYGRYWASZ" if winner_slot == _online_match.player_slot else "WYGRYWA PRZECIWNIK"
-	_result_actions.text = "ENTER  MENU"
+	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
 	_result_reminder.text = "WYNIK MECZU ONLINE"
 	_times_label.text = "GRACZ 1  %s\nGRACZ 2  %s" % [
 		_format_time(float(_player_finish_times[1])),
@@ -400,7 +447,7 @@ func _on_online_opponent_left(_client_id: int) -> void:
 	_finish_status_label.visible = false
 	_winner_label.text = "PRZECIWNIK OPUŚCIŁ MECZ"
 	_times_label.text = ""
-	_result_actions.text = "ENTER  MENU"
+	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
 	_result_reminder.text = "MECZ ONLINE ZAKOŃCZONY"
 	_set_race_state(RaceState.FINISHED)
 
@@ -409,7 +456,7 @@ func _on_online_match_failed(reason: String) -> void:
 	_finish_status_label.visible = false
 	_winner_label.text = "NIE UDAŁO SIĘ ROZPOCZĄĆ MECZU"
 	_times_label.text = reason
-	_result_actions.text = "ENTER  MENU"
+	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
 	_result_reminder.text = "SPRAWDŹ POŁĄCZENIE I KOD POKOJU"
 	_set_race_state(RaceState.FINISHED)
 
@@ -490,6 +537,10 @@ func _return_to_main_menu() -> void:
 	_player_two_world.configure_for_local_slot(2)
 	_player_one_label.text = "GRACZ 1"
 	_player_two_label.text = "GRACZ 2"
+	_player_two_label.position.y = 382.0
+	_player_two_timer_label.position.y = 412.0
+	_network_status_label.visible = false
+	_opponent_progress_label.visible = false
 	_result_actions.text = "R  REWANŻ        N  NOWA TRASA"
 	_result_reminder.text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
 	_generate_race(_next_random_seed())
