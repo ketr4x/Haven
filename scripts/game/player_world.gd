@@ -120,7 +120,7 @@ func _process(delta: float) -> void:
 	if dust != null and _player != null:
 		dust.global_position = _player.global_position
 
-	if not _player.is_remote:
+	if _player != null and not _player.is_remote:
 		if _respawn_time_remaining > 0.0:
 			_respawn_time_remaining = maxf(0.0, _respawn_time_remaining - delta)
 			if is_zero_approx(_respawn_time_remaining) and _race_active:
@@ -134,7 +134,8 @@ func _process(delta: float) -> void:
 		if _race_active and _player.is_physics_processing():
 			_check_unlit_airborne_collision()
 
-	if _race_active \
+	if _player != null \
+		and _race_active \
 		and _player.is_player_on_floor() \
 		and absf(_player.velocity.x) >= walking_echo_speed_threshold:
 		_echo_overlay.walking_preview(_player.loudness)
