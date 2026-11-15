@@ -82,6 +82,7 @@ func _ready() -> void:
 	_online_match.opponent_left.connect(_on_online_opponent_left)
 	_online_match.opponent_named.connect(_on_online_opponent_named)
 	_online_match.opponent_status_received.connect(_on_online_opponent_status_received)
+	_online_match.opponent_snapshot_received.connect(_on_online_opponent_snapshot_received)
 	_online_match.rematch_waiting.connect(_on_online_rematch_waiting)
 	_online_match.match_failed.connect(_on_online_match_failed)
 	_seed_random.randomize()
@@ -106,11 +107,16 @@ func _process(delta: float) -> void:
 		if _session_mode == SessionMode.ONLINE:
 			_status_send_remaining = maxf(0.0, _status_send_remaining - delta)
 			if is_zero_approx(_status_send_remaining):
-				_status_send_remaining = 0.1
+				_status_send_remaining = 0.05
 				_online_match.submit_local_status(
 					_player_one_world.progress_fraction(),
 					_player_one_world.current_loudness(),
 					_player_one_world.has_rebound_boost(),
+					_player_one_world.player_global_position(),
+					_player_one_world.player_velocity(),
+					_player_one_world.player_facing_direction(),
+					_player_one_world.player_is_on_floor(),
+					_player_one_world.consume_pending_events(),
 				)
 		_update_timer_labels()
 
@@ -174,8 +180,7 @@ func _generate_race(seed: int) -> void:
 	_finish_status_label.visible = false
 	_update_timer_labels()
 	_player_one_world.generate_course(_seed)
-	if _session_mode == SessionMode.LOCAL:
-		_player_two_world.generate_course(_seed)
+	_player_two_world.generate_course(_seed)
 
 
 func _restart_course() -> void:
@@ -284,15 +289,15 @@ func _set_race_state(next_state: RaceState) -> void:
 
 	var is_racing := next_state == RaceState.RACING
 	if _session_mode == SessionMode.ONLINE:
+		var opponent_slot := 2 if _online_match.player_slot == 1 else 1
 		_player_one_world.set_race_active(is_racing and not _player_finish_times.has(_online_match.player_slot))
-		_player_two_world.set_race_active(false)
+		_player_two_world.set_race_active(is_racing and not _player_finish_times.has(opponent_slot))
 	else:
 		_player_one_world.set_race_active(is_racing and not _player_finish_times.has(1))
 		_player_two_world.set_race_active(is_racing and not _player_finish_times.has(2))
 	if previous_state == RaceState.COUNTDOWN and next_state == RaceState.RACING:
 		_player_one_world.emit_intro_pulse()
-		if _session_mode == SessionMode.LOCAL:
-			_player_two_world.emit_intro_pulse()
+		_player_two_world.emit_intro_pulse()
 
 
 func _on_player_finished(player_number: int) -> void:
@@ -346,18 +351,18 @@ func join_friend_room(room_code: String) -> void:
 func _begin_online_session() -> void:
 	_session_mode = SessionMode.ONLINE
 	get_tree().paused = false
-	_top_container.anchor_bottom = 1.0
-	_top_container.offset_bottom = 0.0
-	_bottom_container.visible = false
-	_divider.visible = false
+	_top_container.anchor_bottom = 0.5
+	_top_container.offset_bottom = -2.0
+	_bottom_container.visible = true
+	_divider.visible = true
 	_player_one_label.text = "TY"
 	_player_two_label.text = "PRZECIWNIK"
-	_player_two_label.position.y = 88.0
-	_player_two_timer_label.position.y = 118.0
+	_player_two_label.position.y = 382.0
+	_player_two_timer_label.position.y = 412.0
 	_network_status_label.visible = true
 	_network_status_label.text = "ŁĄCZENIE…"
-	_opponent_progress_label.visible = true
-	_opponent_progress_label.text = "POSTĘP  0%"
+	_opponent_progress_label.visible = false
+	_opponent_progress_label.text = ""
 	if _menu_screen != MenuScreen.WAITING:
 		_title_panel.visible = false
 	_finish_status_label.text = "ŁĄCZENIE Z PRZECIWNIKIEM…"
@@ -392,6 +397,7 @@ func _on_online_match_configured(player_slot: int, seed: int) -> void:
 	_player_two_label.text = _online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else "PRZECIWNIK"
 	_network_status_label.text = "POŁĄCZONO"
 	_player_one_world.configure_for_online_slot(player_slot)
+	_player_two_world.configure_as_remote_opponent(2 if player_slot == 1 else 1)
 	_status_send_remaining = 0.0
 	_generate_race(seed)
 	_seed_label.text = "POKÓJ  %s" % _online_match.room_code
@@ -409,13 +415,8 @@ func _on_online_opponent_named(display_name: String) -> void:
 	_player_two_label.text = display_name
 
 
-func _on_online_opponent_status_received(progress: float, loudness: float, boost_active: bool) -> void:
-	var boost_text := "  ZRYW" if boost_active else ""
-	_opponent_progress_label.text = "POSTĘP  %d%%  GŁOŚNOŚĆ  %d%%%s" % [
-		roundi(progress * 100.0),
-		roundi(loudness),
-		boost_text,
-	]
+func _on_online_opponent_status_received(_progress: float, _loudness: float, _boost_active: bool) -> void:
+	pass
 
 
 func _on_online_rematch_waiting() -> void:
@@ -425,9 +426,15 @@ func _on_online_rematch_waiting() -> void:
 
 func _on_online_opponent_finished(player_slot: int, elapsed: float) -> void:
 	_player_finish_times[player_slot] = elapsed
+	_player_two_world.set_race_active(false)
 	_finish_status_label.text = "PRZECIWNIK JEST NA MECIE. JEDŹ DALEJ."
 	_finish_status_label.visible = true
 	_update_timer_labels()
+
+
+func _on_online_opponent_snapshot_received(pos: Vector2, vel: Vector2, facing: float, on_floor: bool, loudness: float, boost_active: bool, events: Array) -> void:
+	if _session_mode == SessionMode.ONLINE and _player_two_world != null:
+		_player_two_world.apply_remote_snapshot(pos, vel, facing, on_floor, loudness, boost_active, events)
 
 
 func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> void:

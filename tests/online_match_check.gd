@@ -10,6 +10,7 @@ var _finished_times: Dictionary = {}
 var _opponent_progress: float = 0.0
 var _opponent_loudness: float = 0.0
 var _opponent_boost_active: bool = false
+var _opponent_snapshot: Dictionary = {}
 
 
 func _initialize() -> void:
@@ -22,6 +23,9 @@ func _initialize() -> void:
 	online_match.countdown_started.connect(_on_countdown_started)
 	online_match.match_finished.connect(_on_online_match_finished)
 	online_match.opponent_status_received.connect(_on_opponent_status_received)
+	online_match.opponent_snapshot_received.connect(func(pos: Vector2, vel: Vector2, facing: float, on_floor: bool, _loud: float, _boost: bool, events: Array) -> void:
+		_opponent_snapshot = {"events": events, "facing": facing, "on_floor": on_floor, "pos": pos, "vel": vel}
+	)
 	await process_frame
 
 	online_match.host_friend_room("ECHO-TEST")
@@ -45,16 +49,30 @@ func _initialize() -> void:
 	assert(is_equal_approx(_countdown_duration, online_match.countdown_duration))
 
 	online_match.begin_race()
-	online_match.submit_local_status(0.4, 55.0, true)
+	online_match.submit_local_status(0.4, 55.0, true, Vector2(100.0, 50.0), Vector2(200.0, 0.0), 1.0, true, ["shout"])
 	service.receive_message(2, OnlineProtocol.make_message(
 		"player_status",
 		"ECHO-TEST",
 		2,
-		{"boost_active": false, "loudness": 63.0, "progress": 0.7},
+		{
+			"boost_active": false,
+			"events": ["shout"],
+			"facing": 1.0,
+			"loudness": 63.0,
+			"on_floor": true,
+			"pos": [150.0, 200.0],
+			"progress": 0.7,
+			"vel": [300.0, -10.0],
+		},
 	))
 	assert(is_equal_approx(_opponent_progress, 0.7))
 	assert(is_equal_approx(_opponent_loudness, 63.0))
 	assert(not _opponent_boost_active)
+	assert(_opponent_snapshot.get("pos") == Vector2(150.0, 200.0))
+	assert(_opponent_snapshot.get("vel") == Vector2(300.0, -10.0))
+	assert(_opponent_snapshot.get("facing") == 1.0)
+	assert(_opponent_snapshot.get("on_floor") == true)
+	assert(_opponent_snapshot.get("events") == ["shout"])
 
 	online_match.submit_local_finish(12.5)
 	service.receive_message(2, OnlineProtocol.make_message(

@@ -46,6 +46,7 @@ signal rebound_boost_ended
 
 @export_category("Presentation")
 @export var camera_enabled: bool = false
+@export var is_remote: bool = false
 
 @onready var _camera: Camera2D = $Camera2D
 @onready var _boost_aura: Polygon2D = $BoostAura
@@ -65,6 +66,10 @@ var _shout_cooldown_remaining: float = 0.0
 var _boost_time_remaining: float = 0.0
 var _footstep_time_remaining: float = 0.0
 var _was_on_floor: bool = false
+var _remote_target_position: Vector2 = Vector2.ZERO
+var _remote_target_velocity: Vector2 = Vector2.ZERO
+var _remote_has_target: bool = false
+var remote_on_floor: bool = false
 
 func _ready() -> void:
 	_camera.enabled = camera_enabled
@@ -84,6 +89,10 @@ func set_facing_direction(direction: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if is_remote:
+		_process_remote_puppet(delta)
+		return
+
 	_update_rebound_boost(delta)
 	_update_loudness(delta)
 	_shout_cooldown_remaining = maxf(0.0, _shout_cooldown_remaining - delta)
@@ -98,6 +107,68 @@ func _physics_process(delta: float) -> void:
 	_update_wall_jump_state(delta)
 	_emit_footstep_if_running(delta)
 	_emit_shout_if_requested()
+
+
+func _process_remote_puppet(delta: float) -> void:
+	_update_rebound_boost(delta)
+	if _remote_has_target:
+		global_position = global_position.lerp(_remote_target_position, clampf(delta * 20.0, 0.0, 1.0))
+		velocity = _remote_target_velocity
+
+
+func apply_remote_snapshot(pos: Vector2, vel: Vector2, facing: float, on_floor: bool = false) -> void:
+	if not _remote_has_target:
+		global_position = pos
+		_remote_has_target = true
+	_remote_target_position = pos
+	_remote_target_velocity = vel
+	remote_on_floor = on_floor
+	set_facing_direction(facing)
+	if is_rebound_boost_active():
+		_boost_trail.direction = Vector2(-facing_direction, -0.15).normalized()
+
+
+func is_player_on_floor() -> bool:
+	return remote_on_floor if is_remote else is_on_floor()
+
+
+func reset_remote_target(pos: Vector2) -> void:
+	global_position = pos
+	_remote_target_position = pos
+	_remote_target_velocity = Vector2.ZERO
+
+
+func cancel_rebound_boost() -> void:
+	_boost_time_remaining = 0.0
+	_boost_aura.visible = false
+	_boost_trail.emitting = false
+	rebound_boost_ended.emit()
+
+
+func trigger_remote_shout(shout_loudness: float) -> void:
+	_add_loudness(shout_loudness_gain)
+	_play_particle_burst(_shout_sparks)
+	sonic_shouted.emit(global_position, Vector2(facing_direction, 0.0), shout_loudness)
+
+
+func trigger_remote_footstep(footstep_loudness: float) -> void:
+	footstep_emitted.emit(global_position, Vector2(facing_direction, 0.0), footstep_loudness)
+
+
+func trigger_remote_jump() -> void:
+	jumped.emit(global_position)
+
+
+func trigger_remote_wall_jump(normal: Vector2) -> void:
+	_wall_dust.position = Vector2(-normal.x * 12.0, 6.0)
+	_wall_dust.direction = Vector2(normal.x, -0.35).normalized()
+	_play_particle_burst(_wall_dust)
+	wall_jumped.emit(global_position, normal)
+
+
+func trigger_remote_land() -> void:
+	_play_particle_burst(_landing_dust)
+	landed.emit(global_position)
 
 
 func _update_loudness(delta: float) -> void:
