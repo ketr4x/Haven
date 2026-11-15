@@ -75,6 +75,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - The current runnable visual scenes, `race.tscn`, `movement_lab.tscn`, and `generator_lab.tscn`, instance the Luap-40 post-process scene.
 - The committed `t3.json` exposes actions to start the Godot game and build a Windows export.
 - A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
+- GD-Sync 1.0.2 is pinned under `addons/GD-Sync/` for a proof of concept. `gd_sync_poc.tscn` connects, creates or joins a room-code lobby, browses public lobbies, and exchanges an explicitly exposed remote-call probe without registering GD-Sync as a global autoload.
 
 ## TO DO
 
@@ -87,7 +88,8 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
 - Integrate the staged logo and player sprite sheet only when the corresponding menu and animation work is implemented. They are present in `assets/art/` but are not referenced by the active scenes.
-- Complete the GD-Sync external-network proof of concept before changing race gameplay. It must verify private room-code joins, public lobby discovery, relay messages, Windows exports, and safe client credential handling.
+- Complete the GD-Sync external-network proof of concept before changing race gameplay. It must verify private room-code joins, public lobby discovery, relay messages, Windows exports, safe client credential handling, and host-side detection when the other client leaves.
+- Resolve or replace the GD-Sync `client_left` path if the external-network proof does not notify the host after a peer leaves a lobby.
 - Add multiplayer behind an `OnlineService` boundary, beginning with two-player private friend rooms, then public lobby discovery for quick matches. Do not couple `Race`, `PlayerWorld`, or UI directly to the service plugin.
 - Add a common-seed event leaderboard and a separate online match-wins board only after the private online race flow works. Treat client results as casual until server-side validation exists.
 
