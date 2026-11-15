@@ -5,7 +5,7 @@ The player character uses a `160×80` pixel sprite sheet divided into a `10×5` 
 - **Player 1 (Maroon Cloak)**: `res://assets/art/player.png`
 - **Player 2 (Blue Cloak)**: `res://assets/art/playe1r.png`
 
-Both textures are rendered with `CanvasItem.TEXTURE_FILTER_NEAREST`, a `1px` crisp white pixel-art outline (`res://assets/shaders/player_outline.gdshader`), and scaled to `5.0×` (`80×80` pixels, `2×` larger than the previous `2.5×` scale) inside `scenes/player/player.tscn` (`PlayerSprite`) so the cloaked runner fits the `48×48` terrain tilemap with a `36×68` standing collision box (lowering to `36×38` during a slide).
+Both textures are rendered with `CanvasItem.TEXTURE_FILTER_NEAREST`, a `1px` crisp white pixel-art outline (`res://assets/shaders/player_outline.gdshader`), and scaled to `3.0×` (`48×48` pixels, `3×` larger than the raw `16×16` frame) inside `scenes/player/player.tscn` (`PlayerSprite`) so the cloaked runner matches a single `48×48` terrain tile with a `26×44` standing collision box (lowering to `26×24` during a slide).
 
 ---
 

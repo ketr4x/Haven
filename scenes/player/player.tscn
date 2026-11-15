@@ -4,7 +4,7 @@
 [ext_resource type="Shader" path="res://assets/shaders/player_outline.gdshader" id="2_outline_shader"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
-size = Vector2(36, 68)
+size = Vector2(26, 44)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_outline"]
 shader = ExtResource("2_outline_shader")
@@ -22,8 +22,8 @@ shape = SubResource("RectangleShape2D_player")
 [node name="PlayerSprite" type="AnimatedSprite2D" parent="."]
 material = SubResource("ShaderMaterial_outline")
 texture_filter = 1
-position = Vector2(0, -6)
-scale = Vector2(5, 5)
+position = Vector2(0, -2)
+scale = Vector2(3, 3)
 
 [node name="FacingMarker" type="Polygon2D" parent="."]
 visible = false
@@ -32,7 +32,7 @@ color = Color(1, 1, 1, 0)
 
 [node name="LandingDust" type="CPUParticles2D" parent="."]
 z_index = -1
-position = Vector2(0, 34)
+position = Vector2(0, 22)
 emitting = false
 amount = 6
 lifetime = 0.28
@@ -70,8 +70,8 @@ scale_amount_max = 3.0
 color = Color(0.509804, 0.709804, 0.85098, 0.7)
 
 [node name="Camera2D" type="Camera2D" parent="."]
-offset = Vector2(180, -16)
+offset = Vector2(150, -14)
 enabled = false
-zoom = Vector2(1.45, 1.45)
+zoom = Vector2(1.22, 1.22)
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
