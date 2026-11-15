@@ -71,7 +71,7 @@ Use browse mode to verify public lobby discovery:
   --poc-mode=browse
 ```
 
-For unattended validation, add `--poc-quit-after=12`. Add `--poc-leave-after=4` on the joining client to verify that the host receives a leave event before either process exits. The scene logs events with the `GD_SYNC_POC` prefix. It never logs credentials.
+For unattended validation, add `--poc-quit-after=12`. Add `--poc-leave-after=3` on the joining client to leave three seconds after the client has actually joined, then verify whether the host receives a leave event before either process exits. The scene logs events with the `GD_SYNC_POC` prefix. It never logs credentials.
 
 Expected host/join events include:
 

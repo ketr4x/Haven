@@ -47,7 +47,6 @@ func _ready() -> void:
 	_gd_sync.client_left.connect(_on_client_left)
 	_gd_sync.expose_func(_receive_probe)
 	_gd_sync.start_multiplayer()
-	_schedule_test_leave()
 	_schedule_automatic_exit()
 
 
@@ -110,6 +109,7 @@ func _on_lobby_joined(lobby_name: String) -> void:
 	_status_label.text = "POŁĄCZONO Z POKOJEM"
 	_room_code_label.text = "KOD POKOJU: %s" % _room_code
 	_details_label.text = "Czeka na drugiego klienta i wiadomość testową."
+	_schedule_test_leave()
 
 
 func _on_lobby_join_failed(lobby_name: String, error: int) -> void:
