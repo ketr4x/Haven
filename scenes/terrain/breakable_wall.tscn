@@ -1,9 +1,18 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/terrain/breakable_wall.gd" id="1_wall"]
+[ext_resource type="Shader" path="res://assets/shaders/force_field.gdshader" id="2_force_field"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall"]
 size = Vector2(48, 96)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_force_field"]
+resource_local_to_scene = true
+shader = ExtResource("2_force_field")
+shader_parameter/field_color = Color(0.42, 0.86, 1, 0.22)
+shader_parameter/edge_color = Color(0.78, 0.96, 1, 0.92)
+shader_parameter/field_size = Vector2(48, 96)
+shader_parameter/resonance_pulse = 0.0
 
 [node name="BreakableWall" type="StaticBody2D"]
 collision_layer = 1
@@ -14,28 +23,32 @@ script = ExtResource("1_wall")
 shape = SubResource("RectangleShape2D_wall")
 
 [node name="Body" type="Polygon2D" parent="."]
+material = SubResource("ShaderMaterial_force_field")
 polygon = PackedVector2Array(-24, -48, 24, -48, 24, 48, -24, 48)
-color = Color(0.180392, 0.2, 0.258824, 1)
+uv = PackedVector2Array(0, 0, 1, 0, 1, 1, 0, 1)
+color = Color(1, 1, 1, 1)
 
-[node name="Cracks" type="Polygon2D" parent="."]
-polygon = PackedVector2Array(-8, -45, 2, -22, -15, 0, 4, 22, -8, 45, 0, 45, 10, 24, -4, 0, 7, -23, -5, -45)
-color = Color(0.980392, 0.619608, 0.25098, 0.95)
+[node name="FieldLight" type="PointLight2D" parent="."]
+color = Color(0.55, 0.9, 1, 1)
+energy = 0.34
+texture_scale = 0.52
+range_item_cull_mask = 1
 
 [node name="DebrisParticles" type="CPUParticles2D" parent="."]
 emitting = false
-amount = 22
-lifetime = 0.55
+amount = 24
+lifetime = 0.45
 one_shot = true
 explosiveness = 0.95
-randomness = 0.4
+randomness = 0.45
 lifetime_randomness = 0.3
 emission_shape = 3
 emission_rect_extents = Vector2(18, 40)
 direction = Vector2(1, -0.2)
-spread = 75.0
-gravity = Vector2(0, 680)
+spread = 80.0
+gravity = Vector2(0, 180)
 initial_velocity_min = 140.0
-initial_velocity_max = 280.0
-scale_amount_min = 2.5
-scale_amount_max = 5.5
-color = Color(0.980392, 0.619608, 0.25098, 1)
+initial_velocity_max = 290.0
+scale_amount_min = 2.0
+scale_amount_max = 4.5
+color = Color(0.62, 0.94, 1, 0.95)

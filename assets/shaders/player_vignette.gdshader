@@ -4,6 +4,8 @@ render_mode unshaded;
 uniform float inner_radius : hint_range(0.05, 0.8) = 0.165;
 uniform float outer_radius : hint_range(0.1, 1.4) = 0.465;
 uniform float darkness_alpha : hint_range(0.0, 1.0) = 0.68;
+uniform float silence_dim : hint_range(0.0, 1.0) = 0.0;
+uniform float pulse_glow : hint_range(0.0, 1.0) = 0.0;
 uniform float aspect_ratio = 3.5754;
 uniform float block_size : hint_range(2.0, 32.0) = 3.0;
 uniform vec4 vignette_color : source_color = vec4(0.06, 0.075, 0.13, 1.0);
@@ -37,13 +39,17 @@ void fragment() {
 	float quantized_vignette = floor(raw_vignette * 5.0) / 5.0;
 	float dither = bayer4x4(cell);
 
+	float effective_darkness = clamp(darkness_alpha + silence_dim * 0.14, 0.0, 0.86);
 	float pixel_mask = step(dither, raw_vignette);
-	float alpha = mix(quantized_vignette, pixel_mask, 0.55) * darkness_alpha;
+	float alpha = mix(quantized_vignette, pixel_mask, 0.55) * effective_darkness;
 	if (dist >= outer_radius) {
-		alpha = darkness_alpha;
+		alpha = effective_darkness;
 	} else if (dist <= inner_radius) {
 		alpha = 0.0;
 	}
 
-	COLOR = vec4(vignette_color.rgb, clamp(alpha, 0.0, 1.0));
+	vec3 quiet_tint = mix(vignette_color.rgb, vec3(0.032, 0.042, 0.09), silence_dim * 0.65);
+	float rim_band = smoothstep(0.0, 0.45, raw_vignette) * (1.0 - smoothstep(0.45, 0.95, raw_vignette));
+	vec3 final_rgb = mix(quiet_tint, vec3(0.22, 0.52, 0.68), rim_band * pulse_glow * 0.42);
+	COLOR = vec4(final_rgb, clamp(alpha, 0.0, 1.0));
 }

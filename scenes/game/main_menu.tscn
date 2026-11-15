@@ -166,6 +166,18 @@ sprite_frames = SubResource("SpriteFrames_main_menu")
 animation = &"idle"
 centered = false
 
+[node name="MoonHalo" type="Sprite2D" parent="BackgroundSprite"]
+position = Vector2(117, 17)
+modulate = Color(0.98, 0.99, 1, 0.42)
+scale = Vector2(0.38, 0.38)
+
+[node name="MoonLight" type="PointLight2D" parent="BackgroundSprite"]
+position = Vector2(117, 17)
+color = Color(0.97, 0.99, 1, 1)
+energy = 0.88
+texture_scale = 0.65
+range_item_cull_mask = 1
+
 [node name="WindStreaks" type="CPUParticles2D" parent="."]
 texture_filter = 1
 position = Vector2(640, 360)
@@ -207,6 +219,7 @@ scale_amount_max = 2.5
 color = Color(0.86, 0.94, 0.96, 0.22)
 
 [node name="MenuOverlay" type="Control" parent="."]
+light_mask = 2
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

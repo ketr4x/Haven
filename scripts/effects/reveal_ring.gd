@@ -35,6 +35,8 @@ func _process(delta: float) -> void:
 	_advance_impacts(delta)
 	var progress := clampf(_elapsed / duration, 0.0, 1.0)
 	_update_outline(lerpf(0.4, end_scale, progress))
+	_glow.width = lerpf(7.0, 1.4, progress)
+	_wave_front.width = lerpf(2.5, 0.6, progress)
 	modulate.a = 1.0 - progress
 	if progress >= 1.0:
 		queue_free()

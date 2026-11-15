@@ -16,7 +16,11 @@ func _initialize() -> void:
 	assert(player_sprite.scale.is_equal_approx(Vector2(3.0, 3.0)))
 	var outline_mat := player_sprite.material as ShaderMaterial
 	assert(outline_mat != null)
-	assert((outline_mat.get_shader_parameter(&"outline_color") as Color).is_equal_approx(Color.WHITE))
+	assert((outline_mat.get_shader_parameter(&"outline_color") as Color).is_equal_approx(Color(0.27451, 0.290196, 0.45098, 1.0)))
+	assert(player.get_node_or_null("GroundShadow") != null)
+	assert(player.get_node_or_null("RunDust") != null)
+	assert(player.get_node_or_null("SpeedWind") != null)
+	assert(player.get_node_or_null("PlayerLight") != null)
 	assert(player.get_node_or_null("BoostAura") == null)
 	assert(player.get_node_or_null("ShoutSparks") == null)
 	assert(player.get_node_or_null("BoostTrail") == null)
@@ -37,13 +41,15 @@ func _initialize() -> void:
 	assert(player_sprite.sprite_frames.get_frame_count(&"fall") == 4)
 	assert(player_sprite.sprite_frames.get_frame_count(&"land") == 1)
 
-	# Test ground slide mechanic and animation
+	# Test ground slide mechanic (longer & faster advantage) and animation
 	player.slide_started.connect(_on_slide_started)
 	for frame in 20:
 		await physics_frame
 		if player.is_on_floor():
 			break
 	assert(player.is_on_floor())
+	assert(player.slide_duration >= 0.65)
+	assert(player.slide_speed_multiplier >= 1.5)
 	var standing_rect := (player.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D
 	var standing_height := standing_rect.size.y
 	Input.action_press(&"p1_slide")
@@ -52,11 +58,27 @@ func _initialize() -> void:
 	assert(_slide_count == 1)
 	assert(player.is_sliding())
 	assert(standing_rect.size.y < standing_height)
-	assert(player.velocity.x > player.run_speed)
+	assert(player.velocity.x > player.run_speed * 1.4)
+	assert((player.get_node("SpeedWind") as CPUParticles2D).emitting)
 	assert(player_sprite.animation == &"slide_enter" or player_sprite.animation == &"slide_loop")
 	player._end_slide(false)
 	assert(not player.is_sliding())
 	assert(is_equal_approx(standing_rect.size.y, standing_height))
+
+	# Test impact stun and white-normal-white flash sequence
+	player.apply_impact_stun(Vector2.LEFT, 0.22)
+	assert(player.is_stunned())
+	assert(is_equal_approx(float(outline_mat.get_shader_parameter(&"flash_amount")), 1.0))
+	for frame in 4:
+		await physics_frame
+	assert(is_equal_approx(float(outline_mat.get_shader_parameter(&"flash_amount")), 0.0))
+	for frame in 3:
+		await physics_frame
+	assert(is_equal_approx(float(outline_mat.get_shader_parameter(&"flash_amount")), 1.0))
+	for frame in 12:
+		await physics_frame
+	assert(not player.is_stunned())
+	assert(is_equal_approx(float(outline_mat.get_shader_parameter(&"flash_amount")), 0.0))
 
 	# Test wall slide and wall jump
 	player.global_position = Vector2(580.0, 500.0)
@@ -77,6 +99,19 @@ func _initialize() -> void:
 	assert(player.velocity.y < 0.0)
 	assert(player_sprite.animation == &"flip_start" or player_sprite.animation == &"flip_loop")
 	assert(player_sprite.flip_h)
+
+	# Test shout zoom-in then quick zoom-out punch on E
+	var base_zoom_x := player.camera_zoom.x
+	Input.action_press(&"p1_shout")
+	await physics_frame
+	Input.action_release(&"p1_shout")
+	for frame in 5:
+		await physics_frame
+	assert(camera.zoom.x > base_zoom_x + 0.04)
+	for frame in 18:
+		await physics_frame
+	assert(is_equal_approx(camera.zoom.x, base_zoom_x))
+
 	print("Movement wall-jump and slide check passed.")
 	quit()
 

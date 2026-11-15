@@ -1,16 +1,21 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="PackedScene" path="res://scenes/game/player_world.tscn" id="2_player_world"]
 [ext_resource type="FontFile" path="res://assets/fonts/kiwi_soda.ttf" id="3_font"]
 [ext_resource type="PackedScene" path="res://scenes/game/main_menu.tscn" id="5_main_menu"]
 [ext_resource type="Shader" path="res://assets/shaders/retro_pixel_transition.gdshader" id="6_transition_shader"]
+[ext_resource type="Shader" path="res://assets/shaders/invert_flash.gdshader" id="7_invert_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_transition"]
 shader = ExtResource("6_transition_shader")
 shader_parameter/progress = 0.0
 shader_parameter/block_size = 8.0
 shader_parameter/transition_color = Color(0, 0, 0, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_invert"]
+shader = ExtResource("7_invert_shader")
+shader_parameter/intensity = 1.0
 
 [node name="Race" type="Control"]
 layout_mode = 3
@@ -150,6 +155,128 @@ theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 20
 horizontal_alignment = 1
 
+[node name="PlayerOneFinishBanner" type="Control" parent="GlobalUi"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_left = 380.0
+offset_top = 114.0
+offset_right = 900.0
+offset_bottom = 242.0
+mouse_filter = 2
+
+[node name="Panel" type="ColorRect" parent="GlobalUi/PlayerOneFinishBanner"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0705882, 0.0823529, 0.14902, 0.88)
+mouse_filter = 2
+
+[node name="Border" type="ReferenceRect" parent="GlobalUi/PlayerOneFinishBanner"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+border_color = Color(0.941176, 0.921569, 0.752941, 0.92)
+border_width = 3.0
+editor_only = false
+mouse_filter = 2
+
+[node name="Place" type="Label" parent="GlobalUi/PlayerOneFinishBanner"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 504.0
+offset_bottom = 72.0
+theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
+theme_override_colors/font_shadow_color = Color(0.05, 0.05, 0.08, 1)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 44
+text = "1. MIEJSCE"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Time" type="Label" parent="GlobalUi/PlayerOneFinishBanner"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 74.0
+offset_right = 504.0
+offset_bottom = 114.0
+theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 24
+text = "CZAS  00:00.000"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PlayerTwoFinishBanner" type="Control" parent="GlobalUi"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_left = 380.0
+offset_top = 478.0
+offset_right = 900.0
+offset_bottom = 606.0
+mouse_filter = 2
+
+[node name="Panel" type="ColorRect" parent="GlobalUi/PlayerTwoFinishBanner"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0705882, 0.0823529, 0.14902, 0.88)
+mouse_filter = 2
+
+[node name="Border" type="ReferenceRect" parent="GlobalUi/PlayerTwoFinishBanner"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+border_color = Color(0.760784, 0.94902, 0.94902, 0.92)
+border_width = 3.0
+editor_only = false
+mouse_filter = 2
+
+[node name="Place" type="Label" parent="GlobalUi/PlayerTwoFinishBanner"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 504.0
+offset_bottom = 72.0
+theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
+theme_override_colors/font_shadow_color = Color(0.05, 0.05, 0.08, 1)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 44
+text = "2. MIEJSCE"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Time" type="Label" parent="GlobalUi/PlayerTwoFinishBanner"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 74.0
+offset_right = 504.0
+offset_bottom = 114.0
+theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 24
+text = "CZAS  00:00.000"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="Seed" type="Label" parent="GlobalUi"]
 offset_left = 700.0
 offset_top = 46.0
@@ -262,30 +389,41 @@ color = Color(0.101961, 0.101961, 0.101961, 0.88)
 [node name="Winner" type="Label" parent="GlobalUi/ResultPanel"]
 layout_mode = 0
 offset_left = 260.0
-offset_top = 208.0
+offset_top = 150.0
 offset_right = 1020.0
-offset_bottom = 284.0
+offset_bottom = 226.0
 theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
 theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 52
 horizontal_alignment = 1
 
+[node name="PlacementSummary" type="Label" parent="GlobalUi/ResultPanel"]
+layout_mode = 0
+offset_left = 200.0
+offset_top = 234.0
+offset_right = 1080.0
+offset_bottom = 316.0
+theme_override_colors/font_color = Color(0.941176, 0.921569, 0.752941, 1)
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 30
+horizontal_alignment = 1
+
 [node name="Times" type="Label" parent="GlobalUi/ResultPanel"]
 layout_mode = 0
 offset_left = 360.0
-offset_top = 294.0
+offset_top = 324.0
 offset_right = 920.0
-offset_bottom = 366.0
+offset_bottom = 396.0
 theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 26
 horizontal_alignment = 1
 
 [node name="Reminder" type="Label" parent="GlobalUi/ResultPanel"]
 layout_mode = 0
 offset_left = 250.0
-offset_top = 386.0
+offset_top = 414.0
 offset_right = 1030.0
-offset_bottom = 418.0
+offset_bottom = 446.0
 theme_override_colors/font_color = Color(0.760784, 0.94902, 0.94902, 1)
 theme_override_font_sizes/font_size = 22
 text = "KRZYKNIJ (E / RSHIFT), ABY OŚWIETLIĆ PRZESZKODY I PRZYSPIESZYĆ"
@@ -294,13 +432,26 @@ horizontal_alignment = 1
 [node name="Actions" type="Label" parent="GlobalUi/ResultPanel"]
 layout_mode = 0
 offset_left = 220.0
-offset_top = 470.0
+offset_top = 486.0
 offset_right = 1060.0
-offset_bottom = 528.0
+offset_bottom = 544.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_font_sizes/font_size = 30
 text = "R  REWANŻ        N  NOWA TRASA"
 horizontal_alignment = 1
+
+[node name="InvertLayer" type="CanvasLayer" parent="."]
+layer = 95
+
+[node name="InvertFlashRect" type="ColorRect" parent="InvertLayer"]
+visible = false
+material = SubResource("ShaderMaterial_invert")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="TransitionLayer" type="CanvasLayer" parent="."]
 layer = 101

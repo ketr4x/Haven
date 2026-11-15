@@ -65,7 +65,7 @@ const ARC_SUBDIVISIONS: int = 2
 @export var hazard_tile_color: Color = Color(0.75, 0.41, 0.47, 1.0)
 @export var bounce_pad_tile_color: Color = Color(0.94, 0.92, 0.75, 1.0)
 @export var absorber_tile_color: Color = Color(0.28, 0.29, 0.45, 1.0)
-@export var breakable_tile_color: Color = Color(0.98, 0.62, 0.25, 1.0)
+@export var breakable_tile_color: Color = Color(0.55, 0.90, 1.0, 1.0)
 @export var player_accent_color: Color = Color(0.76, 0.95, 0.95, 1.0)
 
 var grid_origin: Vector2 = Vector2.ZERO
@@ -75,6 +75,7 @@ var active_ripples: Array[Dictionary] = []
 
 var _next_pulse_group_id: int = 0
 var _wave_time: float = 0.0
+var silence_dim: float = 0.0
 
 
 func _ready() -> void:
@@ -84,6 +85,13 @@ func _ready() -> void:
 func set_player_accent_color(color: Color) -> void:
 	player_accent_color = color
 	queue_redraw()
+
+
+func set_silence_dim(value: float) -> void:
+	var clamped := clampf(value, 0.0, 1.0)
+	if not is_equal_approx(silence_dim, clamped):
+		silence_dim = clamped
+		queue_redraw()
 
 
 func clear_waves() -> void:
@@ -341,7 +349,8 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 			var normal := _compute_grid_normal(current_cell, next_cell, velocity)
 			var impact_pos := _compute_impact_point(current_pos, next_pos, next_cell, normal)
 
-			illuminate_cell(next_cell, 1.0, bounce_count, normal)
+			var hit_light := 0.55 if int(ray.get("pulse_kind", PulseKind.RUN)) == PulseKind.RUN else 1.0
+			illuminate_cell(next_cell, hit_light, bounce_count, normal)
 
 			if hit_kind == TileKind.ABSORBER:
 				_spawn_impact_ripple(impact_pos, absorber_tile_color, 6.0, normal)
@@ -450,12 +459,15 @@ func _draw() -> void:
 		var local_rect := Rect2(to_local(rect.position), rect.size)
 		var light_level := clampf(float(tile["light_level"]), 0.0, 1.0)
 		var is_floor := bool(tile["is_floor"])
+		var kind := int(tile["kind"])
 		var visibility := (0.34 + 0.66 * light_level) if is_floor else (0.20 + 0.80 * light_level)
 
-		# Use #21263f shadow mask so the bottom of tiles (which already fades to #21263f) blends seamlessly into the background
-		var shadow_alpha := clampf(1.0 - visibility, 0.0, 1.0)
-		if shadow_alpha > 0.001:
-			draw_rect(local_rect, Color(0.129412, 0.14902, 0.247059, shadow_alpha), true)
+		if kind != TileKind.BREAKABLE:
+			# Use #21263f shadow mask so the bottom of tiles blends seamlessly into the background; gently deepens in silence.
+			var silence_extra := silence_dim * (0.04 if is_floor else 0.08) * (1.0 - light_level)
+			var shadow_alpha := clampf(1.0 - visibility + silence_extra, 0.0, 0.90)
+			if shadow_alpha > 0.001:
+				draw_rect(local_rect, Color(0.129412, 0.14902, 0.247059, shadow_alpha), true)
 
 		# Only illuminate the top or the specific face that the wave hit (never the bottom of floor blocks or the whole 48x48 box)
 		if light_level > floor_min_light_level + 0.02 or (not is_floor and light_level > 0.05):
@@ -570,11 +582,20 @@ func _draw_wave_arcs() -> void:
 			# Subtle, thin pixel-art alpha quantized to 4 steps so it blends gently over textures
 			var raw_alpha := life_ratio * (0.54 if is_forward else 0.34)
 			var stepped_alpha := ceilf(raw_alpha * 4.0) / 4.0
-			var amp_scale := (1.0 if is_forward else 0.6) * (0.5 + 0.5 * life_ratio)
+			var amp_scale := (1.0 if is_forward else 0.6) * (0.35 + 0.65 * life_ratio)
+
+			# Waves shrink over their active lifetime: band spread contracts, arc segments narrow, and pixels thin out.
+			var band_spread_scale := lerpf(0.15, 1.0, life_ratio)
+			var span_shrink := clampf(life_ratio / 0.85, 0.18, 1.0)
+			var seg_mid := pos_a.lerp(pos_b, 0.5)
+			var shrunk_a := seg_mid.lerp(pos_a, span_shrink)
+			var shrunk_b := seg_mid.lerp(pos_b, span_shrink)
 
 			for band_idx in ARC_BAND_OFFSETS.size():
-				var offset_px := ARC_BAND_OFFSETS[band_idx]
-				var band_scale := 1.0 if band_idx == 1 else 0.48
+				if band_idx != 1 and life_ratio < 0.35:
+					continue
+				var offset_px := ARC_BAND_OFFSETS[band_idx] * band_spread_scale
+				var band_scale := 1.0 if band_idx == 1 else (0.48 * clampf((life_ratio - 0.35) / 0.65, 0.0, 1.0))
 				var band_amp := wave_undulation_amplitude * (1.0 if band_idx == 1 else 0.65) * amp_scale
 				var band_phase := quantized_time * wave_undulation_speed + float(band_idx) * 1.4
 				var pixel_col := Color(arc_color.r, arc_color.g, arc_color.b, stepped_alpha * band_scale)
@@ -582,7 +603,7 @@ func _draw_wave_arcs() -> void:
 				var prev_cell := Vector2i.ZERO
 				for step in range(ARC_SUBDIVISIONS + 1):
 					var t := float(step) / float(ARC_SUBDIVISIONS)
-					var base_pos := pos_a.lerp(pos_b, t)
+					var base_pos := shrunk_a.lerp(shrunk_b, t)
 					var interp_dir := dir_a.lerp(dir_b, t).normalized()
 					if interp_dir.is_zero_approx():
 						interp_dir = dir_a
@@ -595,23 +616,29 @@ func _draw_wave_arcs() -> void:
 						floori(local_pt.y / WAVE_PIXEL_SIZE),
 					)
 					if step > 0:
-						_rasterize_pixel_line(pixel_canvas, prev_cell, cur_cell, pixel_col)
+						_rasterize_pixel_line(pixel_canvas, prev_cell, cur_cell, pixel_col, life_ratio)
 					else:
-						_plot_art_pixel(pixel_canvas, cur_cell, pixel_col)
+						_plot_art_pixel(pixel_canvas, cur_cell, pixel_col, life_ratio)
 					prev_cell = cur_cell
 
-	var pixel_size_vec := Vector2(WAVE_PIXEL_SIZE, WAVE_PIXEL_SIZE)
 	for pixel_cell_variant in pixel_canvas.keys():
 		var pixel_cell: Vector2i = pixel_cell_variant
-		var col: Color = pixel_canvas[pixel_cell]
+		var entry: Dictionary = pixel_canvas[pixel_cell]
+		var col: Color = entry["color"]
+		var life: float = float(entry["life"])
+		var px_size := WAVE_PIXEL_SIZE * lerpf(0.45, 1.1, life)
+		var inset := (WAVE_PIXEL_SIZE - px_size) * 0.5
 		draw_rect(
-			Rect2(Vector2(float(pixel_cell.x) * WAVE_PIXEL_SIZE, float(pixel_cell.y) * WAVE_PIXEL_SIZE), pixel_size_vec),
+			Rect2(
+				Vector2(float(pixel_cell.x) * WAVE_PIXEL_SIZE + inset, float(pixel_cell.y) * WAVE_PIXEL_SIZE + inset),
+				Vector2(px_size, px_size),
+			),
 			col,
 			true,
 		)
 
 
-func _rasterize_pixel_line(canvas: Dictionary, from_cell: Vector2i, to_cell: Vector2i, color: Color) -> void:
+func _rasterize_pixel_line(canvas: Dictionary, from_cell: Vector2i, to_cell: Vector2i, color: Color, life_ratio: float = 1.0) -> void:
 	var x0 := from_cell.x
 	var y0 := from_cell.y
 	var x1 := to_cell.x
@@ -623,7 +650,7 @@ func _rasterize_pixel_line(canvas: Dictionary, from_cell: Vector2i, to_cell: Vec
 	var err := dx + dy
 	var steps := 0
 	while true:
-		_plot_art_pixel(canvas, Vector2i(x0, y0), color)
+		_plot_art_pixel(canvas, Vector2i(x0, y0), color, life_ratio)
 		if x0 == x1 and y0 == y1:
 			break
 		steps += 1
@@ -638,13 +665,14 @@ func _rasterize_pixel_line(canvas: Dictionary, from_cell: Vector2i, to_cell: Vec
 			y0 += sy
 
 
-func _plot_art_pixel(canvas: Dictionary, cell: Vector2i, color: Color) -> void:
+func _plot_art_pixel(canvas: Dictionary, cell: Vector2i, color: Color, life_ratio: float = 1.0) -> void:
 	if not canvas.has(cell):
-		canvas[cell] = color
+		canvas[cell] = {"color": color, "life": life_ratio}
 		return
-	var existing: Color = canvas[cell]
-	if color.a >= existing.a:
-		canvas[cell] = color
+	var existing: Dictionary = canvas[cell]
+	var existing_col: Color = existing["color"]
+	if color.a >= existing_col.a:
+		canvas[cell] = {"color": color, "life": maxf(life_ratio, float(existing["life"]))}
 
 
 func _resolve_tile_hit_color(kind: int, bounce_count: int) -> Color:

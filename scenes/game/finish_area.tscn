@@ -15,4 +15,11 @@ script = ExtResource("1_finish")
 position = Vector2(0, -80)
 shape = SubResource("RectangleShape2D_finish")
 
+[node name="FinishLight" type="PointLight2D" parent="."]
+position = Vector2(0, -72)
+color = Color(0.94, 0.92, 0.75, 1)
+energy = 0.75
+texture_scale = 3.2
+range_item_cull_mask = 1
+
 [connection signal="body_entered" from="." to="." method="_on_body_entered"]
