@@ -8,4 +8,7 @@ build/
 
 # Machine-specific agent notes
 local.agents.md
+
+# GD-Sync API keys. Never commit these.
+addons/GD-Sync/keys.cfg
 .gitignore

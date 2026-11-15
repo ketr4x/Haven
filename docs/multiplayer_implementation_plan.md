@@ -2,7 +2,7 @@
 
 ## Decision and scope
 
-This plan targets the hackathon release for Windows, distributed as a direct `.exe` download. The selected integration is **GD-Sync**, subject to the proof-of-concept gate in Phase 0.
+This plan targets the hackathon release for Windows, distributed as a direct `.exe` download. **Phase 0 passed on the GD-Sync proof of concept, so GD-Sync is the selected integration.**
 
 The release will support:
 
