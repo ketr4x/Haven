@@ -33,13 +33,7 @@ var _race_active: bool = false
 var _respawn_time_remaining: float = 0.0
 
 func _ready() -> void:
-	_player.left_action = left_action
-	_player.right_action = right_action
-	_player.jump_action = jump_action
-	_player.shout_action = shout_action
-	_player.modulate = player_color
-	_generator.mirror_horizontally = mirror_course_horizontally
-	_echo_overlay.set_player_color(player_color)
+	_apply_player_configuration()
 	var camera := _player.get_node("Camera2D") as Camera2D
 	camera.enabled = true
 	camera.make_current()
@@ -70,6 +64,31 @@ func _process(delta: float) -> void:
 		and _player.is_on_floor() \
 		and absf(_player.velocity.x) >= walking_echo_speed_threshold:
 		_echo_overlay.walking_preview(_player.loudness)
+
+
+func configure_for_online_slot(slot: int) -> void:
+	player_number = slot
+	left_action = &"p1_left"
+	right_action = &"p1_right"
+	jump_action = &"p1_jump"
+	shout_action = &"p1_shout"
+	mirror_course_horizontally = slot == 2
+	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
+	_apply_player_configuration()
+
+
+func course_signature() -> String:
+	return _generator.course_signature
+
+
+func _apply_player_configuration() -> void:
+	_player.left_action = left_action
+	_player.right_action = right_action
+	_player.jump_action = jump_action
+	_player.shout_action = shout_action
+	_player.modulate = player_color
+	_generator.mirror_horizontally = mirror_course_horizontally
+	_echo_overlay.set_player_color(player_color)
 
 
 func generate_course(seed: int) -> void:

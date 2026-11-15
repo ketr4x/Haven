@@ -71,6 +71,14 @@ func send_message(message: Dictionary) -> bool:
 	return false
 
 
+func get_client_id() -> int:
+	return -1
+
+
+func get_synchronized_time() -> float:
+	return 0.0
+
+
 func _reject(operation: String, reason: String) -> void:
 	operation_rejected.emit(operation, reason)
 

@@ -80,6 +80,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
 - GD-Sync 1.0.2 is pinned under `addons/GD-Sync/` for a completed proof of concept. `gd_sync_poc.tscn` connects, creates or joins a room-code lobby, browses public lobbies, exchanges an explicitly exposed remote-call probe, and reports a departing peer without registering GD-Sync as a global autoload. Two exported Windows clients on separate connections completed the proof.
 - `OnlineService` is an idle project autoload backed by `GdSyncOnlineService`. It creates GD-Sync only when an online flow calls `connect_online()`, provides validated lobby and protocol-message APIs, and has an in-memory `LocalMatchService` test double.
+- `OnlineMatch` runs private two-player friend rooms. It assigns mirrored slots, exchanges a shared seed and course signatures before the countdown, relays finishes, and ends the session if an opponent leaves. The current command-line entry points are `--online-host[=ROOM]` and `--online-join=ROOM` after `--`.
 
 ## TO DO
 
@@ -92,11 +93,11 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - Playtest the authored chunks, including foam-ceiling clearance, stacked paths, roof clearance, and fall reset, before expanding the terrain set further.
 - Add persistent per-player loudness and boost-duration indicators. Current visual feedback is limited to reveal rings and the echo overlay.
 - Integrate the staged player sprite sheet (`assets/art/pierwszy_usmazony.png`) and standalone logo (`assets/art/rezonans_logo.png`) if needed outside the main menu artwork. They are present in `assets/art/` but are not referenced by the active gameplay scenes.
-- Implement the private friend-room race flow through `OnlineService`, then add public lobby discovery for quick matches. Do not couple `Race`, `PlayerWorld`, or UI directly to the service plugin.
+- Add public lobby discovery for quick matches after the dedicated online menu can invoke the existing `OnlineMatch` session. Do not couple `Race`, `PlayerWorld`, or UI directly to the service plugin.
 - Add a common-seed event leaderboard and a separate online match-wins board only after the private online race flow works. Treat client results as casual until server-side validation exists.
 
 ## NEXT STEPS
 
-**Build the private-room race session.** Use `OnlineService` and `OnlineProtocol` to exchange the room setup, seed, course signature, countdown, finish, and peer-leave events. Keep `Race`, `PlayerWorld`, and scene UI independent of GD-Sync types.
-**Ship friend rooms first.** Refactor the race session and player-world configuration so a single full-height local online world can use the existing Player 1 Input Map actions, while local split-screen behavior remains unchanged.
-**Build outward from the playable slice.** After private rooms reliably complete a race, add quick-match lobby discovery, the multiplayer menu/result states, and then the fixed-seed event leaderboard.
+**Replace command-line entry with online UI.** Add the online menu and friend-room create/join controls that call `Race.host_friend_room()` and `Race.join_friend_room()`; retain the command-line path only as a development test.
+**Add quick match.** Use public-lobby discovery through `OnlineService` to join an open compatible two-player room or create one, then reuse the existing `OnlineMatch` handshake.
+**Complete the online presentation.** Replace temporary Player 1/Player 2 labels with display names, opponent progress, network status, online result states, and mutual rematch before adding the fixed-seed event leaderboard.
