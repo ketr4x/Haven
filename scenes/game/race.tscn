@@ -532,7 +532,7 @@ offset_right = 1200.0
 offset_bottom = 650.0
 theme_override_colors/font_color = Color(0.74902, 0.411765, 0.47451, 1)
 theme_override_font_sizes/font_size = 30
-text = "R  REWANŻ        N  NOWA TRASA"
+text = "R  REWANŻ        N  NOWA TRASA        ESC  MENU"
 horizontal_alignment = 1
 
 [node name="InvertLayer" type="CanvasLayer" parent="."]
