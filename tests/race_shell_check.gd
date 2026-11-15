@@ -60,7 +60,7 @@ func _initialize() -> void:
 	assert(is_zero_approx(float((player_two_overlay.material as ShaderMaterial).get_shader_parameter("reveal_strength"))))
 
 	var start_event := InputEventKey.new()
-	start_event.keycode = KEY_D
+	start_event.keycode = KEY_ENTER
 	start_event.pressed = true
 	race._input(start_event)
 	assert((race.get_node("GlobalUi/Countdown") as Label).visible)

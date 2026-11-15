@@ -77,7 +77,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - A Windows Desktop export preset writes the game to `build/windows/Rezonans.exe`; generated export files are ignored.
 - GD-Sync 1.0.2 is pinned under `addons/GD-Sync/` for a completed proof of concept. `gd_sync_poc.tscn` connects, creates or joins a room-code lobby, browses public lobbies, exchanges an explicitly exposed remote-call probe, and reports a departing peer without registering GD-Sync as a global autoload. Two exported Windows clients on separate connections completed the proof.
 - `OnlineService` is an idle project autoload backed by `GdSyncOnlineService`. It creates GD-Sync only when an online flow calls `connect_online()`, provides validated lobby and protocol-message APIs, and has an in-memory `LocalMatchService` test double.
-- `OnlineMatch` runs private two-player friend rooms. It assigns mirrored slots, exchanges a shared seed and course signatures before the countdown, relays finishes, and ends the session if an opponent leaves. The current command-line entry points are `--online-host[=ROOM]` and `--online-join=ROOM` after `--`.
+- `OnlineMatch` runs private two-player friend rooms. It assigns mirrored slots, exchanges a shared seed and course signatures before the countdown, relays finishes, and ends the session if an opponent leaves. `race.tscn` exposes the flow through `GRA ONLINE` → `ZE ZNAJOMYM` → create or join by code; the command-line entry points remain for development tests.
 
 ## TO DO
 
@@ -95,6 +95,6 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 
 ## NEXT STEPS
 
-**Replace command-line entry with online UI.** Add the online menu and friend-room create/join controls that call `Race.host_friend_room()` and `Race.join_friend_room()`; retain the command-line path only as a development test.
 **Add quick match.** Use public-lobby discovery through `OnlineService` to join an open compatible two-player room or create one, then reuse the existing `OnlineMatch` handshake.
 **Complete the online presentation.** Replace temporary Player 1/Player 2 labels with display names, opponent progress, network status, online result states, and mutual rematch before adding the fixed-seed event leaderboard.
+**Add the event leaderboard.** Use the same online identity and a common fixed course seed. Keep random and friend-race results separate from comparable time-trial scores.

@@ -1,8 +1,19 @@
 # Private Online Friend Rooms
 
-The game now has an online race session behind the GD-Sync `OnlineService` boundary. This is the first playable online flow; main-menu controls will replace its command-line entry points in the menu phase.
+The game now has an online race session behind the GD-Sync `OnlineService` boundary. The title menu exposes the friend-room flow; command-line entry points remain available for repeatable development tests.
 
-## Run an online race
+## Title-menu flow
+
+```text
+GRA ONLINE
+└── ZE ZNAJOMYM
+    ├── STWÓRZ POKÓJ
+    └── DOŁĄCZ KODEM
+```
+
+Use the arrow keys and Enter to navigate. The host sees a generated room code while waiting. The joining player enters the host's code in the focused field and presses Enter. Escape returns from submenus or cancels a waiting room.
+
+## Command-line regression path
 
 Build a Windows export with the local GD-Sync key file configured, then use PowerShell in the export directory.
 

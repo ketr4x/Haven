@@ -66,6 +66,17 @@ func _process(delta: float) -> void:
 		_echo_overlay.walking_preview(_player.loudness)
 
 
+func configure_for_local_slot(slot: int) -> void:
+	player_number = slot
+	left_action = &"p1_left" if slot == 1 else &"p2_left"
+	right_action = &"p1_right" if slot == 1 else &"p2_right"
+	jump_action = &"p1_jump" if slot == 1 else &"p2_jump"
+	shout_action = &"p1_shout" if slot == 1 else &"p2_shout"
+	mirror_course_horizontally = slot == 2
+	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
+	_apply_player_configuration()
+
+
 func configure_for_online_slot(slot: int) -> void:
 	player_number = slot
 	left_action = &"p1_left"
