@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/game/race.gd" id="1_race"]
 [ext_resource type="PackedScene" path="res://scenes/game/player_world.tscn" id="2_player_world"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/game/main_menu.tscn" id="5_main_menu"]
 [ext_resource type="Shader" path="res://assets/shaders/retro_pixel_transition.gdshader" id="6_transition_shader"]
 [ext_resource type="Shader" path="res://assets/shaders/invert_flash.gdshader" id="7_invert_shader"]
+[ext_resource type="PackedScene" path="res://scenes/effects/crt_overlay.tscn" id="8_crt_overlay"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_transition"]
 shader = ExtResource("6_transition_shader")
@@ -465,3 +466,5 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="CrtOverlay" parent="." instance=ExtResource("8_crt_overlay")]

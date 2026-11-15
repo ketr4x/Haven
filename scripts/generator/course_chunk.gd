@@ -67,7 +67,7 @@ func _ready() -> void:
 		occupied[target_cell] = true
 	for cell in terrain_cells:
 		var target_cell: Vector2i = Vector2i(-cell.x, cell.y) if mirror_horizontally else cell
-		var atlas_coords := _select_atlas_coords(target_cell, occupied)
+		var atlas_coords := _select_atlas_coords(target_cell, occupied, target_cell.y)
 		_terrain.set_cell(target_cell, 0, atlas_coords)
 
 
@@ -79,11 +79,11 @@ func apply_world_autotiling(chunk_offset: Vector2i, world_occupied: Dictionary) 
 	for cell in terrain_cells:
 		var target_cell: Vector2i = Vector2i(-cell.x, cell.y) if mirror_horizontally else cell
 		var world_cell := chunk_offset + target_cell
-		var atlas_coords := _select_atlas_coords(world_cell, world_occupied)
+		var atlas_coords := _select_atlas_coords(world_cell, world_occupied, target_cell.y)
 		_terrain.set_cell(target_cell, 0, atlas_coords)
 
 
-func _select_atlas_coords(cell: Vector2i, occupied: Dictionary) -> Vector2i:
+func _select_atlas_coords(cell: Vector2i, occupied: Dictionary, local_y: int = 0) -> Vector2i:
 	var has_up := occupied.has(cell + Vector2i.UP)
 	var has_down := occupied.has(cell + Vector2i.DOWN)
 	var has_left := occupied.has(cell + Vector2i.LEFT)
@@ -93,8 +93,8 @@ func _select_atlas_coords(cell: Vector2i, occupied: Dictionary) -> Vector2i:
 		or terrain_features.has(&"wall_climb") \
 		or chunk_id in [&"dead_end_well", &"dead_end_balcony", &"stacked_switchback", &"stacked_overlook", &"bounce_reward"]
 	var is_wood_bridge := chunk_id == &"bridge" \
-		or (cell.y < 0 and not has_up and not has_down and chunk_id in [&"stacked_ladders", &"bounce_reward"])
-	var is_stone_structure := cell.y < 0 and chunk_id in [&"double_floor_arcade", &"double_floor_gap", &"stacked_gallery", &"stacked_crossing"]
+		or (local_y < 0 and not has_up and not has_down and chunk_id in [&"stacked_ladders", &"bounce_reward"])
+	var is_stone_structure := local_y < 0 and chunk_id in [&"double_floor_arcade", &"double_floor_gap", &"stacked_gallery", &"stacked_crossing"]
 
 	# Vertical columns / walls
 	if (has_up or has_down) and not has_left and not has_right:
@@ -261,6 +261,56 @@ func has_valid_grid_geometry() -> bool:
 	return true
 
 
+func has_traversable_path() -> bool:
+	if not has_valid_grid_geometry():
+		return false
+	var occupied: Dictionary = {}
+	var min_y := 0
+	var max_y := 0
+	for cell in terrain_cells:
+		occupied[cell] = true
+		min_y = mini(min_y, cell.y)
+		max_y = maxi(max_y, cell.y)
+	var cols := int(path_width() / grid_size.x)
+	var entry_row := roundi(entry_position().y / float(grid_size.y))
+	var exit_row := roundi(exit_position().y / float(grid_size.y))
+	# Entry column (x = 0) and exit column (x = cols - 1) must have standable floor at marker rows
+	if not occupied.has(Vector2i(0, entry_row)) or occupied.has(Vector2i(0, entry_row - 1)):
+		return false
+	if not occupied.has(Vector2i(cols - 1, exit_row)) or occupied.has(Vector2i(cols - 1, exit_row - 1)):
+		return false
+	# Double-floor / stacked chunks must keep boundary columns open on upper tiers and avoid 1-tile ceiling pinches
+	if terrain_features.has(&"branching_paths") and not terrain_features.has(&"wall_climb"):
+		if occupied.has(Vector2i(0, -2)) or occupied.has(Vector2i(1, -2)):
+			return false
+		if occupied.has(Vector2i(cols - 1, -2)) or occupied.has(Vector2i(cols - 2, -2)):
+			return false
+		for cx in range(1, cols - 1):
+			if not occupied.has(Vector2i(cx, -2)) and occupied.has(Vector2i(cx - 1, -2)) and occupied.has(Vector2i(cx + 1, -2)):
+				return false
+	# Verify 4-connected air reachability from entry air cell to exit air cell within chunk bounds
+	var top_air_y := min_y - 3
+	var start_air := Vector2i(0, entry_row - 1)
+	var goal_air := Vector2i(cols - 1, exit_row - 1)
+	var visited: Dictionary = {start_air: true}
+	var queue: Array[Vector2i] = [start_air]
+	var dirs: Array[Vector2i] = [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.UP, Vector2i.DOWN]
+	while not queue.is_empty():
+		var cur: Vector2i = queue.pop_front()
+		if cur == goal_air:
+			return true
+		for d in dirs:
+			var nxt := cur + d
+			if nxt.x < 0 or nxt.x >= cols or nxt.y < top_air_y or nxt.y > max_y:
+				continue
+			if occupied.has(nxt) or visited.has(nxt):
+				continue
+			visited[nxt] = true
+			queue.append(nxt)
+	return false
+
+
 func _is_grid_position(value: Vector2) -> bool:
 	return is_equal_approx(value.x, snappedf(value.x, grid_size.x)) \
 		and is_equal_approx(value.y, snappedf(value.y, grid_size.y))
+

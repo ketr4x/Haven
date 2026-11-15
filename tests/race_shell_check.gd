@@ -28,6 +28,17 @@ func _initialize() -> void:
 	var wind_dust := title_panel.get_node("WindDust") as CPUParticles2D
 	assert(wind_streaks != null and wind_streaks.emitting)
 	assert(wind_dust != null and wind_dust.emitting)
+	var crt_overlay := race.get_node("CrtOverlay") as CrtOverlay
+	assert(crt_overlay != null and crt_overlay.visible)
+	var crt_rect := crt_overlay.get_node("CrtRect") as ColorRect
+	assert(crt_rect != null and crt_rect.visible and crt_rect.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	var crt_material := crt_overlay.get_shader_material()
+	assert(crt_material != null and crt_material.shader != null)
+	assert(is_equal_approx(float(crt_material.get_shader_parameter("curvature_x")), crt_overlay.curvature_x))
+	assert(is_equal_approx(float(crt_material.get_shader_parameter("scanline_opacity")), crt_overlay.scanline_opacity))
+	assert(is_equal_approx(float(crt_material.get_shader_parameter("mask_intensity")), crt_overlay.mask_intensity))
+	assert(is_equal_approx(float(crt_material.get_shader_parameter("aberration_offset")), crt_overlay.aberration_offset))
+	assert(is_equal_approx(float(crt_material.get_shader_parameter("bloom_intensity")), crt_overlay.bloom_intensity))
 	var bg_one := player_one_world.get_node("Background") as Polygon2D
 	var dust_one := player_one_world.get_node("DustParticles") as CPUParticles2D
 	assert(bg_one.color.is_equal_approx(Color(0.129412, 0.14902, 0.247059, 1.0)))

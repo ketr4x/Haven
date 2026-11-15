@@ -59,6 +59,7 @@ func _assert_chunk_terrain_uses_common_grid(chunks: Node, generator: CourseGener
 			feature_counts[feature] = int(feature_counts.get(feature, 0)) + 1
 		feature_counts[&"dead_end_paths"] = int(feature_counts.get(&"dead_end_paths", 0)) + chunk.dead_end_paths
 		assert(chunk.has_valid_grid_geometry())
+		assert(chunk.has_traversable_path())
 		var terrain := chunk.get_node_or_null("Terrain") as TileMapLayer
 		assert(terrain != null)
 		assert(terrain.tile_set.resource_path == TERRAIN_TILESET)
@@ -97,10 +98,47 @@ func _assert_chunk_terrain_uses_common_grid(chunks: Node, generator: CourseGener
 		assert(col_min_y < col_max_y)
 		assert(col_max_y - col_min_y >= generator.roof_clearance_rows)
 	assert(int(feature_counts.get(&"noise_foam", 0)) <= generator.max_noise_foam_chunks)
+	assert(int(feature_counts.get(&"breakable_wall", 0)) >= generator.min_breakable_wall_chunks)
 	assert(int(feature_counts.get(&"breakable_wall", 0)) <= generator.max_breakable_wall_chunks)
 	assert(int(feature_counts.get(&"branching_paths", 0)) <= generator.max_branching_path_chunks)
 	assert(int(feature_counts.get(&"wall_climb", 0)) >= generator.min_wall_climb_chunks)
 	assert(int(feature_counts.get(&"dead_end_paths", 0)) <= generator.max_dead_end_paths)
+	_assert_course_reachability(world_cells, generator, min_col, max_col)
+
+
+func _assert_course_reachability(world_cells: Dictionary, generator: CourseGenerator, min_col: int, max_col: int) -> void:
+	var min_y := 0
+	var max_y := 0
+	for cell_variant in world_cells.keys():
+		var c: Vector2i = cell_variant
+		min_y = mini(min_y, c.y)
+		max_y = maxi(max_y, c.y)
+	var start_air := Vector2i(
+		roundi(generator.player_spawn.x / 48.0),
+		roundi(generator.player_spawn.y / 48.0),
+	)
+	var goal_air := Vector2i(
+		roundi(generator.finish_position.x / 48.0),
+		roundi(generator.finish_position.y / 48.0) + 1,
+	)
+	var visited: Dictionary = {start_air: true}
+	var queue: Array[Vector2i] = [start_air]
+	var dirs: Array[Vector2i] = [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.UP, Vector2i.DOWN]
+	var reached := false
+	while not queue.is_empty():
+		var cur: Vector2i = queue.pop_front()
+		if cur == goal_air:
+			reached = true
+			break
+		for d in dirs:
+			var nxt := cur + d
+			if nxt.x < min_col or nxt.x > max_col or nxt.y < min_y or nxt.y > max_y:
+				continue
+			if world_cells.has(nxt) or visited.has(nxt):
+				continue
+			visited[nxt] = true
+			queue.append(nxt)
+	assert(reached)
 
 
 func _assert_tile_collision_matches_cell(chunk: CourseChunk) -> void:

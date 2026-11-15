@@ -10,6 +10,11 @@
       "name": "Build Windows",
       "command": "./scripts/build_windows.sh",
       "icon": "build"
+    },
+    {
+      "name": "Build Web",
+      "command": "./scripts/build_web.sh",
+      "icon": "build"
     }
   ]
 }
