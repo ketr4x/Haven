@@ -518,6 +518,7 @@ func _step_ray(ray: Dictionary, delta: float) -> bool:
 					var ripple_col: Color = hit_tile.get("custom_color", breakable_tile_color)
 					if ripple_col == Color.TRANSPARENT:
 						ripple_col = breakable_tile_color
+					_break_wall_at_cell(next_cell, impact_pos, velocity.normalized())
 					_spawn_impact_ripple(impact_pos, ripple_col, 12.0, normal)
 					current_pos = next_pos
 					ray["position"] = next_pos
