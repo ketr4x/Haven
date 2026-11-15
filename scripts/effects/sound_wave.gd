@@ -3,6 +3,7 @@ extends CharacterBody2D
 
 signal bounced(position: Vector2, normal: Vector2, bounce_count: int)
 signal absorbed(position: Vector2)
+signal wall_broken(position: Vector2)
 signal returned_to_owner(player: RezonansPlayer, captured_loudness: float, pulse_id: int)
 signal expired
 
@@ -51,6 +52,17 @@ func _physics_process(delta: float) -> void:
 			expired.emit()
 			queue_free()
 			return
+
+		if collider and collider.is_in_group(&"breakable_wall"):
+			if captured_loudness >= 90.0:
+				if collider.has_method("break_wall"):
+					collider.break_wall(velocity.normalized())
+				wall_broken.emit(collision_position)
+				expired.emit()
+				queue_free()
+				return
+			elif collider.has_method("pulse_resonance"):
+				collider.pulse_resonance()
 
 		bounce_count += 1
 		var normal := collision.get_normal()

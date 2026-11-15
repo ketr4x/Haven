@@ -11,12 +11,14 @@ extends Node
 @onready var _wave_bounce: AudioStreamPlayer = $WaveBounce
 @onready var _echo_return: AudioStreamPlayer = $EchoReturn
 @onready var _finish: AudioStreamPlayer = $Finish
+@onready var _wall_break: AudioStreamPlayer = $WallBreak
 
 var _bounce_cooldown_remaining: float = 0.0
 
 func _exit_tree() -> void:
-	for player in [_footstep, _land, _jump, _wall_jump, _shout, _wave_bounce, _echo_return, _finish]:
-		player.stop()
+	for player in [_footstep, _land, _jump, _wall_jump, _shout, _wave_bounce, _echo_return, _finish, _wall_break]:
+		if player != null:
+			player.stop()
 
 
 func _process(delta: float) -> void:
@@ -56,3 +58,8 @@ func play_echo_return() -> void:
 
 func play_finish() -> void:
 	_finish.play()
+
+
+func play_wall_break() -> void:
+	if _wall_break != null:
+		_wall_break.play()

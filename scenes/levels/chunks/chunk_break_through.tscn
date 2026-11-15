@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/generator/course_chunk.gd" id="1_chunk"]
+[ext_resource type="TileSet" path="res://resources/tiles/terrain_tileset.tres" id="2_tiles"]
+[ext_resource type="PackedScene" path="res://scenes/terrain/breakable_wall.tscn" id="3_wall"]
+
+[node name="ChunkBreakThrough" type="Node2D"]
+script = ExtResource("1_chunk")
+chunk_id = &"break_through"
+difficulty = 1
+min_width = 384.0
+max_width = 384.0
+requires_shout = true
+terrain_features = Array[StringName]([&"breakable_wall"])
+terrain_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(2, -3), Vector2i(3, -3), Vector2i(4, -3), Vector2i(5, -3)])
+
+[node name="EntryMarker" type="Marker2D" parent="."]
+
+[node name="ExitMarker" type="Marker2D" parent="."]
+position = Vector2(384, 0)
+
+[node name="Terrain" type="TileMapLayer" parent="."]
+position = Vector2(-24, -24)
+tile_set = ExtResource("2_tiles")
+
+[node name="BreakableWall" parent="." instance=ExtResource("3_wall")]
+position = Vector2(192, -72)
