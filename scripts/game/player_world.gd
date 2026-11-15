@@ -112,6 +112,9 @@ func _setup_vignette_overlay(_accent: Color) -> void:
 func _process(delta: float) -> void:
 	_blind_collision_cooldown = maxf(0.0, _blind_collision_cooldown - delta)
 	_update_vignette_overlay(delta)
+	var dust := get_node_or_null("DustParticles") as CPUParticles2D
+	if dust != null and _player != null:
+		dust.global_position = _player.global_position
 
 	if not _player.is_remote:
 		if _respawn_time_remaining > 0.0:
@@ -276,6 +279,7 @@ func _apply_player_configuration() -> void:
 	_player.jump_action = jump_action
 	_player.shout_action = shout_action
 	_player.modulate = player_color
+	_player.set_visual_slot(player_number)
 	_generator.mirror_horizontally = mirror_course_horizontally
 	_echo_overlay.set_player_color(player_color)
 	if sonar_grid != null:
@@ -427,8 +431,8 @@ func _check_unlit_airborne_collision() -> void:
 		if collision == null:
 			continue
 		var normal := collision.get_normal()
-		# Ignore standing on top of a surface; penalize running into or bonking unlit airborne blocks.
-		if normal.y < -0.65:
+		# Ignore standing on top of a surface or grazing low ceilings; penalize running horizontally into unlit airborne blocks.
+		if absf(normal.y) > 0.65:
 			continue
 		var probe_pos := collision.get_position() - normal * 12.0
 		if sonar_grid.is_unlit_airborne_obstacle_at_world_pos(probe_pos, unlit_obstacle_light_threshold):

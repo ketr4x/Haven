@@ -11,7 +11,7 @@ min_width = 768.0
 max_width = 768.0
 terrain_features = Array[StringName]([&"branching_paths"])
 dead_end_paths = 1
-terrain_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(8, 0), Vector2i(9, 0), Vector2i(10, 0), Vector2i(11, 0), Vector2i(12, 0), Vector2i(13, 0), Vector2i(14, 0), Vector2i(15, 0), Vector2i(1, -2), Vector2i(2, -2), Vector2i(3, -2), Vector2i(4, -2), Vector2i(5, -2), Vector2i(6, -2), Vector2i(10, -2), Vector2i(11, -2), Vector2i(12, -2), Vector2i(13, -2), Vector2i(14, -2), Vector2i(3, -4), Vector2i(4, -4), Vector2i(5, -4), Vector2i(6, -4), Vector2i(7, -4), Vector2i(8, -4)])
+terrain_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(8, 0), Vector2i(9, 0), Vector2i(10, 0), Vector2i(11, 0), Vector2i(12, 0), Vector2i(13, 0), Vector2i(14, 0), Vector2i(15, 0), Vector2i(1, -2), Vector2i(2, -2), Vector2i(3, -2), Vector2i(4, -2), Vector2i(5, -2), Vector2i(6, -2), Vector2i(10, -2), Vector2i(11, -2), Vector2i(12, -2), Vector2i(13, -2), Vector2i(14, -2)])
 
 [node name="EntryMarker" type="Marker2D" parent="."]
 

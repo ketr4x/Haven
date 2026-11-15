@@ -50,12 +50,19 @@ signal blind_impact_slowed(position: Vector2)
 @export var blind_slow_duration: float = 1.25
 @export_range(0.15, 0.85, 0.05) var blind_slow_multiplier: float = 0.42
 
+const PLAYER_ONE_SHEET := preload("res://assets/art/player.png")
+const PLAYER_TWO_SHEET := preload("res://assets/art/playe1r.png")
+const SPRITE_FRAME_SIZE := Vector2i(16, 16)
+const LAND_ANIM_HOLD_TIME := 0.10
+
 @export_category("Presentation")
 @export var camera_enabled: bool = false
 @export var is_remote: bool = false
+@export_range(1, 2, 1) var visual_slot: int = 1
 
 @onready var _camera: Camera2D = $Camera2D
 @onready var _boost_aura: Polygon2D = $BoostAura
+@onready var _player_sprite: AnimatedSprite2D = $PlayerSprite
 @onready var _facing_marker: Polygon2D = $FacingMarker
 @onready var _landing_dust: CPUParticles2D = $LandingDust
 @onready var _wall_dust: CPUParticles2D = $WallDust
@@ -77,10 +84,15 @@ var _remote_target_position: Vector2 = Vector2.ZERO
 var _remote_target_velocity: Vector2 = Vector2.ZERO
 var _remote_has_target: bool = false
 var remote_on_floor: bool = false
+var _is_flipping: bool = false
+var _land_anim_time_remaining: float = 0.0
 
 
 func _ready() -> void:
 	_camera.enabled = camera_enabled
+	_setup_player_sprite_frames(visual_slot)
+	if _player_sprite != null:
+		_player_sprite.animation_finished.connect(_on_player_sprite_animation_finished)
 	set_facing_direction(facing_direction)
 	_boost_aura.visible = false
 	_landing_dust.emitting = false
@@ -89,16 +101,133 @@ func _ready() -> void:
 	_boost_trail.emitting = false
 
 
+func set_visual_slot(slot: int) -> void:
+	visual_slot = clampi(slot, 1, 2)
+	if is_inside_tree():
+		_setup_player_sprite_frames(visual_slot)
+
+
+func _setup_player_sprite_frames(slot: int) -> void:
+	if _player_sprite == null:
+		return
+	var sheet: Texture2D = PLAYER_TWO_SHEET if slot == 2 else PLAYER_ONE_SHEET
+	var frames := SpriteFrames.new()
+	if frames.has_animation(&"default"):
+		frames.remove_animation(&"default")
+
+	# Row 0 (1st row): Idle — 9 frames (0..8), looping
+	_add_sheet_animation(frames, &"idle", sheet, 0, [0, 1, 2, 3, 4, 5, 6, 7, 8], 10.0, true)
+	# Row 1 (2nd row): Run — 10 frames (0..9), looping
+	_add_sheet_animation(frames, &"run", sheet, 1, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 14.0, true)
+	# Row 3 (4th row): Flip — 8 frames total; frame 1 (idx 0) is idle, frame 2 (idx 1) starts flip, and frames 3-8 (idx 2..7) loop
+	_add_sheet_animation(frames, &"flip_start", sheet, 3, [0, 1], 16.0, false)
+	_add_sheet_animation(frames, &"flip_loop", sheet, 3, [2, 3, 4, 5, 6, 7], 15.0, true)
+	# Row 4 (5th row): Fall & Jump (reversed) — 5 frames total (0..4):
+	# - Jump uses frames 3, 2, 1, 0 (reversed air frames)
+	# - Fall uses frames 0, 1, 2, 3 and holds on the second-to-last frame (idx 3) while in air
+	# - Land uses the last frame (idx 4) when touching the ground
+	_add_sheet_animation(frames, &"jump", sheet, 4, [3, 2, 1, 0], 14.0, false)
+	_add_sheet_animation(frames, &"fall", sheet, 4, [0, 1, 2, 3], 12.0, false)
+	_add_sheet_animation(frames, &"land", sheet, 4, [4], 12.0, false)
+
+	_player_sprite.sprite_frames = frames
+	_player_sprite.play(&"idle")
+	_sync_sprite_modulate_compensation()
+
+
+func _add_sheet_animation(
+	frames: SpriteFrames,
+	anim_name: StringName,
+	sheet: Texture2D,
+	row: int,
+	columns: Array[int],
+	fps: float,
+	loop: bool
+) -> void:
+	frames.add_animation(anim_name)
+	frames.set_animation_speed(anim_name, fps)
+	frames.set_animation_loop(anim_name, loop)
+	for col in columns:
+		var atlas := AtlasTexture.new()
+		atlas.atlas = sheet
+		atlas.region = Rect2(
+			float(col * SPRITE_FRAME_SIZE.x),
+			float(row * SPRITE_FRAME_SIZE.y),
+			float(SPRITE_FRAME_SIZE.x),
+			float(SPRITE_FRAME_SIZE.y),
+		)
+		frames.add_frame(anim_name, atlas)
+
+
+func _sync_sprite_modulate_compensation() -> void:
+	if _player_sprite == null:
+		return
+	# Compensate for parent Node2D modulate so player.png / playe1r.png render in their true pixel-art palette
+	_player_sprite.self_modulate = Color(
+		1.0 / maxf(0.05, modulate.r),
+		1.0 / maxf(0.05, modulate.g),
+		1.0 / maxf(0.05, modulate.b),
+		1.0,
+	)
+
+
+func _on_player_sprite_animation_finished() -> void:
+	if _player_sprite == null:
+		return
+	if _player_sprite.animation == &"flip_start" and _is_flipping:
+		_player_sprite.play(&"flip_loop")
+
+
+func _update_sprite_animation(delta: float) -> void:
+	if _player_sprite == null or _player_sprite.sprite_frames == null:
+		return
+	_sync_sprite_modulate_compensation()
+	_player_sprite.flip_h = facing_direction < 0.0
+
+	var on_ground := is_player_on_floor()
+	if on_ground:
+		_is_flipping = false
+		if _land_anim_time_remaining > 0.0:
+			_land_anim_time_remaining = maxf(0.0, _land_anim_time_remaining - delta)
+			if absf(velocity.x) <= 60.0:
+				if _player_sprite.animation != &"land":
+					_player_sprite.play(&"land")
+				return
+		if absf(velocity.x) > 20.0:
+			if _player_sprite.animation != &"run":
+				_player_sprite.play(&"run")
+		else:
+			if _player_sprite.animation != &"idle":
+				_player_sprite.play(&"idle")
+		return
+
+	_land_anim_time_remaining = 0.0
+	if _is_flipping:
+		if _player_sprite.animation != &"flip_start" and _player_sprite.animation != &"flip_loop":
+			_player_sprite.play(&"flip_start")
+		return
+
+	if velocity.y < 0.0:
+		if _player_sprite.animation != &"jump":
+			_player_sprite.play(&"jump")
+	else:
+		if _player_sprite.animation != &"fall":
+			_player_sprite.play(&"fall")
+
+
 func set_facing_direction(direction: float) -> void:
 	if is_zero_approx(direction):
 		return
 	facing_direction = signf(direction)
 	_facing_marker.scale.x = facing_direction
+	if _player_sprite != null:
+		_player_sprite.flip_h = facing_direction < 0.0
 
 
 func _physics_process(delta: float) -> void:
 	if is_remote:
 		_process_remote_puppet(delta)
+		_update_sprite_animation(delta)
 		return
 
 	_update_rebound_boost(delta)
@@ -116,6 +245,7 @@ func _physics_process(delta: float) -> void:
 	_update_wall_jump_state(delta)
 	_emit_footstep_if_running(delta)
 	_emit_shout_if_requested()
+	_update_sprite_animation(delta)
 
 
 func _process_remote_puppet(delta: float) -> void:
@@ -165,10 +295,16 @@ func trigger_remote_footstep(footstep_loudness: float) -> void:
 
 
 func trigger_remote_jump() -> void:
+	_is_flipping = is_rebound_boost_active()
+	if _player_sprite != null:
+		_player_sprite.play(&"flip_start" if _is_flipping else &"jump")
 	jumped.emit(global_position)
 
 
 func trigger_remote_wall_jump(normal: Vector2) -> void:
+	_is_flipping = true
+	if _player_sprite != null:
+		_player_sprite.play(&"flip_start")
 	_wall_dust.position = Vector2(-normal.x * 12.0, 6.0)
 	_wall_dust.direction = Vector2(normal.x, -0.35).normalized()
 	_play_particle_burst(_wall_dust)
@@ -176,6 +312,10 @@ func trigger_remote_wall_jump(normal: Vector2) -> void:
 
 
 func trigger_remote_land() -> void:
+	_is_flipping = false
+	_land_anim_time_remaining = LAND_ANIM_HOLD_TIME
+	if _player_sprite != null:
+		_player_sprite.play(&"land")
 	_play_particle_burst(_landing_dust)
 	landed.emit(global_position)
 
@@ -283,6 +423,9 @@ func _try_jump() -> void:
 		set_facing_direction(_last_wall_normal.x)
 		_jump_buffer_remaining = 0.0
 		_wall_jump_time_remaining = 0.0
+		_is_flipping = true
+		if _player_sprite != null:
+			_player_sprite.play(&"flip_start")
 		_wall_dust.position = Vector2(-_last_wall_normal.x * 12.0, 6.0)
 		_wall_dust.direction = Vector2(_last_wall_normal.x, -0.35).normalized()
 		_play_particle_burst(_wall_dust)
@@ -293,6 +436,9 @@ func _try_jump() -> void:
 		velocity.y = jump_velocity * _jump_multiplier()
 		_coyote_time_remaining = 0.0
 		_jump_buffer_remaining = 0.0
+		_is_flipping = is_rebound_boost_active()
+		if _player_sprite != null:
+			_player_sprite.play(&"flip_start" if _is_flipping else &"jump")
 		jumped.emit(global_position)
 
 
@@ -305,6 +451,10 @@ func _update_ground_state(delta: float) -> void:
 	if is_on_floor():
 		_coyote_time_remaining = coyote_time
 		if not _was_on_floor:
+			_is_flipping = false
+			_land_anim_time_remaining = LAND_ANIM_HOLD_TIME
+			if _player_sprite != null and absf(velocity.x) <= 60.0:
+				_player_sprite.play(&"land")
 			_play_particle_burst(_landing_dust)
 			landed.emit(global_position)
 	else:

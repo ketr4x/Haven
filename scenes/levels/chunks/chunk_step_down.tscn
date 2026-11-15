@@ -9,7 +9,7 @@ chunk_id = &"step_down"
 difficulty = 1
 min_width = 384.0
 max_width = 384.0
-terrain_cells = Array[Vector2i]([Vector2i(0, -1), Vector2i(1, -1), Vector2i(2, -1), Vector2i(3, -1), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0)])
+terrain_cells = Array[Vector2i]([Vector2i(0, -1), Vector2i(1, -1), Vector2i(2, -1), Vector2i(3, -1), Vector2i(4, 0), Vector2i(5, 0), Vector2i(6, 0), Vector2i(7, 0), Vector2i(3, 0)])
 
 [node name="EntryMarker" type="Marker2D" parent="."]
 

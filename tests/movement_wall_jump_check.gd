@@ -21,11 +21,22 @@ func _initialize() -> void:
 	Input.action_release(&"p1_right")
 
 	assert(player.is_on_wall_only())
+	var player_sprite := player.get_node("PlayerSprite") as AnimatedSprite2D
+	assert(player_sprite != null)
+	assert(player_sprite.sprite_frames.get_frame_count(&"idle") == 9)
+	assert(player_sprite.sprite_frames.get_frame_count(&"run") == 10)
+	assert(player_sprite.sprite_frames.get_frame_count(&"flip_start") == 2)
+	assert(player_sprite.sprite_frames.get_frame_count(&"flip_loop") == 6)
+	assert(player_sprite.sprite_frames.get_frame_count(&"jump") == 4)
+	assert(player_sprite.sprite_frames.get_frame_count(&"fall") == 4)
+	assert(player_sprite.sprite_frames.get_frame_count(&"land") == 1)
 	player._jump_buffer_remaining = player.jump_buffer_time
 	await physics_frame
 	assert(_wall_jump_count == 1)
 	assert(player.velocity.x < 0.0)
 	assert(player.velocity.y < 0.0)
+	assert(player_sprite.animation == &"flip_start" or player_sprite.animation == &"flip_loop")
+	assert(player_sprite.flip_h)
 	print("Movement wall-jump check passed.")
 	quit()
 
