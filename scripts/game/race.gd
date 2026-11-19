@@ -999,14 +999,19 @@ func _on_leaderboard_scores_loaded(_leaderboard_name: String, entries: Array) ->
 	if entries.is_empty():
 		_leaderboard_entries.text = "BRAK WYNIKÓW.\nBĄDŹ PIERWSZY!"
 		return
+	var sorted_entries := entries.duplicate()
+	sorted_entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var time_a := float(a.get("elapsed_seconds", float(a.get("score_ms", 0)) / 1000.0))
+		var time_b := float(b.get("elapsed_seconds", float(b.get("score_ms", 0)) / 1000.0))
+		return time_a < time_b
+	)
 	var lines: PackedStringArray = PackedStringArray()
-	var count := mini(entries.size(), 10)
+	var count := mini(sorted_entries.size(), 10)
 	for i in count:
-		var item: Dictionary = entries[i] if entries[i] is Dictionary else {}
-		var rank := int(item.get("rank", i + 1))
+		var item: Dictionary = sorted_entries[i] if sorted_entries[i] is Dictionary else {}
 		var uname := str(item.get("username", "GRACZ"))
 		var elapsed := float(item.get("elapsed_seconds", float(item.get("score_ms", 0)) / 1000.0))
-		lines.append("%d. %-14s %s" % [rank, uname.substr(0, 14), _format_time(elapsed)])
+		lines.append("%d. %-14s %s" % [i + 1, uname.substr(0, 14), _format_time(elapsed)])
 	_leaderboard_entries.text = "\n".join(lines)
 
 

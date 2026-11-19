@@ -133,29 +133,12 @@ func submit_leaderboard_time(
 	if not leaderboards.has(leaderboard_name):
 		leaderboards[leaderboard_name] = []
 	var board: Array = leaderboards[leaderboard_name]
-	var replaced := false
-	for i in board.size():
-		var item: Dictionary = board[i]
-		if str(item.get("username", "")).to_lower() == raw_name.to_lower():
-			var prev_score := int(item.get("score_ms", 0))
-			if prev_score <= 0 or score_ms < prev_score:
-				board[i] = {
-					"username": raw_name,
-					"score_ms": score_ms,
-					"elapsed_seconds": float(score_ms) / 1000.0,
-					"data": payload,
-				}
-			else:
-				score_ms = prev_score
-			replaced = true
-			break
-	if not replaced:
-		board.append({
-			"username": raw_name,
-			"score_ms": score_ms,
-			"elapsed_seconds": float(score_ms) / 1000.0,
-			"data": payload,
-		})
+	board.append({
+		"username": raw_name,
+		"score_ms": score_ms,
+		"elapsed_seconds": float(score_ms) / 1000.0,
+		"data": payload,
+	})
 	board.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return int(a.get("score_ms", 0)) < int(b.get("score_ms", 0))
 	)

@@ -296,6 +296,7 @@ func emit_downward_pulse(origin: Vector2, ray_count: int = 56) -> int:
 		var max_distance := 5.2 * GRID_SIZE
 		var ray_lifetime := max_distance / ray_speed
 		var start_pos := origin + Vector2(0.0, 14.0) + direction * 4.0
+		var decay_power := compute_decay_power(ray_lifetime)
 		active_rays.append({
 			"pulse_id": pulse_id,
 			"ray_index": index,
@@ -304,6 +305,7 @@ func emit_downward_pulse(origin: Vector2, ray_count: int = 56) -> int:
 			"velocity": direction * ray_speed,
 			"remaining_lifetime": ray_lifetime,
 			"max_lifetime": ray_lifetime,
+			"decay_power": decay_power,
 			"bounce_count": 0,
 			"max_bounces": 2,
 			"trail": PackedVector2Array([start_pos]),
@@ -772,7 +774,7 @@ func _draw_wave_arcs() -> void:
 				var life_a := clampf(float(ray_a["remaining_lifetime"]) / maxf(0.001, float(ray_a["max_lifetime"])), 0.0, 1.0)
 				var life_b := clampf(float(ray_b["remaining_lifetime"]) / maxf(0.001, float(ray_b["max_lifetime"])), 0.0, 1.0)
 				var life_ratio := minf(life_a, life_b)
-				var decay_power := float(ray_a["decay_power"])
+				var decay_power := float(ray_a.get("decay_power", 1.0))
 				var alpha_fade := pow(life_ratio, decay_power)
 				var is_forward := bool(ray_a["is_forward"]) or bool(ray_b["is_forward"])
 				var raw_alpha := alpha_fade * (0.72 if is_forward else 0.48)
@@ -824,7 +826,7 @@ func _draw_wave_arcs() -> void:
 			var life_ratio := clampf(float(ray["remaining_lifetime"]) / maxf(0.001, float(ray["max_lifetime"])), 0.0, 1.0)
 			if life_ratio <= 0.005:
 				continue
-			var alpha_fade := pow(life_ratio, float(ray["decay_power"]))
+			var alpha_fade := pow(life_ratio, float(ray.get("decay_power", 1.0)))
 			var is_forward := bool(ray["is_forward"])
 			var raw_alpha := alpha_fade * (0.68 if is_forward else 0.44)
 			if raw_alpha < 0.002:

@@ -150,25 +150,17 @@ func submit_leaderboard_time(
 		leaderboard_submission_failed.emit(leaderboard_name, "BRAK POŁĄCZENIA Z GD-SYNC.")
 		return
 
-	var auth_ok := await _ensure_silent_leaderboard_session(sanitized_name)
+	var auth_ok := await _ensure_fresh_run_session(sanitized_name)
 	if not auth_ok or not is_instance_valid(_client):
-		leaderboard_submission_failed.emit(leaderboard_name, "BŁĄD LOGOWANIA PROFILU GRACZA.")
+		leaderboard_submission_failed.emit(leaderboard_name, "BŁĄD TWORZENIA SESJI RUNU W GD-SYNC.")
 		return
+
+	_client.player_set_username(sanitized_name)
 
 	var score_ms := maxi(1, roundi(elapsed_seconds * 1000.0))
 	var payload := extra_data.duplicate(true)
 	payload["username"] = raw_name
 	payload["time_sec"] = snappedf(elapsed_seconds, 0.001)
-
-	var logged_in_username: String = _client.player_get_username() if is_instance_valid(_client) else sanitized_name
-	if logged_in_username.is_empty():
-		logged_in_username = sanitized_name
-	var existing_score_res: Dictionary = await _client.leaderboard_get_score(leaderboard_name, logged_in_username)
-	if int(existing_score_res.get("Code", -1)) == ENUMS.LEADERBOARD_GET_SCORE_RESPONSE_CODE.SUCCESS:
-		var prev_score: int = int(existing_score_res.get("Result", {}).get("Score", 0))
-		if prev_score > 0 and score_ms >= prev_score:
-			leaderboard_score_submitted.emit(leaderboard_name, raw_name, prev_score)
-			return
 
 	var submit_code := int(await _client.leaderboard_submit_score(leaderboard_name, score_ms, payload))
 	if submit_code == ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.SUCCESS:
@@ -217,7 +209,9 @@ func browse_leaderboard_times(
 			"data": data_dict,
 		})
 	normalized.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return int(a.get("score_ms", 0)) < int(b.get("score_ms", 0))
+		var time_a := float(a.get("elapsed_seconds", float(a.get("score_ms", 0)) / 1000.0))
+		var time_b := float(b.get("elapsed_seconds", float(b.get("score_ms", 0)) / 1000.0))
+		return time_a < time_b
 	)
 	for i in normalized.size():
 		(normalized[i] as Dictionary)["rank"] = i + 1
@@ -233,6 +227,34 @@ func _ensure_online_connection() -> bool:
 	while is_connecting() and Time.get_ticks_msec() < deadline_ms:
 		await get_tree().process_frame
 	return is_online() and is_instance_valid(_client)
+
+
+func _ensure_fresh_run_session(desired_username: String) -> bool:
+	if not is_instance_valid(_client):
+		return false
+	var clean := _sanitize_leaderboard_username(desired_username)
+	if clean.length() < 3:
+		clean = "Player"
+
+	for attempt in 4:
+		var num1 := randi_range(100000, 999999)
+		var num2 := randi_range(1000, 9999)
+		var candidate_name := "r%d%d" % [num1, num2]
+		var email := "%s@rezonans.com" % candidate_name
+		var secret := "Pass%d%d" % [num1, num2]
+		var create_code := int(await _client.account_create(email, candidate_name, secret))
+		if create_code in [
+			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.SUCCESS,
+			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.EMAIL_ALREADY_EXISTS,
+			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.USERNAME_ALREADY_EXISTS,
+		]:
+			var login_res: Dictionary = await _client.account_login(email, secret, 86400)
+			if int(login_res.get("Code", -1)) == ENUMS.ACCOUNT_LOGIN_RESPONSE_CODE.SUCCESS:
+				_client.player_set_username(clean)
+				return true
+		if create_code == ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.NO_DATABASE:
+			return false
+	return false
 
 
 func _ensure_silent_leaderboard_session(desired_username: String) -> bool:
