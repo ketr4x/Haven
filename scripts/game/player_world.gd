@@ -346,7 +346,7 @@ func set_race_active(is_active: bool) -> void:
 	if not is_active:
 		_respawn_time_remaining = 0.0
 	_player.set_physics_process(is_active)
-	_finish_area.monitoring = is_active and not _player.is_remote
+	_finish_area.set_deferred(&"monitoring", is_active and not _player.is_remote)
 
 
 func emit_intro_pulse() -> void:

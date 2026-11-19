@@ -83,6 +83,22 @@ func _initialize() -> void:
 	assert("00:11.750" in entries_label.text)
 	assert("2. EchoRunner" in entries_label.text)
 
+	# Simulate another race where FasterPeer submits a second run with a new time
+	race._on_online_match_finished({1: 16.0, 2: 9.50}, 2)
+	await process_frame
+	assert(username_input.editable)
+	assert(username_input.text == "FasterPeer")
+	username_input.text_submitted.emit("FasterPeer")
+	await process_frame
+
+	assert(race._leaderboard_submitted)
+	assert("1. FasterPeer" in entries_label.text)
+	assert("00:09.500" in entries_label.text)
+	assert("2. FasterPeer" in entries_label.text)
+	assert("00:11.750" in entries_label.text)
+	assert("3. EchoRunner" in entries_label.text)
+	assert("00:14.250" in entries_label.text)
+
 	race.queue_free()
 	service.queue_free()
 	for frame in 10:
