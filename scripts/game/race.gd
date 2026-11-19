@@ -56,12 +56,22 @@ enum MenuScreen {
 @onready var _title_panel: MainMenu = $GlobalUi/TitlePanel
 @onready var _countdown_label: Label = $GlobalUi/Countdown
 @onready var _pause_panel: Control = $GlobalUi/PausePanel
+@onready var _pause_resume_option: Control = get_node_or_null("GlobalUi/PausePanel/MenuItems/ResumeOption") as Control
+@onready var _pause_resume_cursor: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/ResumeOption/Cursor") as Label
+@onready var _pause_resume_text: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/ResumeOption/Text") as Label
+@onready var _pause_menu_option: Control = get_node_or_null("GlobalUi/PausePanel/MenuItems/MenuOption") as Control
+@onready var _pause_menu_cursor: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/MenuOption/Cursor") as Label
+@onready var _pause_menu_text: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/MenuOption/Text") as Label
 @onready var _result_panel: Control = $GlobalUi/ResultPanel
 @onready var _invert_flash_rect: ColorRect = $InvertLayer/InvertFlashRect
 @onready var _transition_rect: ColorRect = $TransitionLayer/TransitionRect
 @onready var _countdown_tick: AudioStreamPlayer = get_node_or_null("CountdownTick") as AudioStreamPlayer
 @onready var _countdown_go: AudioStreamPlayer = get_node_or_null("CountdownGo") as AudioStreamPlayer
 @onready var _match_victory: AudioStreamPlayer = get_node_or_null("MatchVictory") as AudioStreamPlayer
+@onready var _ui_move: AudioStreamPlayer = get_node_or_null("UIMove") as AudioStreamPlayer
+@onready var _ui_select: AudioStreamPlayer = get_node_or_null("UISelect") as AudioStreamPlayer
+
+var _pause_selected_index: int = 0
 
 
 var online_service: OnlineServiceBase
@@ -96,6 +106,12 @@ func _ready() -> void:
 	_title_panel.outro_finished.connect(_on_title_panel_outro_finished)
 	if _username_input != null:
 		_username_input.text_submitted.connect(_on_username_submitted)
+	if _pause_resume_option != null:
+		_pause_resume_option.mouse_entered.connect(_set_pause_selection.bind(0))
+		_pause_resume_option.gui_input.connect(_on_pause_option_gui_input.bind(0))
+	if _pause_menu_option != null:
+		_pause_menu_option.mouse_entered.connect(_set_pause_selection.bind(1))
+		_pause_menu_option.gui_input.connect(_on_pause_option_gui_input.bind(1))
 	_online_match = OnlineMatch.new()
 	add_child(_online_match)
 	_online_match.room_code_ready.connect(_on_room_code_ready)
@@ -213,6 +229,28 @@ func _input(event: InputEvent) -> void:
 					_start_local_rematch(false)
 				get_viewport().set_input_as_handled()
 				return
+
+	if _race_state == RaceState.PAUSED:
+		if event.is_action_pressed(&"pause"):
+			_toggle_pause()
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M:
+			_activate_pause_menu_exit()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"ui_up") or event.is_action_pressed(&"p1_jump") or event.is_action_pressed(&"p2_jump"):
+			_move_pause_selection(-1)
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"ui_down") or event.is_action_pressed(&"p1_shout") or event.is_action_pressed(&"p2_shout"):
+			_move_pause_selection(1)
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"ui_accept"):
+			_activate_pause_option()
+			get_viewport().set_input_as_handled()
+			return
 
 	if event.is_action_pressed(&"pause"):
 		_toggle_pause()
@@ -352,8 +390,65 @@ func _toggle_pause() -> void:
 		get_tree().paused = false
 		_set_race_state(RaceState.RACING)
 	elif _race_state == RaceState.RACING:
+		_pause_selected_index = 0
+		_update_pause_visuals()
 		get_tree().paused = true
 		_set_race_state(RaceState.PAUSED)
+
+
+func _set_pause_selection(index: int) -> void:
+	if _pause_selected_index != index:
+		_pause_selected_index = index
+		_play_ui_move()
+		_update_pause_visuals()
+
+
+func _move_pause_selection(delta: int) -> void:
+	var next_idx := (_pause_selected_index + delta) % 2
+	if next_idx < 0:
+		next_idx += 2
+	_set_pause_selection(next_idx)
+
+
+func _update_pause_visuals() -> void:
+	var is_resume := _pause_selected_index == 0
+	if _pause_resume_cursor != null:
+		_pause_resume_cursor.text = ">" if is_resume else " "
+	if _pause_resume_text != null:
+		_pause_resume_text.modulate = Color(0.96, 0.96, 0.96, 1.0) if is_resume else Color(0.75, 0.75, 0.75, 0.92)
+	if _pause_menu_cursor != null:
+		_pause_menu_cursor.text = " " if is_resume else ">"
+	if _pause_menu_text != null:
+		_pause_menu_text.modulate = Color(0.75, 0.75, 0.75, 0.92) if is_resume else Color(0.96, 0.96, 0.96, 1.0)
+
+
+func _activate_pause_option() -> void:
+	_play_ui_select()
+	if _pause_selected_index == 0:
+		_toggle_pause()
+	else:
+		_return_to_main_menu()
+
+
+func _activate_pause_menu_exit() -> void:
+	_play_ui_select()
+	_return_to_main_menu()
+
+
+func _on_pause_option_gui_input(event: InputEvent, index: int) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_pause_selected_index = index
+		_activate_pause_option()
+
+
+func _play_ui_move() -> void:
+	if _ui_move != null:
+		_ui_move.play()
+
+
+func _play_ui_select() -> void:
+	if _ui_select != null:
+		_ui_select.play()
 
 
 func _set_race_state(next_state: RaceState) -> void:
@@ -653,6 +748,9 @@ func _submit_room_code(room_code: String) -> void:
 
 
 func _return_to_main_menu() -> void:
+	get_tree().paused = false
+	_cancel_transition()
+	_cancel_invert_flash()
 	_online_match.leave_match()
 	_session_mode = SessionMode.LOCAL
 	_top_container.anchor_bottom = 0.5

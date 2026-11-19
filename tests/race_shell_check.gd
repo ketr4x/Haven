@@ -149,6 +149,17 @@ func _initialize() -> void:
 	race._toggle_pause()
 	assert(paused)
 	assert((race.get_node("GlobalUi/PausePanel") as Control).visible)
+	assert(race._pause_selected_index == 0)
+	var pause_down := InputEventAction.new()
+	pause_down.action = &"ui_down"
+	pause_down.pressed = true
+	race._input(pause_down)
+	assert(race._pause_selected_index == 1)
+	var pause_up := InputEventAction.new()
+	pause_up.action = &"ui_up"
+	pause_up.pressed = true
+	race._input(pause_up)
+	assert(race._pause_selected_index == 0)
 	race._toggle_pause()
 	assert(not paused)
 	assert(player_one.is_physics_processing())
