@@ -65,6 +65,38 @@ func _initialize() -> void:
 	assert(menu.get_option_text(1) == "GRA ONLINE")
 	assert(menu.get_option_text(2) == "WYJDŹ")
 
+	# Test local rematch with R key starts countdown immediately on same seed
+	race._race_state = race.RaceState.RACING
+	var current_seed := int(race._seed)
+	race._race_elapsed = 10.0
+	race._on_player_finished(1)
+	race._on_player_finished(2)
+	assert(race._race_state == race.RaceState.FINISHED)
+	var result_panel := race.get_node("GlobalUi/ResultPanel") as Control
+	assert(result_panel.visible)
+	var r_event := InputEventAction.new()
+	r_event.action = &"restart"
+	r_event.pressed = true
+	race._input(r_event)
+	assert(race._race_state == race.RaceState.COUNTDOWN)
+	assert(not result_panel.visible)
+	assert(int(race._seed) == current_seed)
+
+	# Test local new course with N key starts countdown immediately on new seed
+	race._race_state = race.RaceState.RACING
+	race._race_elapsed = 11.0
+	race._on_player_finished(1)
+	race._on_player_finished(2)
+	assert(race._race_state == race.RaceState.FINISHED)
+	assert(result_panel.visible)
+	var n_event := InputEventAction.new()
+	n_event.action = &"new_seed"
+	n_event.pressed = true
+	race._input(n_event)
+	assert(race._race_state == race.RaceState.COUNTDOWN)
+	assert(not result_panel.visible)
+	assert(int(race._seed) != current_seed)
+
 	race.queue_free()
 	await process_frame
 	print("Online menu flow check passed.")

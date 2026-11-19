@@ -88,6 +88,7 @@ func _initialize() -> void:
 
 	online_match.request_rematch()
 	assert(online_match.state == OnlineMatch.MatchState.REMATCH_WAITING)
+	assert(online_match.has_local_rematch_vote())
 	service.receive_message(2, OnlineProtocol.make_message(
 		"rematch_vote",
 		"ECHO-TEST",
@@ -98,6 +99,81 @@ func _initialize() -> void:
 	assert(_configured_slots == [1, 1])
 	assert(online_match.finish_times.is_empty())
 
+	# Test Guest role rematch flow when opponent (host) votes first
+	var guest_service := LOCAL_MATCH_SERVICE.new() as LocalMatchService
+	root.add_child(guest_service)
+	var guest_match := ONLINE_MATCH.new() as OnlineMatch
+	guest_match.online_service = guest_service
+	root.add_child(guest_match)
+	guest_service.lobbies.append({"Name": "GUEST-TEST", "Open": true, "PlayerCount": 1, "PlayerLimit": 2})
+	guest_match.join_friend_room("GUEST-TEST")
+	guest_service.peer_joined.emit(1)
+	guest_service.receive_message(1, OnlineProtocol.make_message(
+		"race_setup",
+		"GUEST-TEST",
+		1,
+		{"seed": 99999},
+	))
+	assert(guest_match.state == OnlineMatch.MatchState.CONFIGURING)
+	assert(guest_match.player_slot == 2)
+	guest_match.submit_course_signature("sig-1")
+	guest_service.receive_message(1, OnlineProtocol.make_message(
+		"race_start",
+		"GUEST-TEST",
+		2,
+		{"duration": 3.0},
+	))
+	guest_match.begin_race()
+	guest_match.submit_local_finish(10.0)
+	guest_service.receive_message(1, OnlineProtocol.make_message(
+		"match_result",
+		"GUEST-TEST",
+		3,
+		{"finish_times": {1: 9.0, 2: 10.0}, "winner_slot": 1},
+	))
+	assert(guest_match.state == OnlineMatch.MatchState.FINISHED)
+	assert(not guest_match.finish_times.is_empty())
+
+	# Host votes for rematch first -> guest receives rematch_vote
+	guest_service.receive_message(1, OnlineProtocol.make_message(
+		"rematch_vote",
+		"GUEST-TEST",
+		4,
+		{"accepted": true, "slot": 1},
+	))
+	assert(guest_match.state == OnlineMatch.MatchState.REMATCH_WAITING)
+	assert(not guest_match.has_local_rematch_vote())
+
+	# Guest votes for rematch second -> must succeed and not be ignored!
+	guest_match.request_rematch()
+	assert(guest_match.has_local_rematch_vote())
+	assert((guest_service.sent_messages.back() as Dictionary).get("kind") == "rematch_vote")
+
+	# Host configures rematched race
+	guest_service.receive_message(1, OnlineProtocol.make_message(
+		"race_setup",
+		"GUEST-TEST",
+		5,
+		{"seed": 88888},
+	))
+	assert(guest_match.state == OnlineMatch.MatchState.CONFIGURING)
+	assert(guest_match.finish_times.is_empty()) # Must be cleared on guest!
+
+	# Guest finishes rematch
+	guest_match.submit_course_signature("sig-2")
+	guest_service.receive_message(1, OnlineProtocol.make_message(
+		"race_start",
+		"GUEST-TEST",
+		6,
+		{"duration": 3.0},
+	))
+	guest_match.begin_race()
+	guest_match.submit_local_finish(8.5)
+	assert(guest_match.finish_times.has(2))
+	assert((guest_service.sent_messages.back() as Dictionary).get("kind") == "player_finished")
+
+	guest_match.queue_free()
+	guest_service.queue_free()
 	online_match.queue_free()
 	service.queue_free()
 	await process_frame
