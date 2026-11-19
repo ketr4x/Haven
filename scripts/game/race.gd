@@ -190,11 +190,27 @@ func _input(event: InputEvent) -> void:
 			return
 
 		if _session_mode == SessionMode.ONLINE:
+			if event.is_action_pressed(&"ui_accept") or event.is_action_pressed(&"restart"):
+				if event.is_action_pressed(&"ui_accept") and _username_input != null and _username_input.visible and not _leaderboard_submitted and not _username_input.text.strip_edges().is_empty():
+					_on_username_submitted(_username_input.text)
+				else:
+					_online_match.request_rematch()
+				get_viewport().set_input_as_handled()
+				return
+		else:
+			if event.is_action_pressed(&"restart"):
+				_start_local_rematch(false)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed(&"new_seed"):
+				_start_local_rematch(true)
+				get_viewport().set_input_as_handled()
+				return
 			if event.is_action_pressed(&"ui_accept"):
 				if _username_input != null and _username_input.visible and not _leaderboard_submitted and not _username_input.text.strip_edges().is_empty():
 					_on_username_submitted(_username_input.text)
 				else:
-					_online_match.request_rematch()
+					_start_local_rematch(false)
 				get_viewport().set_input_as_handled()
 				return
 
@@ -203,10 +219,15 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if _session_mode == SessionMode.LOCAL and _race_state in [RaceState.RACING, RaceState.PAUSED, RaceState.FINISHED]:
-		if event.is_action_pressed(&"restart") or event.is_action_pressed(&"new_seed"):
-			_restart_course()
+	if _session_mode == SessionMode.LOCAL and _race_state in [RaceState.RACING, RaceState.PAUSED]:
+		if event.is_action_pressed(&"restart"):
+			_start_local_rematch(false)
 			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed(&"new_seed"):
+			_start_local_rematch(true)
+			get_viewport().set_input_as_handled()
+			return
 
 
 func _generate_race(seed: int) -> void:
@@ -229,6 +250,15 @@ func _generate_race(seed: int) -> void:
 	_update_timer_labels()
 	_player_one_world.generate_course(_seed)
 	_player_two_world.generate_course(_seed)
+
+
+func _start_local_rematch(use_new_seed: bool = false) -> void:
+	_cancel_transition()
+	_cancel_invert_flash()
+	get_tree().paused = false
+	var next_seed := _next_random_seed() if use_new_seed else _seed
+	_generate_race(next_seed)
+	_start_countdown()
 
 
 func _restart_course() -> void:
@@ -455,7 +485,9 @@ func _on_room_code_ready(room_code: String) -> void:
 
 
 func _on_online_match_configured(player_slot: int, seed: int) -> void:
+	_set_race_state(RaceState.STARTING)
 	_title_panel.visible = false
+	_result_panel.visible = false
 	_player_one_label.text = _online_match.local_display_name
 	_player_two_label.text = _online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else "PRZECIWNIK"
 	_network_status_label.text = "POŁĄCZONO"
@@ -484,7 +516,10 @@ func _on_online_opponent_status_received(_progress: float, _loudness: float, _bo
 
 func _on_online_rematch_waiting() -> void:
 	_winner_label.text = "CZEKA NA REWANŻ"
-	_result_reminder.text = "DRUGI GRACZ MUSI POTWIERDZIĆ."
+	if _online_match != null and _online_match.has_local_rematch_vote():
+		_result_reminder.text = "DRUGI GRACZ MUSI POTWIERDZIĆ."
+	else:
+		_result_reminder.text = "PRZECIWNIK CHCE REWANŻU. WCIŚNIJ ENTER / R."
 
 
 func _on_online_opponent_finished(player_slot: int, elapsed: float) -> void:
@@ -531,7 +566,7 @@ func _on_online_opponent_left(_client_id: int) -> void:
 	_placement_summary_label.text = ""
 	_winner_label.text = "PRZECIWNIK OPUŚCIŁ MECZ"
 	_times_label.text = ""
-	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
+	_result_actions.text = "ESC  MENU"
 	_result_reminder.text = "MECZ ONLINE ZAKOŃCZONY"
 	if _leaderboard_section != null:
 		_leaderboard_section.visible = false
@@ -544,7 +579,7 @@ func _on_online_match_failed(reason: String) -> void:
 	_placement_summary_label.text = ""
 	_winner_label.text = "NIE UDAŁO SIĘ ROZPOCZĄĆ MECZU"
 	_times_label.text = reason
-	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
+	_result_actions.text = "ESC  MENU"
 	_result_reminder.text = "SPRAWDŹ POŁĄCZENIE I KOD POKOJU"
 	if _leaderboard_section != null:
 		_leaderboard_section.visible = false

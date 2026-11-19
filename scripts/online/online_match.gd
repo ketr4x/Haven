@@ -165,13 +165,19 @@ func submit_local_status(
 
 
 func request_rematch() -> void:
-	if state != MatchState.FINISHED or player_slot == 0:
+	if state not in [MatchState.FINISHED, MatchState.REMATCH_WAITING] or player_slot == 0:
+		return
+	if _rematch_votes.has(player_slot):
 		return
 	state = MatchState.REMATCH_WAITING
 	_rematch_votes[player_slot] = true
 	_send("rematch_vote", {"accepted": true, "slot": player_slot})
 	rematch_waiting.emit()
 	_try_start_rematch()
+
+
+func has_local_rematch_vote() -> bool:
+	return _rematch_votes.has(player_slot)
 
 
 func leave_match() -> void:
@@ -326,6 +332,9 @@ func _receive_race_setup(payload: Dictionary) -> void:
 	if not seed_value is int or int(seed_value) <= 0:
 		_fail("Host sent an invalid course seed.")
 		return
+	finish_times.clear()
+	_course_signatures.clear()
+	_rematch_votes.clear()
 	player_slot = 2
 	race_seed = int(seed_value)
 	state = MatchState.CONFIGURING
