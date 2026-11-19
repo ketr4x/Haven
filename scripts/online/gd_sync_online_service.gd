@@ -120,6 +120,16 @@ func get_client_id() -> int:
 	return int(_client.get_client_id()) if is_instance_valid(_client) else -1
 
 
+func _get_current_logged_in_email() -> String:
+	if not is_instance_valid(_client):
+		return ""
+	if not _client.account_is_logged_in():
+		return ""
+	if is_instance_valid(_client._data_controller):
+		return str(_client._data_controller.login_email).to_lower().strip_edges()
+	return ""
+
+
 func submit_leaderboard_time(
 	username: String,
 	elapsed_seconds: float,
@@ -140,19 +150,27 @@ func submit_leaderboard_time(
 		leaderboard_submission_failed.emit(leaderboard_name, "BRAK POŁĄCZENIA Z GD-SYNC.")
 		return
 
-	_client.player_set_username(sanitized_name)
+	var auth_ok := await _ensure_silent_leaderboard_session(sanitized_name)
+	if not auth_ok or not is_instance_valid(_client):
+		leaderboard_submission_failed.emit(leaderboard_name, "BŁĄD LOGOWANIA PROFILU GRACZA.")
+		return
 
 	var score_ms := maxi(1, roundi(elapsed_seconds * 1000.0))
 	var payload := extra_data.duplicate(true)
 	payload["username"] = raw_name
 	payload["time_sec"] = snappedf(elapsed_seconds, 0.001)
 
-	var submit_code := int(await _client.leaderboard_submit_score(leaderboard_name, score_ms, payload))
-	if submit_code == ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.NOT_LOGGED_IN:
-		var auth_ok := await _ensure_silent_leaderboard_session(sanitized_name)
-		if auth_ok and is_instance_valid(_client):
-			submit_code = int(await _client.leaderboard_submit_score(leaderboard_name, score_ms, payload))
+	var logged_in_username: String = _client.player_get_username() if is_instance_valid(_client) else sanitized_name
+	if logged_in_username.is_empty():
+		logged_in_username = sanitized_name
+	var existing_score_res: Dictionary = await _client.leaderboard_get_score(leaderboard_name, logged_in_username)
+	if int(existing_score_res.get("Code", -1)) == ENUMS.LEADERBOARD_GET_SCORE_RESPONSE_CODE.SUCCESS:
+		var prev_score: int = int(existing_score_res.get("Result", {}).get("Score", 0))
+		if prev_score > 0 and score_ms >= prev_score:
+			leaderboard_score_submitted.emit(leaderboard_name, raw_name, prev_score)
+			return
 
+	var submit_code := int(await _client.leaderboard_submit_score(leaderboard_name, score_ms, payload))
 	if submit_code == ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.SUCCESS:
 		leaderboard_score_submitted.emit(leaderboard_name, raw_name, score_ms)
 	else:
@@ -192,14 +210,17 @@ func browse_leaderboard_times(
 		var data_dict: Dictionary = entry.get("Data", {}) if entry.get("Data") is Dictionary else {}
 		var entry_username := str(data_dict.get("username", entry.get("Username", entry.get("Name", "GRACZ"))))
 		var score_ms := int(entry.get("Score", 0))
-		var rank := int(entry.get("Rank", normalized.size() + 1))
 		normalized.append({
-			"rank": rank,
 			"username": entry_username,
 			"score_ms": score_ms,
 			"elapsed_seconds": float(score_ms) / 1000.0,
 			"data": data_dict,
 		})
+	normalized.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("score_ms", 0)) < int(b.get("score_ms", 0))
+	)
+	for i in normalized.size():
+		(normalized[i] as Dictionary)["rank"] = i + 1
 	leaderboard_scores_loaded.emit(leaderboard_name, normalized)
 
 
@@ -221,14 +242,17 @@ func _ensure_silent_leaderboard_session(desired_username: String) -> bool:
 	if clean.length() < 3:
 		clean = "Player"
 
-	if _client.account_is_logged_in():
-		_client.account_change_username(clean)
-		_client.player_set_username(clean)
-		return true
+	var target_email := "%s@rezonans.local" % clean.to_lower()
+	var target_secret := ("Rz#%s!9xK2" % clean.to_lower()).substr(0, 20)
 
-	var session_code := int(await _client.account_login_from_session(86400))
-	if session_code == ENUMS.ACCOUNT_LOGIN_RESPONSE_CODE.SUCCESS:
-		await _client.account_change_username(clean)
+	if _client.account_is_logged_in():
+		if _get_current_logged_in_email() == target_email:
+			_client.player_set_username(clean)
+			return true
+		await _client.account_logout()
+
+	var login_res: Dictionary = await _client.account_login(target_email, target_secret, 86400)
+	if int(login_res.get("Code", -1)) == ENUMS.ACCOUNT_LOGIN_RESPONSE_CODE.SUCCESS:
 		_client.player_set_username(clean)
 		return true
 
@@ -240,12 +264,13 @@ func _ensure_silent_leaderboard_session(desired_username: String) -> bool:
 		if create_code in [
 			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.SUCCESS,
 			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.EMAIL_ALREADY_EXISTS,
-			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.USERNAME_ALREADY_EXISTS,
 		]:
-			var login_res: Dictionary = await _client.account_login(email, secret, 86400)
-			if int(login_res.get("Code", -1)) == ENUMS.ACCOUNT_LOGIN_RESPONSE_CODE.SUCCESS:
+			var res: Dictionary = await _client.account_login(email, secret, 86400)
+			if int(res.get("Code", -1)) == ENUMS.ACCOUNT_LOGIN_RESPONSE_CODE.SUCCESS:
 				_client.player_set_username(candidate_name)
 				return true
+		if create_code == ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.USERNAME_ALREADY_EXISTS:
+			continue
 		if create_code == ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.NO_DATABASE:
 			return false
 	return false

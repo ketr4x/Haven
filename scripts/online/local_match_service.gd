@@ -137,12 +137,16 @@ func submit_leaderboard_time(
 	for i in board.size():
 		var item: Dictionary = board[i]
 		if str(item.get("username", "")).to_lower() == raw_name.to_lower():
-			board[i] = {
-				"username": raw_name,
-				"score_ms": score_ms,
-				"elapsed_seconds": float(score_ms) / 1000.0,
-				"data": payload,
-			}
+			var prev_score := int(item.get("score_ms", 0))
+			if prev_score <= 0 or score_ms < prev_score:
+				board[i] = {
+					"username": raw_name,
+					"score_ms": score_ms,
+					"elapsed_seconds": float(score_ms) / 1000.0,
+					"data": payload,
+				}
+			else:
+				score_ms = prev_score
 			replaced = true
 			break
 	if not replaced:
