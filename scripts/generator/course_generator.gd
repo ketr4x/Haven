@@ -326,6 +326,7 @@ func _rebuild_roof_and_fall_boundary() -> Dictionary:
 
 	return {
 		"world_occupied": world_occupied,
+		"chunk_cells": chunk_cells,
 		"col_floor_y": col_floor_y,
 		"min_column": min_column,
 		"max_column": max_column,
@@ -395,6 +396,7 @@ func _spawn_dynamic_course_features(random: RandomNumberGenerator, layout_data: 
 	if layout_data.is_empty() or _dynamic_features == null:
 		return
 	var world_occupied: Dictionary = layout_data["world_occupied"]
+	var chunk_cells: Dictionary = layout_data.get("chunk_cells", {})
 	var col_floor_y: Dictionary = layout_data["col_floor_y"]
 	var traversal_min_col := int(layout_data["traversal_min_col"])
 	var traversal_max_col := int(layout_data["traversal_max_col"])
@@ -405,23 +407,50 @@ func _spawn_dynamic_course_features(random: RandomNumberGenerator, layout_data: 
 			if child is StaticBody2D:
 				_mark_static_body_cells_blocked(child as StaticBody2D, blocked_cells)
 
-	# 1. Spawn indestructible E-revealed yellow blocks frequently on ground/passable lanes
+	var unsafe_cols := _build_unsafe_yellow_block_columns()
+
+	# 1. Spawn indestructible E-revealed yellow blocks only on flat, open single-floor runways
 	var yellow_candidates: Array[int] = []
-	for col in range(traversal_min_col + 2, traversal_max_col - 2):
+	for col in range(traversal_min_col + 3, traversal_max_col - 3):
+		if unsafe_cols.has(col):
+			continue
 		if not col_floor_y.has(col):
 			continue
 		var fy := int(col_floor_y[col])
-		if int(col_floor_y.get(col - 1, fy + 99)) != fy or int(col_floor_y.get(col + 1, fy + 99)) != fy:
+
+		# Flat runway check across [col - 2, col + 2]
+		var is_flat_runway := true
+		for dx in range(-2, 3):
+			var c := col + dx
+			if unsafe_cols.has(c):
+				is_flat_runway = false
+				break
+			if not col_floor_y.has(c) or int(col_floor_y[c]) != fy:
+				is_flat_runway = false
+				break
+			if not world_occupied.has(Vector2i(c, fy)):
+				is_flat_runway = false
+				break
+		if not is_flat_runway:
 			continue
-		if not world_occupied.has(Vector2i(col, fy)) \
-			or not world_occupied.has(Vector2i(col - 1, fy)) \
-			or not world_occupied.has(Vector2i(col + 1, fy)):
+
+		# Air clearance check across [col - 2, col + 2]
+		var is_air_clear := true
+		for dx in range(-2, 3):
+			var c := col + dx
+			if blocked_cells.has(Vector2i(c, fy - 1)) or blocked_cells.has(Vector2i(c, fy - 2)):
+				is_air_clear = false
+				break
+			# No chunk cells above the floor anywhere in the runway (e.g. low platforms, bridges overhead)
+			for y in range(fy - 8, fy):
+				if chunk_cells.has(Vector2i(c, y)):
+					is_air_clear = false
+					break
+			if not is_air_clear:
+				break
+		if not is_air_clear:
 			continue
-		if blocked_cells.has(Vector2i(col, fy - 1)) \
-			or blocked_cells.has(Vector2i(col, fy - 2)) \
-			or blocked_cells.has(Vector2i(col - 1, fy - 1)) \
-			or blocked_cells.has(Vector2i(col + 1, fy - 1)):
-			continue
+
 		yellow_candidates.append(col)
 
 	_shuffle_ints(yellow_candidates, random)
@@ -441,7 +470,45 @@ func _spawn_dynamic_course_features(random: RandomNumberGenerator, layout_data: 
 		yellow.position = Vector2(float(col) * TERRAIN_GRID_SIZE, float(fy - 1) * TERRAIN_GRID_SIZE)
 		_dynamic_features.add_child(yellow)
 		blocked_cells[Vector2i(col, fy - 1)] = true
+		blocked_cells[Vector2i(col, fy - 2)] = true
 		placed_yellow_cols.append(col)
+
+
+func _build_unsafe_yellow_block_columns() -> Dictionary:
+	var unsafe_cols: Dictionary = {}
+	for chunk_node in _generated_chunks.get_children():
+		var chunk := chunk_node as CourseChunk
+		if chunk == null:
+			continue
+		var is_complex := false
+		if chunk.terrain_features.has(&"double_floor") \
+			or chunk.terrain_features.has(&"branching_paths") \
+			or chunk.terrain_features.has(&"wall_climb") \
+			or chunk.terrain_features.has(&"breakable_wall") \
+			or chunk.terrain_features.has(&"noise_foam") \
+			or chunk.dead_end_paths > 0:
+			is_complex = true
+
+		var chunk_id_str := String(chunk.chunk_id)
+		if "stacked" in chunk_id_str \
+			or "maze" in chunk_id_str \
+			or "double_floor" in chunk_id_str \
+			or "dead_end" in chunk_id_str \
+			or "wall_jump" in chunk_id_str \
+			or "wall_blast" in chunk_id_str \
+			or "break_through" in chunk_id_str \
+			or "foam" in chunk_id_str:
+			is_complex = true
+
+		if is_complex:
+			var grid := chunk.grid_size
+			var c_entry := roundi((chunk.position.x + chunk.entry_position().x) / float(grid.x))
+			var c_exit := roundi((chunk.position.x + chunk.exit_position().x) / float(grid.x))
+			var c_start := mini(c_entry, c_exit)
+			var c_end := maxi(c_entry, c_exit)
+			for c in range(c_start - 3, c_end + 4):
+				unsafe_cols[c] = true
+	return unsafe_cols
 
 
 func _mark_static_body_cells_blocked(body: StaticBody2D, blocked: Dictionary) -> void:
