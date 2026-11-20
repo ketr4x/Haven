@@ -150,7 +150,7 @@ func submit_leaderboard_time(
 
 func browse_leaderboard_times(
 	leaderboard_name: String = DEFAULT_LEADERBOARD_NAME,
-	page_size: int = 10,
+	page_size: int = DEFAULT_LEADERBOARD_PAGE_SIZE,
 	page: int = 1
 ) -> void:
 	if not is_online():

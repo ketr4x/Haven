@@ -1341,9 +1341,13 @@ func _prepare_leaderboard_prompt(elapsed_seconds: float, prompt_text: String) ->
 		_username_input.grab_focus()
 		_username_input.caret_column = _username_input.text.length()
 	if _leaderboard_entries != null:
+		_leaderboard_entries.add_theme_font_size_override(&"font_size", 18)
 		_leaderboard_entries.text = tr("LB_LOADING")
 	if online_service != null:
-		online_service.browse_leaderboard_times()
+		online_service.browse_leaderboard_times(
+			OnlineServiceBase.DEFAULT_LEADERBOARD_NAME,
+			OnlineServiceBase.DEFAULT_LEADERBOARD_PAGE_SIZE
+		)
 
 
 func _on_username_submitted(username_text: String) -> void:
@@ -1389,7 +1393,10 @@ func _on_leaderboard_score_submitted(_leaderboard_name: String, username: String
 		_leaderboard_status.text = tr("LB_STATUS_SAVED") % [username, _format_time(float(score_ms) / 1000.0)]
 		_leaderboard_status.add_theme_color_override(&"font_color", Color(0.6, 0.98, 0.65, 1.0))
 	if online_service != null:
-		online_service.browse_leaderboard_times(_leaderboard_name)
+		online_service.browse_leaderboard_times(
+			_leaderboard_name,
+			OnlineServiceBase.DEFAULT_LEADERBOARD_PAGE_SIZE
+		)
 
 
 func _on_leaderboard_submission_failed(_leaderboard_name: String, reason: String) -> void:
@@ -1415,10 +1422,12 @@ func _on_leaderboard_scores_loaded(_leaderboard_name: String, entries: Array) ->
 		return time_a < time_b
 	)
 	var lines: PackedStringArray = PackedStringArray()
-	var count := mini(sorted_entries.size(), 10)
+	var count := mini(sorted_entries.size(), OnlineServiceBase.DEFAULT_LEADERBOARD_PAGE_SIZE)
 	for i in count:
 		var item: Dictionary = sorted_entries[i] if sorted_entries[i] is Dictionary else {}
-		var uname := str(item.get("username", tr("LB_DEFAULT_PLAYER")))
+		var uname := str(item.get("username", tr("LB_DEFAULT_PLAYER"))).strip_edges()
+		if uname.is_empty():
+			uname = tr("LB_DEFAULT_PLAYER")
 		var elapsed := float(item.get("elapsed_seconds", float(item.get("score_ms", 0)) / 1000.0))
 		lines.append("%d. %-14s %s" % [i + 1, uname.substr(0, 14), _format_time(elapsed)])
 	_leaderboard_entries.text = "\n".join(lines)

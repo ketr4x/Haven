@@ -2,12 +2,22 @@ class_name GdSyncOnlineService
 extends OnlineServiceBase
 
 const GD_SYNC_CLIENT: GDScript = preload("res://addons/GD-Sync/MultiplayerClient.gd")
+const LEADERBOARD_SERVER_PAGE_SIZE: int = 100
+const FRESH_RUN_ACCOUNT_MAX_ATTEMPTS: int = 8
 
 var _client: Variant
+var _browse_request_id: int = 0
+var _run_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _last_session_error: String = ""
+
+
+func _init() -> void:
+	_run_rng.randomize()
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_run_rng.randomize()
 
 
 func _exit_tree() -> void:
@@ -157,10 +167,9 @@ func submit_leaderboard_time(
 
 	var auth_ok := await _ensure_fresh_run_session(sanitized_name)
 	if not auth_ok or not is_instance_valid(_client):
-		leaderboard_submission_failed.emit(leaderboard_name, tr("LB_ERR_SESSION"))
+		var err_reason := _last_session_error if not _last_session_error.is_empty() else tr("LB_ERR_SESSION")
+		leaderboard_submission_failed.emit(leaderboard_name, err_reason)
 		return
-
-	_client.player_set_username(sanitized_name)
 
 	var score_ms := maxi(1, roundi(elapsed_seconds * 1000.0))
 	var payload := extra_data.duplicate(true)
@@ -176,36 +185,192 @@ func submit_leaderboard_time(
 
 func browse_leaderboard_times(
 	leaderboard_name: String = DEFAULT_LEADERBOARD_NAME,
-	page_size: int = 10,
+	page_size: int = DEFAULT_LEADERBOARD_PAGE_SIZE,
 	page: int = 1
 ) -> void:
+	_browse_request_id += 1
+	var request_id := _browse_request_id
+
 	var connected_ok := await _ensure_online_connection()
+	if request_id != _browse_request_id:
+		return
 	if not connected_ok or not is_instance_valid(_client):
 		leaderboard_load_failed.emit(leaderboard_name, tr("LB_ERR_NO_CONNECTION"))
 		return
 
-	var clamped_size := clampi(page_size, 1, 100)
+	var clamped_size := clampi(page_size, 1, LEADERBOARD_SERVER_PAGE_SIZE)
 	var clamped_page := maxi(1, page)
-	var response: Dictionary = await _client.leaderboard_browse_scores(leaderboard_name, clamped_size, clamped_page)
+	var start_idx := (clamped_page - 1) * clamped_size
+	var needed_count := start_idx + clamped_size
+
+	# Fetch using the server's max page size so we can discover FinalPage and
+	# read from the fastest end regardless of whether GD-Sync sorts descending or ascending.
+	var first_response := await _fetch_leaderboard_page(leaderboard_name, LEADERBOARD_SERVER_PAGE_SIZE, 1)
+	if request_id != _browse_request_id:
+		return
+	var first_code := int(first_response.get("Code", -1))
+	if first_code != ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.SUCCESS:
+		leaderboard_load_failed.emit(leaderboard_name, _format_browse_error(first_code, leaderboard_name))
+		return
+
+	var first_entries := _extract_raw_leaderboard_entries(first_response)
+	var final_page := maxi(1, int(first_response.get("FinalPage", 1)))
+	var collected_raw: Array = []
+	var seen_account_ids: Dictionary = {}
+
+	if final_page <= 1:
+		_append_unique_raw_entries(collected_raw, seen_account_ids, first_entries)
+	else:
+		var sort_direction := _detect_page_sort_direction(first_entries)
+		var fetched_tail := false
+		var fetched_tail_page := 0
+		var tail_entries: Array = []
+
+		if sort_direction == 0:
+			fetched_tail_page = final_page
+			var tail_response := await _fetch_leaderboard_page(leaderboard_name, LEADERBOARD_SERVER_PAGE_SIZE, fetched_tail_page)
+			if request_id != _browse_request_id:
+				return
+			var tail_code := int(tail_response.get("Code", -1))
+			if tail_code != ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.SUCCESS:
+				leaderboard_load_failed.emit(leaderboard_name, _format_browse_error(tail_code, leaderboard_name))
+				return
+			fetched_tail = true
+			tail_entries = _extract_raw_leaderboard_entries(tail_response)
+			final_page = maxi(final_page, int(tail_response.get("FinalPage", final_page)))
+			if not first_entries.is_empty() and not tail_entries.is_empty():
+				var p1_score := int((first_entries[0] as Dictionary).get("Score", 0))
+				sort_direction = -1 if _min_raw_score(tail_entries) < p1_score else 1
+			else:
+				sort_direction = -1
+
+		if sort_direction < 0:
+			# GD-Sync ranks highest score first: fastest times sit on FinalPage and preceding pages.
+			var fetched_pages: Dictionary = {}
+			if fetched_tail:
+				_append_unique_raw_entries(collected_raw, seen_account_ids, tail_entries)
+				fetched_pages[fetched_tail_page] = true
+			var current_page := final_page
+			while collected_raw.size() < needed_count and current_page >= 1:
+				if fetched_pages.has(current_page):
+					current_page -= 1
+					continue
+				if current_page == 1:
+					_append_unique_raw_entries(collected_raw, seen_account_ids, first_entries)
+					fetched_pages[1] = true
+					break
+				var page_resp := await _fetch_leaderboard_page(leaderboard_name, LEADERBOARD_SERVER_PAGE_SIZE, current_page)
+				if request_id != _browse_request_id:
+					return
+				var page_code := int(page_resp.get("Code", -1))
+				if page_code != ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.SUCCESS:
+					leaderboard_load_failed.emit(leaderboard_name, _format_browse_error(page_code, leaderboard_name))
+					return
+				var reported_final := maxi(final_page, int(page_resp.get("FinalPage", final_page)))
+				_append_unique_raw_entries(collected_raw, seen_account_ids, _extract_raw_leaderboard_entries(page_resp))
+				fetched_pages[current_page] = true
+				if reported_final > final_page:
+					final_page = reported_final
+					current_page = final_page
+				else:
+					current_page -= 1
+		else:
+			# Ascending server sort: fastest times sit on Page 1 onwards.
+			_append_unique_raw_entries(collected_raw, seen_account_ids, first_entries)
+			var current_page := 2
+			while collected_raw.size() < needed_count and current_page <= final_page:
+				if fetched_tail and current_page == fetched_tail_page:
+					_append_unique_raw_entries(collected_raw, seen_account_ids, tail_entries)
+					current_page += 1
+					continue
+				var page_resp := await _fetch_leaderboard_page(leaderboard_name, LEADERBOARD_SERVER_PAGE_SIZE, current_page)
+				if request_id != _browse_request_id:
+					return
+				var page_code := int(page_resp.get("Code", -1))
+				if page_code != ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.SUCCESS:
+					leaderboard_load_failed.emit(leaderboard_name, _format_browse_error(page_code, leaderboard_name))
+					return
+				_append_unique_raw_entries(collected_raw, seen_account_ids, _extract_raw_leaderboard_entries(page_resp))
+				current_page += 1
+
+	var normalized := _normalize_leaderboard_entries(collected_raw)
+	var page_entries: Array = []
+	for i in range(start_idx, mini(normalized.size(), start_idx + clamped_size)):
+		var item: Dictionary = (normalized[i] as Dictionary).duplicate(true)
+		item["rank"] = i + 1
+		page_entries.append(item)
+	leaderboard_scores_loaded.emit(leaderboard_name, page_entries)
+
+
+func _fetch_leaderboard_page(leaderboard_name: String, server_page_size: int, server_page: int) -> Dictionary:
+	var response: Dictionary = await _client.leaderboard_browse_scores(leaderboard_name, server_page_size, server_page)
 	var code := int(response.get("Code", -1))
 	if code == ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.NOT_LOGGED_IN:
 		var auth_ok := await _ensure_silent_leaderboard_session("ReaderGuest")
 		if auth_ok and is_instance_valid(_client):
-			response = await _client.leaderboard_browse_scores(leaderboard_name, clamped_size, clamped_page)
-			code = int(response.get("Code", -1))
+			response = await _client.leaderboard_browse_scores(leaderboard_name, server_page_size, server_page)
+	return response
 
-	if code != ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.SUCCESS:
-		leaderboard_load_failed.emit(leaderboard_name, _format_browse_error(code, leaderboard_name))
-		return
 
-	var raw_entries: Array = response.get("Result", []) if response.get("Result") is Array else []
+func _extract_raw_leaderboard_entries(response: Dictionary) -> Array:
+	var raw: Variant = response.get("Result", [])
+	if not raw is Array:
+		return []
+	var entries: Array = []
+	for item in raw:
+		if item is Dictionary:
+			entries.append(item)
+	return entries
+
+
+func _append_unique_raw_entries(target: Array, seen_account_ids: Dictionary, entries: Array) -> void:
+	# Deduplicate only by GD-Sync's unique per-run account Username to guard against
+	# page-boundary shifts; never deduplicate by the player's display nickname in Data.username.
+	for item in entries:
+		if not item is Dictionary:
+			continue
+		var entry: Dictionary = item
+		var account_id := str(entry.get("Username", "")).strip_edges()
+		if not account_id.is_empty():
+			if seen_account_ids.has(account_id):
+				continue
+			seen_account_ids[account_id] = true
+		target.append(entry)
+
+
+func _detect_page_sort_direction(entries: Array) -> int:
+	if entries.size() < 2:
+		return 0
+	var first_score := int((entries[0] as Dictionary).get("Score", 0))
+	var last_score := int((entries[entries.size() - 1] as Dictionary).get("Score", 0))
+	if first_score > last_score:
+		return -1
+	if first_score < last_score:
+		return 1
+	return 0
+
+
+func _min_raw_score(entries: Array) -> int:
+	var min_score := int((entries[0] as Dictionary).get("Score", 0))
+	for i in range(1, entries.size()):
+		min_score = mini(min_score, int((entries[i] as Dictionary).get("Score", 0)))
+	return min_score
+
+
+func _normalize_leaderboard_entries(raw_entries: Array) -> Array:
 	var normalized: Array = []
 	for item in raw_entries:
 		if not item is Dictionary:
 			continue
 		var entry: Dictionary = item
 		var data_dict: Dictionary = entry.get("Data", {}) if entry.get("Data") is Dictionary else {}
-		var entry_username := str(data_dict.get("username", entry.get("Username", entry.get("Name", tr("LB_DEFAULT_PLAYER")))))
+		var entry_username := ""
+		if data_dict.has("username"):
+			entry_username = str(data_dict.get("username", "")).strip_edges()
+		if entry_username.is_empty():
+			entry_username = str(entry.get("Username", entry.get("Name", tr("LB_DEFAULT_PLAYER")))).strip_edges()
+		if entry_username.is_empty():
+			entry_username = tr("LB_DEFAULT_PLAYER")
 		var score_ms := int(entry.get("Score", 0))
 		normalized.append({
 			"username": entry_username,
@@ -214,13 +379,15 @@ func browse_leaderboard_times(
 			"data": data_dict,
 		})
 	normalized.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var time_a := float(a.get("elapsed_seconds", float(a.get("score_ms", 0)) / 1000.0))
-		var time_b := float(b.get("elapsed_seconds", float(b.get("score_ms", 0)) / 1000.0))
-		return time_a < time_b
+		var score_a := int(a.get("score_ms", 0))
+		var score_b := int(b.get("score_ms", 0))
+		if score_a != score_b:
+			return score_a < score_b
+		return str(a.get("username", "")).nocasecmp_to(str(b.get("username", ""))) < 0
 	)
 	for i in normalized.size():
 		(normalized[i] as Dictionary)["rank"] = i + 1
-	leaderboard_scores_loaded.emit(leaderboard_name, normalized)
+	return normalized
 
 
 func _ensure_online_connection() -> bool:
@@ -235,29 +402,43 @@ func _ensure_online_connection() -> bool:
 
 
 func _ensure_fresh_run_session(desired_username: String) -> bool:
+	_last_session_error = ""
 	if not is_instance_valid(_client):
 		return false
 	var clean := _sanitize_leaderboard_username(desired_username)
 	if clean.length() < 3:
 		clean = "Player"
 
-	for attempt in 4:
-		var num1 := randi_range(100000, 999999)
-		var num2 := randi_range(1000, 9999)
+	for attempt in FRESH_RUN_ACCOUNT_MAX_ATTEMPTS:
+		var num1 := _run_rng.randi_range(100000, 999999)
+		var num2 := _run_rng.randi_range(1000, 9999)
 		var candidate_name := "r%d%d" % [num1, num2]
 		var email := "%s@rezonans.com" % candidate_name
 		var secret := "Pass%d%d" % [num1, num2]
 		var create_code := int(await _client.account_create(email, candidate_name, secret))
-		if create_code in [
-			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.SUCCESS,
-			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.EMAIL_ALREADY_EXISTS,
-			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.USERNAME_ALREADY_EXISTS,
-		]:
+		if create_code == ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.SUCCESS:
 			var login_res: Dictionary = await _client.account_login(email, secret, 86400)
 			if int(login_res.get("Code", -1)) == ENUMS.ACCOUNT_LOGIN_RESPONSE_CODE.SUCCESS:
 				_client.player_set_username(clean)
 				return true
+			continue
+		if create_code in [
+			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.EMAIL_ALREADY_EXISTS,
+			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.USERNAME_ALREADY_EXISTS,
+		]:
+			# Never log into an existing account; retry with a brand-new ID so every run is preserved.
+			continue
 		if create_code == ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.NO_DATABASE:
+			_last_session_error = tr("LB_ERR_NO_DB")
+			return false
+		if create_code == ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.RATE_LIMIT_EXCEEDED:
+			_last_session_error = tr("LB_ERR_RATE_LIMIT")
+			return false
+		if create_code in [
+			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.STORAGE_FULL,
+			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.DATA_CAP_REACHED,
+		]:
+			_last_session_error = tr("LB_ERR_STORAGE_FULL")
 			return false
 	return false
 

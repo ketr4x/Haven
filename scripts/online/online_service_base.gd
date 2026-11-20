@@ -18,6 +18,7 @@ signal leaderboard_scores_loaded(leaderboard_name: String, entries: Array)
 signal leaderboard_load_failed(leaderboard_name: String, reason: String)
 
 const DEFAULT_LEADERBOARD_NAME: String = "global_times"
+const DEFAULT_LEADERBOARD_PAGE_SIZE: int = 15
 
 enum ConnectionState {
 	OFFLINE,
@@ -88,7 +89,7 @@ func submit_leaderboard_time(
 
 func browse_leaderboard_times(
 	leaderboard_name: String = DEFAULT_LEADERBOARD_NAME,
-	page_size: int = 10,
+	page_size: int = DEFAULT_LEADERBOARD_PAGE_SIZE,
 	page: int = 1
 ) -> void:
 	_reject("browse_leaderboard_times", "The configured online service does not implement leaderboards.")
