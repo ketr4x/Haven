@@ -1,0 +1,68 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  GODOT_RELEASE_TAG: "4.7.2-stable"
+
+jobs:
+  test:
+    name: Run Godot Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Godot editor
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/godot-ci/${{ env.GODOT_RELEASE_TAG }}
+          key: godot-editor-${{ runner.os }}-${{ env.GODOT_RELEASE_TAG }}-v1
+
+      - name: Install Godot ${{ env.GODOT_RELEASE_TAG }}
+        run: |
+          set -euo pipefail
+
+          godot_cache_dir="$HOME/.cache/godot-ci/${GODOT_RELEASE_TAG}"
+          godot_bin="$godot_cache_dir/Godot_v${GODOT_RELEASE_TAG}_linux.x86_64"
+          base_url="https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE_TAG}"
+
+          mkdir -p "$godot_cache_dir"
+
+          if [[ ! -x "$godot_bin" ]]; then
+            echo "Downloading Godot ${GODOT_RELEASE_TAG} Linux binary..."
+            curl -fSL --retry 3 --retry-delay 5 \
+              "${base_url}/Godot_v${GODOT_RELEASE_TAG}_linux.x86_64.zip" \
+              -o /tmp/godot.zip
+            unzip -oq /tmp/godot.zip -d "$godot_cache_dir"
+            rm -f /tmp/godot.zip
+            chmod +x "$godot_bin"
+          fi
+
+          "$godot_bin" --version
+          echo "GODOT_BIN=$godot_bin" >> "$GITHUB_ENV"
+
+      - name: Import project resources
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path . --import
+
+      - name: Run test suite
+        run: |
+          set -euo pipefail
+          chmod +x ./scripts/run_tests.sh
+          ./scripts/run_tests.sh
