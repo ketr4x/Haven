@@ -45,6 +45,15 @@ func _initialize() -> void:
 	assert(menu.get_option_text(1) == "GRA ONLINE")
 	assert(menu.get_option_text(2) == "WYJDŹ")
 
+	# Test entering GRAJ submenu and ESC back to main menu
+	_send_key(race, KEY_ENTER)
+	assert(menu.get_option_text(0) == "JEDEN GRACZ")
+	assert(menu.get_option_text(1) == "DWÓCH GRACZY")
+	_send_key(race, KEY_ESCAPE)
+	assert(menu.get_option_text(0) == "GRAJ")
+	assert(menu.get_option_text(1) == "GRA ONLINE")
+	assert(menu.get_option_text(2) == "WYJDŹ")
+
 	# Test post-match finished state and return to normal main menu on ESC
 	race._race_state = race.RaceState.RACING
 	race._race_elapsed = 12.34

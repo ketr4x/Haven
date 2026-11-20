@@ -15,10 +15,12 @@ enum RaceState {
 enum SessionMode {
 	LOCAL,
 	ONLINE,
+	SINGLEPLAYER,
 }
 
 enum MenuScreen {
 	MAIN,
+	LOCAL_PLAY,
 	ONLINE,
 	FRIENDS,
 	JOIN_CODE,
@@ -183,7 +185,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 		elif event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
-			if _menu_screen == MenuScreen.ONLINE:
+			if _menu_screen == MenuScreen.LOCAL_PLAY:
+				_show_menu(MenuScreen.MAIN)
+			elif _menu_screen == MenuScreen.ONLINE:
 				_show_menu(MenuScreen.MAIN)
 			elif _menu_screen == MenuScreen.FRIENDS:
 				_show_menu(MenuScreen.ONLINE)
@@ -257,7 +261,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if _session_mode == SessionMode.LOCAL and _race_state in [RaceState.RACING, RaceState.PAUSED]:
+	if (_session_mode == SessionMode.LOCAL or _session_mode == SessionMode.SINGLEPLAYER) and _race_state in [RaceState.RACING, RaceState.PAUSED]:
 		if event.is_action_pressed(&"restart"):
 			_start_local_rematch(false)
 			get_viewport().set_input_as_handled()
@@ -287,7 +291,8 @@ func _generate_race(seed: int) -> void:
 	_cancel_invert_flash()
 	_update_timer_labels()
 	_player_one_world.generate_course(_seed)
-	_player_two_world.generate_course(_seed)
+	if _session_mode != SessionMode.SINGLEPLAYER:
+		_player_two_world.generate_course(_seed)
 
 
 func _start_local_rematch(use_new_seed: bool = false) -> void:
@@ -468,12 +473,16 @@ func _set_race_state(next_state: RaceState) -> void:
 		var opponent_slot := 2 if _online_match.player_slot == 1 else 1
 		_player_one_world.set_race_active(is_racing and not _player_finish_times.has(_online_match.player_slot))
 		_player_two_world.set_race_active(is_racing and not _player_finish_times.has(opponent_slot))
+	elif _session_mode == SessionMode.SINGLEPLAYER:
+		_player_one_world.set_race_active(is_racing and not _player_finish_times.has(1))
+		_player_two_world.set_race_active(false)
 	else:
 		_player_one_world.set_race_active(is_racing and not _player_finish_times.has(1))
 		_player_two_world.set_race_active(is_racing and not _player_finish_times.has(2))
 	if previous_state == RaceState.COUNTDOWN and next_state == RaceState.RACING:
 		_player_one_world.emit_intro_pulse()
-		_player_two_world.emit_intro_pulse()
+		if _session_mode != SessionMode.SINGLEPLAYER:
+			_player_two_world.emit_intro_pulse()
 
 
 func _on_player_finished(player_number: int) -> void:
@@ -491,6 +500,24 @@ func _on_player_finished(player_number: int) -> void:
 		_finish_status_label.text = "JESTEŚ NA MECIE. PRZECIWNIK JEDZIE DALEJ."
 		_finish_status_label.visible = true
 		_update_timer_labels()
+		return
+
+	if _session_mode == SessionMode.SINGLEPLAYER:
+		_player_finish_times[1] = _race_elapsed
+		_player_one_world.set_race_active(false)
+		_update_timer_labels()
+		_finish_status_label.visible = false
+		_hide_finish_banners()
+		_winner_label.text = "META!"
+		_placement_summary_label.text = "CZAS PRZEJŚCIA: %s" % _format_time(_race_elapsed)
+		_times_label.text = "TWÓJ CZAS: %s" % _format_time(_race_elapsed)
+		_result_actions.text = "R  POWTÓRZ        N  NOWA TRASA        ESC  MENU"
+		_result_reminder.text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
+		_prepare_leaderboard_prompt(
+			_race_elapsed,
+			"WPISZ NICK DO RANKINGU — %s" % _format_time(_race_elapsed)
+		)
+		_set_race_state(RaceState.FINISHED)
 		return
 
 	_player_finish_times[player_number] = _race_elapsed
@@ -517,6 +544,67 @@ func _on_player_finished(player_number: int) -> void:
 		"WPISZ NICK ZWYCIĘZCY (GRACZ %d) — %s" % [winner_number, _format_time(float(_player_finish_times[winner_number]))]
 	)
 	_set_race_state(RaceState.FINISHED)
+
+
+func start_singleplayer_match() -> void:
+	_session_mode = SessionMode.SINGLEPLAYER
+	_setup_singleplayer_presentation()
+	_generate_race(_next_random_seed())
+	_begin_match_start()
+
+
+func start_local_match() -> void:
+	_session_mode = SessionMode.LOCAL
+	_setup_local_two_player_presentation()
+	_generate_race(_next_random_seed())
+	_begin_match_start()
+
+
+func _setup_singleplayer_presentation() -> void:
+	get_tree().paused = false
+	_top_container.anchor_top = 0.0
+	_top_container.anchor_bottom = 1.0
+	_top_container.offset_top = 0.0
+	_top_container.offset_bottom = 0.0
+	_bottom_container.visible = false
+	_divider.visible = false
+	_player_one_label.text = "TRYB JEDNOOSOBOWY"
+	_player_one_label.visible = true
+	_player_two_label.visible = false
+	_player_one_timer_label.visible = true
+	_player_two_timer_label.visible = false
+	_network_status_label.visible = false
+	_opponent_progress_label.visible = false
+	_finish_status_label.visible = false
+	_player_one_world.configure_for_singleplayer()
+	_player_two_world.set_physics_process(false)
+	_player_two_world.set_process(false)
+	_player_two_world.set_race_active(false)
+
+
+func _setup_local_two_player_presentation() -> void:
+	get_tree().paused = false
+	_top_container.anchor_top = 0.0
+	_top_container.anchor_bottom = 0.5
+	_top_container.offset_top = 0.0
+	_top_container.offset_bottom = -2.0
+	_bottom_container.visible = true
+	_divider.visible = true
+	_player_one_label.text = "GRACZ 1"
+	_player_two_label.text = "GRACZ 2"
+	_player_one_label.visible = true
+	_player_two_label.visible = true
+	_player_two_label.position.y = 382.0
+	_player_one_timer_label.visible = true
+	_player_two_timer_label.visible = true
+	_player_two_timer_label.position.y = 412.0
+	_network_status_label.visible = false
+	_opponent_progress_label.visible = false
+	_finish_status_label.visible = false
+	_player_two_world.set_physics_process(true)
+	_player_two_world.set_process(true)
+	_player_one_world.configure_for_local_slot(1)
+	_player_two_world.configure_for_local_slot(2)
 
 
 func start_quick_match() -> void:
@@ -561,6 +649,9 @@ func _begin_online_session() -> void:
 
 func _start_online_match_from_command_line() -> void:
 	for argument in OS.get_cmdline_user_args():
+		if argument == "--singleplayer":
+			start_singleplayer_match()
+			return
 		if argument == "--online-host":
 			host_friend_room()
 			return
@@ -692,6 +783,12 @@ func _show_menu(next_screen: MenuScreen) -> void:
 				"STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ",
 				"WYŚCIG ECHA",
 			)
+		MenuScreen.LOCAL_PLAY:
+			_title_panel.show_options(
+				["JEDEN GRACZ", "DWÓCH GRACZY"],
+				"STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ",
+				"WYBIERZ TRYB GRY      ESC  POWRÓT",
+			)
 		MenuScreen.ONLINE:
 			_title_panel.show_options(
 				["SZYBKI MECZ", "ZE ZNAJOMYM"],
@@ -714,11 +811,16 @@ func _on_menu_option_selected(index: int) -> void:
 	match _menu_screen:
 		MenuScreen.MAIN:
 			if index == 0:
-				_begin_match_start()
+				_show_menu(MenuScreen.LOCAL_PLAY)
 			elif index == 1:
 				_show_menu(MenuScreen.ONLINE)
 			else:
 				get_tree().quit()
+		MenuScreen.LOCAL_PLAY:
+			if index == 0:
+				start_singleplayer_match()
+			else:
+				start_local_match()
 		MenuScreen.ONLINE:
 			if index == 0:
 				_show_menu(MenuScreen.WAITING)
@@ -753,18 +855,7 @@ func _return_to_main_menu() -> void:
 	_cancel_invert_flash()
 	_online_match.leave_match()
 	_session_mode = SessionMode.LOCAL
-	_top_container.anchor_bottom = 0.5
-	_top_container.offset_bottom = -2.0
-	_bottom_container.visible = true
-	_divider.visible = true
-	_player_one_world.configure_for_local_slot(1)
-	_player_two_world.configure_for_local_slot(2)
-	_player_one_label.text = "GRACZ 1"
-	_player_two_label.text = "GRACZ 2"
-	_player_two_label.position.y = 382.0
-	_player_two_timer_label.position.y = 412.0
-	_network_status_label.visible = false
-	_opponent_progress_label.visible = false
+	_setup_local_two_player_presentation()
 	_result_actions.text = "R  REWANŻ        N  NOWA TRASA        ESC  MENU"
 	_result_reminder.text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
 	_generate_race(_next_random_seed())
@@ -880,7 +971,8 @@ func _update_placement_summary(p1_name: String, p2_name: String) -> void:
 
 func _update_timer_labels() -> void:
 	_player_one_timer_label.text = "CZAS  %s" % _format_time(_time_for_player(1))
-	_player_two_timer_label.text = "CZAS  %s" % _format_time(_time_for_player(2))
+	if _session_mode != SessionMode.SINGLEPLAYER:
+		_player_two_timer_label.text = "CZAS  %s" % _format_time(_time_for_player(2))
 
 
 func _time_for_player(player_number: int) -> float:
@@ -964,7 +1056,7 @@ func _on_username_submitted(username_text: String) -> void:
 		_pending_leaderboard_time,
 		OnlineServiceBase.DEFAULT_LEADERBOARD_NAME,
 		{
-			"mode": "online" if _session_mode == SessionMode.ONLINE else "offline",
+			"mode": "online" if _session_mode == SessionMode.ONLINE else ("singleplayer" if _session_mode == SessionMode.SINGLEPLAYER else "offline"),
 			"seed": _seed,
 		}
 	)

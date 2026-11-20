@@ -13,6 +13,12 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/player_vignette.gdshader"
 @export var shout_action: StringName = &"p1_shout"
 @export var slide_action: StringName = &"p1_slide"
 @export var trampoline_action: StringName = &"p1_trampoline"
+@export var secondary_left_action: StringName = &""
+@export var secondary_right_action: StringName = &""
+@export var secondary_jump_action: StringName = &""
+@export var secondary_shout_action: StringName = &""
+@export var secondary_slide_action: StringName = &""
+@export var secondary_trampoline_action: StringName = &""
 @export var player_color: Color = Color(1, 0.32, 0.62, 1)
 @export var mirror_course_horizontally: bool = false
 @export var sound_wave_scene: PackedScene
@@ -43,6 +49,8 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/player_vignette.gdshader"
 @export_range(0.3, 1.4, 0.01) var scream_vignette_outer_radius: float = 0.98
 @export_range(0.15, 1.0, 0.01) var scream_vignette_darkness: float = 0.42
 @export var scream_vignette_hold_duration: float = 4.0
+@export_range(0.2, 0.5, 0.005) var singleplayer_vertical_mask_inner: float = 0.42
+@export_range(0.25, 0.5, 0.005) var singleplayer_vertical_mask_outer: float = 0.5
 
 @onready var _generator: CourseGenerator = $CourseGenerator
 @onready var _player: RezonansPlayer = $Player
@@ -57,6 +65,7 @@ var _vignette_material: ShaderMaterial
 var _vignette_pulse_strength: float = 0.0
 var _silence_dim_amount: float = 0.0
 var _shout_glow_amount: float = 0.0
+var _match_split_screen_view: bool = false
 var _next_pulse_id: int = 0
 var _activated_pulses: Dictionary = {}
 var death_height: float = INF
@@ -194,9 +203,22 @@ func _update_vignette_uniforms(strength: float) -> void:
 	)
 	_vignette_material.set_shader_parameter("silence_dim", _silence_dim_amount)
 	_vignette_material.set_shader_parameter("pulse_glow", _shout_glow_amount)
+	var vp_size := Vector2(1280.0, 720.0 if _match_split_screen_view else 358.0)
+	var viewport := get_viewport()
+	if viewport != null:
+		var visible_size := viewport.get_visible_rect().size
+		if visible_size.x > 4.0 and visible_size.y > 4.0:
+			vp_size = visible_size
+	var reference_height := maxf(1.0, vp_size.y * 0.5 - 2.0) if _match_split_screen_view else maxf(1.0, vp_size.y)
+	_vignette_material.set_shader_parameter("viewport_size_px", vp_size)
+	_vignette_material.set_shader_parameter("reference_height_px", reference_height)
+	_vignette_material.set_shader_parameter("vertical_mask_enabled", 1.0 if _match_split_screen_view else 0.0)
+	_vignette_material.set_shader_parameter("vertical_mask_inner", singleplayer_vertical_mask_inner)
+	_vignette_material.set_shader_parameter("vertical_mask_outer", singleplayer_vertical_mask_outer)
 
 
 func configure_for_local_slot(slot: int) -> void:
+	_match_split_screen_view = false
 	player_number = slot
 	left_action = &"p1_left" if slot == 1 else &"p2_left"
 	right_action = &"p1_right" if slot == 1 else &"p2_right"
@@ -204,13 +226,45 @@ func configure_for_local_slot(slot: int) -> void:
 	shout_action = &"p1_shout" if slot == 1 else &"p2_shout"
 	slide_action = &"p1_slide" if slot == 1 else &"p2_slide"
 	trampoline_action = &"p1_trampoline" if slot == 1 else &"p2_trampoline"
+	secondary_left_action = &""
+	secondary_right_action = &""
+	secondary_jump_action = &""
+	secondary_shout_action = &""
+	secondary_slide_action = &""
+	secondary_trampoline_action = &""
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = false
+	_finish_area.monitoring = true
 	_apply_player_configuration()
+	_update_vignette_uniforms(_vignette_pulse_strength)
+
+
+func configure_for_singleplayer() -> void:
+	_match_split_screen_view = true
+	player_number = 1
+	left_action = &"p1_left"
+	right_action = &"p1_right"
+	jump_action = &"p1_jump"
+	shout_action = &"p1_shout"
+	slide_action = &"p1_slide"
+	trampoline_action = &"p1_trampoline"
+	secondary_left_action = &"p2_left"
+	secondary_right_action = &"p2_right"
+	secondary_jump_action = &"p2_jump"
+	secondary_shout_action = &"p2_shout"
+	secondary_slide_action = &"p2_slide"
+	secondary_trampoline_action = &"p2_trampoline"
+	mirror_course_horizontally = false
+	player_color = Color(0.74902, 0.411765, 0.47451, 1)
+	_player.is_remote = false
+	_finish_area.monitoring = true
+	_apply_player_configuration()
+	_update_vignette_uniforms(_vignette_pulse_strength)
 
 
 func configure_for_online_slot(slot: int) -> void:
+	_match_split_screen_view = false
 	player_number = slot
 	left_action = &"p1_left"
 	right_action = &"p1_right"
@@ -218,13 +272,22 @@ func configure_for_online_slot(slot: int) -> void:
 	shout_action = &"p1_shout"
 	slide_action = &"p1_slide"
 	trampoline_action = &"p1_trampoline"
+	secondary_left_action = &""
+	secondary_right_action = &""
+	secondary_jump_action = &""
+	secondary_shout_action = &""
+	secondary_slide_action = &""
+	secondary_trampoline_action = &""
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = false
+	_finish_area.monitoring = true
 	_apply_player_configuration()
+	_update_vignette_uniforms(_vignette_pulse_strength)
 
 
 func configure_as_remote_opponent(slot: int) -> void:
+	_match_split_screen_view = false
 	player_number = slot
 	left_action = &""
 	right_action = &""
@@ -232,11 +295,18 @@ func configure_as_remote_opponent(slot: int) -> void:
 	shout_action = &""
 	slide_action = &""
 	trampoline_action = &""
+	secondary_left_action = &""
+	secondary_right_action = &""
+	secondary_jump_action = &""
+	secondary_shout_action = &""
+	secondary_slide_action = &""
+	secondary_trampoline_action = &""
 	mirror_course_horizontally = false
 	player_color = Color(0.74902, 0.411765, 0.47451, 1) if slot == 1 else Color(0.509804, 0.709804, 0.85098, 1)
 	_player.is_remote = true
 	_finish_area.monitoring = false
 	_apply_player_configuration()
+	_update_vignette_uniforms(_vignette_pulse_strength)
 
 
 func course_signature() -> String:
@@ -328,6 +398,12 @@ func _apply_player_configuration() -> void:
 	_player.shout_action = shout_action
 	_player.slide_action = slide_action
 	_player.trampoline_action = trampoline_action
+	_player.secondary_left_action = secondary_left_action
+	_player.secondary_right_action = secondary_right_action
+	_player.secondary_jump_action = secondary_jump_action
+	_player.secondary_shout_action = secondary_shout_action
+	_player.secondary_slide_action = secondary_slide_action
+	_player.secondary_trampoline_action = secondary_trampoline_action
 	_player.modulate = player_color
 	_player.set_visual_slot(player_number)
 	_generator.mirror_horizontally = mirror_course_horizontally
