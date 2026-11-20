@@ -116,10 +116,10 @@ func submit_leaderboard_time(
 	var raw_name := username.strip_edges()
 	var sanitized_name := _sanitize_leaderboard_username(raw_name)
 	if sanitized_name.length() < 3:
-		leaderboard_submission_failed.emit(leaderboard_name, "NAZWA MUSI MIEĆ MIN. 3 ZNAKI (A-Z, 0-9).")
+		leaderboard_submission_failed.emit(leaderboard_name, tr("LB_ERR_SHORT_NAME"))
 		return
 	if elapsed_seconds <= 0.0:
-		leaderboard_submission_failed.emit(leaderboard_name, "NIEPRAWIDŁOWY CZAS WYŚCIGU.")
+		leaderboard_submission_failed.emit(leaderboard_name, tr("LB_ERR_INVALID_TIME"))
 		return
 
 	if not is_online():

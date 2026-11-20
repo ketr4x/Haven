@@ -233,10 +233,10 @@ mouse_filter = 2
 [node name="MenuItems" type="VBoxContainer" parent="MenuOverlay"]
 layout_mode = 0
 offset_left = 72.0
-offset_top = 348.0
-offset_right = 440.0
-offset_bottom = 548.0
-theme_override_constants/separation = 14
+offset_top = 342.0
+offset_right = 1200.0
+offset_bottom = 602.0
+theme_override_constants/separation = 12
 mouse_filter = 2
 
 [node name="PlayOption" type="HBoxContainer" parent="MenuOverlay/MenuItems"]
@@ -254,7 +254,7 @@ theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
 theme_override_constants/outline_size = 6
 theme_override_constants/shadow_offset_x = 3
 theme_override_constants/shadow_offset_y = 3
-theme_override_font_sizes/font_size = 44
+theme_override_font_sizes/font_size = 42
 text = ">"
 
 [node name="Text" type="Label" parent="MenuOverlay/MenuItems/PlayOption"]
@@ -265,8 +265,8 @@ theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
 theme_override_constants/outline_size = 6
 theme_override_constants/shadow_offset_x = 3
 theme_override_constants/shadow_offset_y = 3
-theme_override_font_sizes/font_size = 44
-text = "GRAJ"
+theme_override_font_sizes/font_size = 42
+text = "PLAY"
 
 [node name="OnlineOption" type="HBoxContainer" parent="MenuOverlay/MenuItems"]
 layout_mode = 2
@@ -283,7 +283,7 @@ theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
 theme_override_constants/outline_size = 6
 theme_override_constants/shadow_offset_x = 3
 theme_override_constants/shadow_offset_y = 3
-theme_override_font_sizes/font_size = 44
+theme_override_font_sizes/font_size = 42
 
 [node name="Text" type="Label" parent="MenuOverlay/MenuItems/OnlineOption"]
 layout_mode = 2
@@ -293,8 +293,36 @@ theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
 theme_override_constants/outline_size = 6
 theme_override_constants/shadow_offset_x = 3
 theme_override_constants/shadow_offset_y = 3
-theme_override_font_sizes/font_size = 44
-text = "GRA ONLINE"
+theme_override_font_sizes/font_size = 42
+text = "ONLINE"
+
+[node name="SettingsOption" type="HBoxContainer" parent="MenuOverlay/MenuItems"]
+layout_mode = 2
+mouse_filter = 0
+mouse_default_cursor_shape = 2
+theme_override_constants/separation = 12
+
+[node name="Cursor" type="Label" parent="MenuOverlay/MenuItems/SettingsOption"]
+custom_minimum_size = Vector2(28, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74902, 0.74902, 0.74902, 0.92)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 42
+
+[node name="Text" type="Label" parent="MenuOverlay/MenuItems/SettingsOption"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74902, 0.74902, 0.74902, 0.92)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 42
+text = "SETTINGS"
 
 [node name="QuitOption" type="HBoxContainer" parent="MenuOverlay/MenuItems"]
 layout_mode = 2
@@ -311,7 +339,7 @@ theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
 theme_override_constants/outline_size = 6
 theme_override_constants/shadow_offset_x = 3
 theme_override_constants/shadow_offset_y = 3
-theme_override_font_sizes/font_size = 44
+theme_override_font_sizes/font_size = 42
 
 [node name="Text" type="Label" parent="MenuOverlay/MenuItems/QuitOption"]
 layout_mode = 2
@@ -321,8 +349,36 @@ theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
 theme_override_constants/outline_size = 6
 theme_override_constants/shadow_offset_x = 3
 theme_override_constants/shadow_offset_y = 3
-theme_override_font_sizes/font_size = 44
-text = "WYJDŹ"
+theme_override_font_sizes/font_size = 42
+text = "QUIT"
+
+[node name="ExtraOption" type="HBoxContainer" parent="MenuOverlay/MenuItems"]
+visible = false
+layout_mode = 2
+mouse_filter = 0
+mouse_default_cursor_shape = 2
+theme_override_constants/separation = 12
+
+[node name="Cursor" type="Label" parent="MenuOverlay/MenuItems/ExtraOption"]
+custom_minimum_size = Vector2(28, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74902, 0.74902, 0.74902, 0.92)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 42
+
+[node name="Text" type="Label" parent="MenuOverlay/MenuItems/ExtraOption"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74902, 0.74902, 0.74902, 0.92)
+theme_override_colors/font_outline_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_colors/font_shadow_color = Color(0.101961, 0.101961, 0.101961, 1)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 42
 
 [node name="Prompt" type="Label" parent="MenuOverlay"]
 layout_mode = 1
@@ -343,7 +399,7 @@ theme_override_constants/outline_size = 4
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 24
-text = "STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ"
+text = "ARROWS / W S  SELECT      ENTER / SPACE  CONFIRM"
 horizontal_alignment = 1
 
 [node name="Hint" type="Label" parent="MenuOverlay"]
@@ -365,7 +421,7 @@ theme_override_constants/outline_size = 4
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 22
-text = "WYŚCIG ECHA"
+text = "ECHO RACE"
 horizontal_alignment = 1
 
 [node name="RoomCodeInput" type="LineEdit" parent="MenuOverlay"]
@@ -385,7 +441,7 @@ theme_override_colors/font_color = Color(0.960784, 0.960784, 0.960784, 1)
 theme_override_colors/font_placeholder_color = Color(0.74902, 0.74902, 0.74902, 0.92)
 theme_override_colors/caret_color = Color(0.960784, 0.960784, 0.960784, 1)
 theme_override_font_sizes/font_size = 28
-placeholder_text = "KOD POKOJU"
+placeholder_text = "ROOM CODE"
 max_length = 32
 alignment = 1
 

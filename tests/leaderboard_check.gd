@@ -122,6 +122,13 @@ func _initialize() -> void:
 	assert(username_input.visible and username_input.editable)
 	assert(username_input.has_focus())
 
+	# A GD-Sync connection failure during leaderboard lookup must never hijack local race results
+	service.connection_failed.emit("GD-Sync connection failed with error 0.")
+	await process_frame
+	assert(race._online_match.state == OnlineMatch.MatchState.IDLE)
+	assert((race.get_node("GlobalUi/ResultPanel/Winner") as Label).text == "PLAYER 1 WINS")
+	assert(leaderboard_section.visible)
+
 	# While typing in the username field, pressing R should not restart the course
 	var seed_before := int(race._seed)
 	var r_key := InputEventKey.new()
@@ -138,7 +145,7 @@ func _initialize() -> void:
 
 	assert(race._leaderboard_submitted)
 	assert(not username_input.editable)
-	assert("ZAPISANO: EchoRunner" in status_label.text)
+	assert("SAVED: EchoRunner" in status_label.text)
 	assert("1. EchoRunner" in entries_label.text)
 	assert("00:14.250" in entries_label.text)
 

@@ -36,17 +36,18 @@ func _initialize() -> void:
 
 	# 1. Main menu initial state
 	assert(race._race_state == race.RaceState.TITLE)
-	assert(title_panel.get_option_text(0) == "GRAJ")
-	assert(title_panel.get_option_text(1) == "GRA ONLINE")
-	assert(title_panel.get_option_text(2) == "WYJDŹ")
+	assert(title_panel.get_option_text(0) == "PLAY")
+	assert(title_panel.get_option_text(1) == "ONLINE")
+	assert(title_panel.get_option_text(2) == "SETTINGS")
+	assert(title_panel.get_option_text(3) == "QUIT")
 
-	# 2. Select "GRAJ" -> opens LOCAL_PLAY menu
+	# 2. Select "PLAY" -> opens LOCAL_PLAY menu
 	_send_action(race, &"ui_accept")
 	assert(race._menu_screen == race.MenuScreen.LOCAL_PLAY)
-	assert(title_panel.get_option_text(0) == "JEDEN GRACZ")
-	assert(title_panel.get_option_text(1) == "DWÓCH GRACZY")
+	assert(title_panel.get_option_text(0) == "SINGLEPLAYER")
+	assert(title_panel.get_option_text(1) == "TWO PLAYERS")
 
-	# 3. Select "JEDEN GRACZ" (index 0)
+	# 3. Select "SINGLEPLAYER" (index 0)
 	_send_action(race, &"ui_accept")
 	assert(race._session_mode == race.SessionMode.SINGLEPLAYER)
 	assert(race._race_state == race.RaceState.STARTING)
@@ -111,9 +112,9 @@ func _initialize() -> void:
 	race._on_player_finished(1)
 	assert(race._race_state == race.RaceState.FINISHED)
 	assert(result_panel.visible)
-	assert(winner_label.text == "META!")
+	assert(winner_label.text == "FINISH!")
 	assert("18.425" in times_label.text)
-	assert("R  POWTÓRZ" in result_actions.text)
+	assert("R  RETRY" in result_actions.text)
 	assert(leaderboard_section.visible)
 	assert(is_equal_approx(float(race._pending_leaderboard_time), 18.425))
 
@@ -122,7 +123,7 @@ func _initialize() -> void:
 	username_input.text_submitted.emit(username_input.text)
 	await process_frame
 	assert(race._leaderboard_submitted)
-	assert("ZAPISANO: SoloRunner" in leaderboard_status.text)
+	assert("SAVED: SoloRunner" in leaderboard_status.text)
 	var board: Array = service.leaderboards[OnlineServiceBase.DEFAULT_LEADERBOARD_NAME]
 	assert(board[0]["data"]["mode"] == "singleplayer")
 
@@ -156,15 +157,16 @@ func _initialize() -> void:
 	assert(is_equal_approx(top_container.anchor_bottom, 0.5))
 	assert(bottom_container.visible)
 	assert(divider.visible)
-	assert(p1_label.text == "GRACZ 1")
-	assert(p2_label.text == "GRACZ 2")
+	assert(p1_label.text == "PLAYER 1")
+	assert(p2_label.text == "PLAYER 2")
 	assert(p1_label.visible)
 	assert(p2_label.visible)
 	assert(p1_timer.visible)
 	assert(p2_timer.visible)
-	assert(title_panel.get_option_text(0) == "GRAJ")
-	assert(title_panel.get_option_text(1) == "GRA ONLINE")
-	assert(title_panel.get_option_text(2) == "WYJDŹ")
+	assert(title_panel.get_option_text(0) == "PLAY")
+	assert(title_panel.get_option_text(1) == "ONLINE")
+	assert(title_panel.get_option_text(2) == "SETTINGS")
+	assert(title_panel.get_option_text(3) == "QUIT")
 	await process_frame
 	assert(is_equal_approx(float(vignette_mat.get_shader_parameter("vertical_mask_enabled")), 0.0))
 	var split_vp_size: Vector2 = vignette_mat.get_shader_parameter("viewport_size_px")

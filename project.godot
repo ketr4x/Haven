@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+GameSettings="*res://scripts/game/game_settings.gd"
 OnlineService="*res://scripts/online/gd_sync_online_service.gd"
 
 [display]

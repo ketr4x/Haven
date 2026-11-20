@@ -28,6 +28,11 @@ func connect_online() -> void:
 	if is_online() or is_connecting():
 		return
 
+	if is_instance_valid(_client):
+		_client.stop_multiplayer()
+		_client.queue_free()
+		_client = null
+
 	connection_state = ConnectionState.CONNECTING
 	_client = GD_SYNC_CLIENT.new()
 	_client.name = "GDSync"
@@ -149,20 +154,20 @@ func submit_leaderboard_time(
 	var raw_name := username.strip_edges()
 	var sanitized_name := _sanitize_leaderboard_username(raw_name)
 	if sanitized_name.length() < 3:
-		leaderboard_submission_failed.emit(leaderboard_name, "NAZWA MUSI MIEĆ MIN. 3 ZNAKI (A-Z, 0-9).")
+		leaderboard_submission_failed.emit(leaderboard_name, tr("LB_ERR_SHORT_NAME"))
 		return
 	if elapsed_seconds <= 0.0:
-		leaderboard_submission_failed.emit(leaderboard_name, "NIEPRAWIDŁOWY CZAS WYŚCIGU.")
+		leaderboard_submission_failed.emit(leaderboard_name, tr("LB_ERR_INVALID_TIME"))
 		return
 
 	var connected_ok := await _ensure_online_connection()
 	if not connected_ok or not is_instance_valid(_client):
-		leaderboard_submission_failed.emit(leaderboard_name, "BRAK POŁĄCZENIA Z GD-SYNC.")
+		leaderboard_submission_failed.emit(leaderboard_name, tr("LB_ERR_NO_CONNECTION"))
 		return
 
 	var auth_ok := await _ensure_fresh_run_session(sanitized_name)
 	if not auth_ok or not is_instance_valid(_client):
-		var err_reason := _last_session_error if not _last_session_error.is_empty() else "BŁĄD TWORZENIA SESJI RUNU W GD-SYNC."
+		var err_reason := _last_session_error if not _last_session_error.is_empty() else tr("LB_ERR_SESSION")
 		leaderboard_submission_failed.emit(leaderboard_name, err_reason)
 		return
 
@@ -190,7 +195,7 @@ func browse_leaderboard_times(
 	if request_id != _browse_request_id:
 		return
 	if not connected_ok or not is_instance_valid(_client):
-		leaderboard_load_failed.emit(leaderboard_name, "BRAK POŁĄCZENIA Z GD-SYNC.")
+		leaderboard_load_failed.emit(leaderboard_name, tr("LB_ERR_NO_CONNECTION"))
 		return
 
 	var clamped_size := clampi(page_size, 1, LEADERBOARD_SERVER_PAGE_SIZE)
@@ -363,9 +368,9 @@ func _normalize_leaderboard_entries(raw_entries: Array) -> Array:
 		if data_dict.has("username"):
 			entry_username = str(data_dict.get("username", "")).strip_edges()
 		if entry_username.is_empty():
-			entry_username = str(entry.get("Username", entry.get("Name", "GRACZ"))).strip_edges()
+			entry_username = str(entry.get("Username", entry.get("Name", tr("LB_DEFAULT_PLAYER")))).strip_edges()
 		if entry_username.is_empty():
-			entry_username = "GRACZ"
+			entry_username = tr("LB_DEFAULT_PLAYER")
 		var score_ms := int(entry.get("Score", 0))
 		normalized.append({
 			"username": entry_username,
@@ -424,16 +429,16 @@ func _ensure_fresh_run_session(desired_username: String) -> bool:
 			# Never log into an existing account; retry with a brand-new ID so every run is preserved.
 			continue
 		if create_code == ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.NO_DATABASE:
-			_last_session_error = "BAZA GD-SYNC NIE JEST ZAINICJALIZOWANA."
+			_last_session_error = tr("LB_ERR_NO_DB")
 			return false
 		if create_code == ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.RATE_LIMIT_EXCEEDED:
-			_last_session_error = "PRZEKROCZONO LIMIT ZAPYTAŃ GD-SYNC."
+			_last_session_error = tr("LB_ERR_RATE_LIMIT")
 			return false
 		if create_code in [
 			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.STORAGE_FULL,
 			ENUMS.ACCOUNT_CREATION_RESPONSE_CODE.DATA_CAP_REACHED,
 		]:
-			_last_session_error = "LIMIT DANYCH GD-SYNC ZOSTAŁ WYCZERPANY."
+			_last_session_error = tr("LB_ERR_STORAGE_FULL")
 			return false
 	return false
 
@@ -482,31 +487,31 @@ func _ensure_silent_leaderboard_session(desired_username: String) -> bool:
 func _format_submit_error(code: int, leaderboard_name: String) -> String:
 	match code:
 		ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.NO_DATABASE:
-			return "BAZA GD-SYNC NIE JEST ZAINICJALIZOWANA."
+			return tr("LB_ERR_NO_DB")
 		ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.LEADERBOARD_DOESNT_EXIST:
-			return "BRAK TABELI '%s' W GD-SYNC." % leaderboard_name
+			return tr("LB_ERR_NO_BOARD") % leaderboard_name
 		ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.NOT_LOGGED_IN:
-			return "WYMAGANE LOGOWANIE W BAZIE GD-SYNC."
+			return tr("LB_ERR_NOT_LOGGED_IN")
 		ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.NO_RESPONSE_FROM_SERVER:
-			return "BRAK ODPOWIEDZI SERWERA GD-SYNC."
+			return tr("LB_ERR_NO_RESPONSE")
 		ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.RATE_LIMIT_EXCEEDED:
-			return "PRZEKROCZONO LIMIT ZAPYTAŃ GD-SYNC."
+			return tr("LB_ERR_RATE_LIMIT")
 		ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.STORAGE_FULL, ENUMS.LEADERBOARD_SUBMIT_SCORE_RESPONSE_CODE.DATA_CAP_REACHED:
-			return "LIMIT DANYCH GD-SYNC ZOSTAŁ WYCZERPANY."
+			return tr("LB_ERR_STORAGE_FULL")
 		_:
-			return "BŁĄD ZAPISU DO RANKINGU (KOD %d)." % code
+			return tr("LB_ERR_SUBMIT") % code
 
 
 func _format_browse_error(code: int, leaderboard_name: String) -> String:
 	match code:
 		ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.NO_DATABASE:
-			return "BAZA GD-SYNC NIE JEST ZAINICJALIZOWANA."
+			return tr("LB_ERR_NO_DB")
 		ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.LEADERBOARD_DOESNT_EXIST:
-			return "BRAK TABELI '%s' W GD-SYNC." % leaderboard_name
+			return tr("LB_ERR_NO_BOARD") % leaderboard_name
 		ENUMS.LEADERBOARD_BROWSE_SCORES_RESPONSE_CODE.NO_RESPONSE_FROM_SERVER:
-			return "BRAK ODPOWIEDZI SERWERA GD-SYNC."
+			return tr("LB_ERR_NO_RESPONSE")
 		_:
-			return "BŁĄD POBIERANIA RANKINGU (KOD %d)." % code
+			return tr("LB_ERR_BROWSE") % code
 
 
 func _bind_client_signals() -> void:
@@ -529,6 +534,11 @@ func _on_client_connected() -> void:
 
 func _on_client_connection_failed(error: int) -> void:
 	connection_state = ConnectionState.OFFLINE
+	active_lobby_name = ""
+	if is_instance_valid(_client):
+		_client.stop_multiplayer()
+		_client.queue_free()
+		_client = null
 	connection_failed.emit("GD-Sync connection failed with error %d." % error)
 
 

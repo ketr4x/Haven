@@ -23,9 +23,13 @@ enum MenuScreen {
 	LOCAL_PLAY,
 	ONLINE,
 	FRIENDS,
+	SETTINGS,
 	JOIN_CODE,
 	WAITING,
 }
+
+const PAUSE_SELECTED_COLOR := Color(0.96, 0.96, 0.96, 1.0)
+const PAUSE_UNSELECTED_COLOR := Color(0.75, 0.75, 0.75, 0.92)
 
 @export_range(1.0, 5.0, 0.1) var countdown_duration: float = 3.0
 @export_range(0.1, 2.0, 0.05) var pixel_transition_half_duration: float = 0.45
@@ -54,13 +58,21 @@ enum MenuScreen {
 @onready var _leaderboard_prompt: Label = $GlobalUi/ResultPanel/LeaderboardSection/Prompt
 @onready var _username_input: LineEdit = $GlobalUi/ResultPanel/LeaderboardSection/UsernameInput
 @onready var _leaderboard_status: Label = $GlobalUi/ResultPanel/LeaderboardSection/Status
+@onready var _leaderboard_board_title: Label = get_node_or_null("GlobalUi/ResultPanel/LeaderboardSection/BoardPanel/BoardTitle") as Label
 @onready var _leaderboard_entries: Label = $GlobalUi/ResultPanel/LeaderboardSection/BoardPanel/BoardEntries
 @onready var _title_panel: MainMenu = $GlobalUi/TitlePanel
 @onready var _countdown_label: Label = $GlobalUi/Countdown
 @onready var _pause_panel: Control = $GlobalUi/PausePanel
+@onready var _pause_title: Label = get_node_or_null("GlobalUi/PausePanel/Title") as Label
+@onready var _pause_menu_items: Control = get_node_or_null("GlobalUi/PausePanel/MenuItems") as Control
+@onready var _pause_settings_items: Control = get_node_or_null("GlobalUi/PausePanel/SettingsItems") as Control
+@onready var _pause_hint: Label = get_node_or_null("GlobalUi/PausePanel/Hint") as Label
 @onready var _pause_resume_option: Control = get_node_or_null("GlobalUi/PausePanel/MenuItems/ResumeOption") as Control
 @onready var _pause_resume_cursor: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/ResumeOption/Cursor") as Label
 @onready var _pause_resume_text: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/ResumeOption/Text") as Label
+@onready var _pause_settings_option: Control = get_node_or_null("GlobalUi/PausePanel/MenuItems/SettingsOption") as Control
+@onready var _pause_settings_cursor: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/SettingsOption/Cursor") as Label
+@onready var _pause_settings_text: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/SettingsOption/Text") as Label
 @onready var _pause_menu_option: Control = get_node_or_null("GlobalUi/PausePanel/MenuItems/MenuOption") as Control
 @onready var _pause_menu_cursor: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/MenuOption/Cursor") as Label
 @onready var _pause_menu_text: Label = get_node_or_null("GlobalUi/PausePanel/MenuItems/MenuOption/Text") as Label
@@ -74,7 +86,11 @@ enum MenuScreen {
 @onready var _ui_select: AudioStreamPlayer = get_node_or_null("UISelect") as AudioStreamPlayer
 
 var _pause_selected_index: int = 0
-
+var _pause_in_settings: bool = false
+var _pause_settings_selected_index: int = 0
+var _pause_settings_rows: Array[Control] = []
+var _pause_settings_cursors: Array[Label] = []
+var _pause_settings_texts: Array[Label] = []
 
 var online_service: OnlineServiceBase
 
@@ -94,26 +110,27 @@ var _pending_leaderboard_time: float = 0.0
 var _leaderboard_submitted: bool = false
 var _leaderboard_submitting: bool = false
 var _last_username: String = ""
+var _waiting_room_code: String = ""
+var _waiting_is_quick_match: bool = false
+var _finish_banner_places: Dictionary = {}
+var _finish_banner_times: Dictionary = {}
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if online_service == null:
 		online_service = get_node_or_null("/root/OnlineService") as OnlineServiceBase
+	_bind_game_settings_signals()
 	_bind_leaderboard_service_signals()
 	_player_one_world.player_finished.connect(_on_player_finished)
 	_player_two_world.player_finished.connect(_on_player_finished)
 	_title_panel.option_selected.connect(_on_menu_option_selected)
+	_title_panel.option_adjusted.connect(_on_menu_option_adjusted)
 	_title_panel.room_code_submitted.connect(_on_room_code_submitted)
 	_title_panel.outro_finished.connect(_on_title_panel_outro_finished)
 	if _username_input != null:
 		_username_input.text_submitted.connect(_on_username_submitted)
-	if _pause_resume_option != null:
-		_pause_resume_option.mouse_entered.connect(_set_pause_selection.bind(0))
-		_pause_resume_option.gui_input.connect(_on_pause_option_gui_input.bind(0))
-	if _pause_menu_option != null:
-		_pause_menu_option.mouse_entered.connect(_set_pause_selection.bind(1))
-		_pause_menu_option.gui_input.connect(_on_pause_option_gui_input.bind(1))
+	_setup_pause_controls()
 	_online_match = OnlineMatch.new()
 	add_child(_online_match)
 	_online_match.room_code_ready.connect(_on_room_code_ready)
@@ -131,7 +148,43 @@ func _ready() -> void:
 	_generate_race(_next_random_seed())
 	_set_race_state(RaceState.TITLE)
 	_show_menu(MenuScreen.MAIN)
+	_refresh_localized_ui()
 	call_deferred("_start_online_match_from_command_line")
+
+
+func _setup_pause_controls() -> void:
+	if _pause_resume_option != null:
+		_pause_resume_option.mouse_entered.connect(_set_pause_selection.bind(0))
+		_pause_resume_option.gui_input.connect(_on_pause_option_gui_input.bind(0))
+	if _pause_settings_option != null:
+		_pause_settings_option.mouse_entered.connect(_set_pause_selection.bind(1))
+		_pause_settings_option.gui_input.connect(_on_pause_option_gui_input.bind(1))
+	if _pause_menu_option != null:
+		_pause_menu_option.mouse_entered.connect(_set_pause_selection.bind(2))
+		_pause_menu_option.gui_input.connect(_on_pause_option_gui_input.bind(2))
+
+	_pause_settings_rows.clear()
+	_pause_settings_cursors.clear()
+	_pause_settings_texts.clear()
+	var settings_node_names: Array[String] = [
+		"LanguageOption",
+		"VolumeOption",
+		"CrtOption",
+		"FullscreenOption",
+		"BackOption",
+	]
+	if _pause_settings_items != null:
+		for index in settings_node_names.size():
+			var row := _pause_settings_items.get_node_or_null(settings_node_names[index]) as Control
+			if row == null:
+				continue
+			var cursor := row.get_node_or_null("Cursor") as Label
+			var label := row.get_node_or_null("Text") as Label
+			_pause_settings_rows.append(row)
+			_pause_settings_cursors.append(cursor)
+			_pause_settings_texts.append(label)
+			row.mouse_entered.connect(_set_pause_settings_selection.bind(index))
+			row.gui_input.connect(_on_pause_settings_option_gui_input.bind(index))
 
 
 func _process(delta: float) -> void:
@@ -185,9 +238,7 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 		elif event.is_action_pressed(&"ui_cancel") or event.is_action_pressed(&"pause"):
-			if _menu_screen == MenuScreen.LOCAL_PLAY:
-				_show_menu(MenuScreen.MAIN)
-			elif _menu_screen == MenuScreen.ONLINE:
+			if _menu_screen == MenuScreen.LOCAL_PLAY or _menu_screen == MenuScreen.ONLINE or _menu_screen == MenuScreen.SETTINGS:
 				_show_menu(MenuScreen.MAIN)
 			elif _menu_screen == MenuScreen.FRIENDS:
 				_show_menu(MenuScreen.ONLINE)
@@ -235,6 +286,33 @@ func _input(event: InputEvent) -> void:
 				return
 
 	if _race_state == RaceState.PAUSED:
+		if _pause_in_settings:
+			if event.is_action_pressed(&"pause") or event.is_action_pressed(&"ui_cancel"):
+				_close_pause_settings()
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed(&"ui_accept"):
+				_activate_pause_settings_option()
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed(&"ui_left") or event.is_action_pressed(&"p1_left") or event.is_action_pressed(&"p2_left"):
+				_adjust_pause_settings_option(-1)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed(&"ui_right") or event.is_action_pressed(&"p1_right") or event.is_action_pressed(&"p2_right"):
+				_adjust_pause_settings_option(1)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed(&"ui_up") or event.is_action_pressed(&"p1_jump") or event.is_action_pressed(&"p2_jump"):
+				_move_pause_settings_selection(-1)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed(&"ui_down") or event.is_action_pressed(&"p1_slide") or event.is_action_pressed(&"p2_slide") or event.is_action_pressed(&"p1_shout") or event.is_action_pressed(&"p2_shout"):
+				_move_pause_settings_selection(1)
+				get_viewport().set_input_as_handled()
+				return
+			return
+
 		if event.is_action_pressed(&"pause"):
 			_toggle_pause()
 			get_viewport().set_input_as_handled()
@@ -243,16 +321,16 @@ func _input(event: InputEvent) -> void:
 			_activate_pause_menu_exit()
 			get_viewport().set_input_as_handled()
 			return
+		if event.is_action_pressed(&"ui_accept"):
+			_activate_pause_option()
+			get_viewport().set_input_as_handled()
+			return
 		if event.is_action_pressed(&"ui_up") or event.is_action_pressed(&"p1_jump") or event.is_action_pressed(&"p2_jump"):
 			_move_pause_selection(-1)
 			get_viewport().set_input_as_handled()
 			return
-		if event.is_action_pressed(&"ui_down") or event.is_action_pressed(&"p1_shout") or event.is_action_pressed(&"p2_shout"):
+		if event.is_action_pressed(&"ui_down") or event.is_action_pressed(&"p1_slide") or event.is_action_pressed(&"p2_slide") or event.is_action_pressed(&"p1_shout") or event.is_action_pressed(&"p2_shout"):
 			_move_pause_selection(1)
-			get_viewport().set_input_as_handled()
-			return
-		if event.is_action_pressed(&"ui_accept"):
-			_activate_pause_option()
 			get_viewport().set_input_as_handled()
 			return
 
@@ -276,6 +354,8 @@ func _generate_race(seed: int) -> void:
 	_seed = seed
 	_race_elapsed = 0.0
 	_player_finish_times.clear()
+	_finish_banner_places.clear()
+	_finish_banner_times.clear()
 	_pending_leaderboard_time = 0.0
 	_leaderboard_submitted = false
 	_leaderboard_submitting = false
@@ -392,16 +472,21 @@ func _start_countdown(duration: float = countdown_duration) -> void:
 
 func _toggle_pause() -> void:
 	if _race_state == RaceState.PAUSED:
+		_pause_in_settings = false
 		get_tree().paused = false
 		_set_race_state(RaceState.RACING)
 	elif _race_state == RaceState.RACING:
+		_pause_in_settings = false
 		_pause_selected_index = 0
+		_pause_settings_selected_index = 0
 		_update_pause_visuals()
 		get_tree().paused = true
 		_set_race_state(RaceState.PAUSED)
 
 
 func _set_pause_selection(index: int) -> void:
+	if _pause_in_settings:
+		return
 	if _pause_selected_index != index:
 		_pause_selected_index = index
 		_play_ui_move()
@@ -409,28 +494,96 @@ func _set_pause_selection(index: int) -> void:
 
 
 func _move_pause_selection(delta: int) -> void:
-	var next_idx := (_pause_selected_index + delta) % 2
-	if next_idx < 0:
-		next_idx += 2
+	var next_idx := posmod(_pause_selected_index + delta, 3)
 	_set_pause_selection(next_idx)
 
 
+func _open_pause_settings() -> void:
+	_pause_in_settings = true
+	_pause_settings_selected_index = 0
+	_update_pause_visuals()
+
+
+func _close_pause_settings() -> void:
+	_play_ui_move()
+	_pause_in_settings = false
+	_update_pause_visuals()
+
+
+func _set_pause_settings_selection(index: int) -> void:
+	if not _pause_in_settings:
+		return
+	if _pause_settings_selected_index != index:
+		_pause_settings_selected_index = index
+		_play_ui_move()
+		_update_pause_visuals()
+
+
+func _move_pause_settings_selection(delta: int) -> void:
+	var option_count := maxi(1, _pause_settings_rows.size())
+	var next_idx := posmod(_pause_settings_selected_index + delta, option_count)
+	_set_pause_settings_selection(next_idx)
+
+
+func _activate_pause_settings_option() -> void:
+	_play_ui_select()
+	if _pause_settings_selected_index == 4:
+		_pause_in_settings = false
+		_update_pause_visuals()
+		return
+	_apply_settings_option(_pause_settings_selected_index, 1, true)
+	_update_pause_visuals()
+
+
+func _adjust_pause_settings_option(direction: int) -> void:
+	if _pause_settings_selected_index == 4:
+		return
+	_play_ui_move()
+	_apply_settings_option(_pause_settings_selected_index, direction, false)
+	_update_pause_visuals()
+
+
 func _update_pause_visuals() -> void:
-	var is_resume := _pause_selected_index == 0
-	if _pause_resume_cursor != null:
-		_pause_resume_cursor.text = ">" if is_resume else " "
-	if _pause_resume_text != null:
-		_pause_resume_text.modulate = Color(0.96, 0.96, 0.96, 1.0) if is_resume else Color(0.75, 0.75, 0.75, 0.92)
-	if _pause_menu_cursor != null:
-		_pause_menu_cursor.text = " " if is_resume else ">"
-	if _pause_menu_text != null:
-		_pause_menu_text.modulate = Color(0.75, 0.75, 0.75, 0.92) if is_resume else Color(0.96, 0.96, 0.96, 1.0)
+	if _pause_title != null:
+		_pause_title.text = tr("SETTINGS_TITLE") if _pause_in_settings else tr("PAUSE_TITLE")
+	if _pause_menu_items != null:
+		_pause_menu_items.visible = not _pause_in_settings
+	if _pause_settings_items != null:
+		_pause_settings_items.visible = _pause_in_settings
+	if _pause_hint != null:
+		_pause_hint.text = tr("PAUSE_SETTINGS_HINT") if _pause_in_settings else tr("PAUSE_HINT")
+
+	var pause_cursors: Array[Label] = [_pause_resume_cursor, _pause_settings_cursor, _pause_menu_cursor]
+	var pause_texts: Array[Label] = [_pause_resume_text, _pause_settings_text, _pause_menu_text]
+	var pause_labels: Array[String] = [tr("PAUSE_RESUME"), tr("PAUSE_SETTINGS"), tr("PAUSE_MENU")]
+	for index in pause_texts.size():
+		var is_selected := index == _pause_selected_index
+		var color := PAUSE_SELECTED_COLOR if is_selected else PAUSE_UNSELECTED_COLOR
+		if pause_cursors[index] != null:
+			pause_cursors[index].text = ">" if is_selected else " "
+			pause_cursors[index].add_theme_color_override(&"font_color", color)
+		if pause_texts[index] != null:
+			pause_texts[index].text = pause_labels[index]
+			pause_texts[index].add_theme_color_override(&"font_color", color)
+
+	var settings_labels := _build_settings_options()
+	for index in _pause_settings_rows.size():
+		var is_selected := index == _pause_settings_selected_index
+		var color := PAUSE_SELECTED_COLOR if is_selected else PAUSE_UNSELECTED_COLOR
+		if index < _pause_settings_cursors.size() and _pause_settings_cursors[index] != null:
+			_pause_settings_cursors[index].text = ">" if is_selected else " "
+			_pause_settings_cursors[index].add_theme_color_override(&"font_color", color)
+		if index < _pause_settings_texts.size() and _pause_settings_texts[index] != null and index < settings_labels.size():
+			_pause_settings_texts[index].text = settings_labels[index]
+			_pause_settings_texts[index].add_theme_color_override(&"font_color", color)
 
 
 func _activate_pause_option() -> void:
 	_play_ui_select()
 	if _pause_selected_index == 0:
 		_toggle_pause()
+	elif _pause_selected_index == 1:
+		_open_pause_settings()
 	else:
 		_return_to_main_menu()
 
@@ -441,13 +594,24 @@ func _activate_pause_menu_exit() -> void:
 
 
 func _on_pause_option_gui_input(event: InputEvent, index: int) -> void:
+	if _pause_in_settings:
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_pause_selected_index = index
 		_activate_pause_option()
 
 
+func _on_pause_settings_option_gui_input(event: InputEvent, index: int) -> void:
+	if not _pause_in_settings:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_pause_settings_selected_index = index
+		_activate_pause_settings_option()
+
+
 func _play_ui_move() -> void:
 	if _ui_move != null:
+		_ui_move.pitch_scale = randf_range(0.96, 1.04)
 		_ui_move.play()
 
 
@@ -497,7 +661,7 @@ func _on_player_finished(player_number: int) -> void:
 		_online_match.submit_local_finish(_race_elapsed)
 		var place := 1 if _player_finish_times.size() == 1 else 2
 		_show_player_finish_banner(1, place, _race_elapsed)
-		_finish_status_label.text = "JESTEŚ NA MECIE. PRZECIWNIK JEDZIE DALEJ."
+		_finish_status_label.text = tr("HUD_YOU_FINISHED_WAIT")
 		_finish_status_label.visible = true
 		_update_timer_labels()
 		return
@@ -508,14 +672,14 @@ func _on_player_finished(player_number: int) -> void:
 		_update_timer_labels()
 		_finish_status_label.visible = false
 		_hide_finish_banners()
-		_winner_label.text = "META!"
-		_placement_summary_label.text = "CZAS PRZEJŚCIA: %s" % _format_time(_race_elapsed)
-		_times_label.text = "TWÓJ CZAS: %s" % _format_time(_race_elapsed)
-		_result_actions.text = "R  POWTÓRZ        N  NOWA TRASA        ESC  MENU"
-		_result_reminder.text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
+		_winner_label.text = tr("RESULT_SINGLEPLAYER_FINISH")
+		_placement_summary_label.text = tr("RESULT_SINGLEPLAYER_RUN_TIME") % _format_time(_race_elapsed)
+		_times_label.text = tr("RESULT_SINGLEPLAYER_YOUR_TIME") % _format_time(_race_elapsed)
+		_result_actions.text = tr("RESULT_SINGLEPLAYER_ACTIONS")
+		_result_reminder.text = tr("RESULT_LOCAL_REMINDER")
 		_prepare_leaderboard_prompt(
 			_race_elapsed,
-			"WPISZ NICK DO RANKINGU — %s" % _format_time(_race_elapsed)
+			tr("LB_PROMPT_SINGLEPLAYER") % _format_time(_race_elapsed)
 		)
 		_set_race_state(RaceState.FINISHED)
 		return
@@ -526,22 +690,24 @@ func _on_player_finished(player_number: int) -> void:
 	var placement := 1 if _player_finish_times.size() == 1 else 2
 	_show_player_finish_banner(player_number, placement, _race_elapsed)
 	if _player_finish_times.size() < 2:
-		_finish_status_label.text = "GRACZ %d NA MECIE. DRUGI GRACZ JEDZIE DALEJ." % player_number
+		_finish_status_label.text = tr("HUD_PLAYER_FINISHED_WAIT") % player_number
 		_finish_status_label.visible = true
 		return
 
 	_finish_status_label.visible = false
 	_hide_finish_banners()
 	var winner_number := _winner_number()
-	_winner_label.text = "WYGRYWA GRACZ %d" % winner_number
-	_update_placement_summary("GRACZ 1", "GRACZ 2")
-	_times_label.text = "GRACZ 1  %s\nGRACZ 2  %s" % [
+	_winner_label.text = tr("RESULT_PLAYER_WINS") % winner_number
+	_update_placement_summary(tr("HUD_PLAYER_1"), tr("HUD_PLAYER_2"))
+	_result_actions.text = tr("RESULT_LOCAL_ACTIONS")
+	_result_reminder.text = tr("RESULT_LOCAL_REMINDER")
+	_times_label.text = tr("RESULT_TIMES") % [
 		_format_time(float(_player_finish_times[1])),
 		_format_time(float(_player_finish_times[2])),
 	]
 	_prepare_leaderboard_prompt(
 		float(_player_finish_times[winner_number]),
-		"WPISZ NICK ZWYCIĘZCY (GRACZ %d) — %s" % [winner_number, _format_time(float(_player_finish_times[winner_number]))]
+		tr("LB_PROMPT_WINNER") % [winner_number, _format_time(float(_player_finish_times[winner_number]))]
 	)
 	_set_race_state(RaceState.FINISHED)
 
@@ -568,7 +734,7 @@ func _setup_singleplayer_presentation() -> void:
 	_top_container.offset_bottom = 0.0
 	_bottom_container.visible = false
 	_divider.visible = false
-	_player_one_label.text = "TRYB JEDNOOSOBOWY"
+	_player_one_label.text = tr("HUD_SINGLEPLAYER")
 	_player_one_label.visible = true
 	_player_two_label.visible = false
 	_player_one_timer_label.visible = true
@@ -590,8 +756,8 @@ func _setup_local_two_player_presentation() -> void:
 	_top_container.offset_bottom = -2.0
 	_bottom_container.visible = true
 	_divider.visible = true
-	_player_one_label.text = "GRACZ 1"
-	_player_two_label.text = "GRACZ 2"
+	_player_one_label.text = tr("HUD_PLAYER_1")
+	_player_two_label.text = tr("HUD_PLAYER_2")
 	_player_one_label.visible = true
 	_player_two_label.visible = true
 	_player_two_label.position.y = 382.0
@@ -608,18 +774,24 @@ func _setup_local_two_player_presentation() -> void:
 
 
 func start_quick_match() -> void:
+	_waiting_room_code = ""
+	_waiting_is_quick_match = true
 	_begin_online_session()
 	if _menu_screen == MenuScreen.WAITING:
-		_title_panel.show_waiting("SZUKANIE PRZECIWNIKA…", "ESC  ANULUJ")
+		_title_panel.show_waiting(tr("MENU_FINDING_OPPONENT"), tr("MENU_ESC_CANCEL"))
 	_online_match.queue_quick_match()
 
 
 func host_friend_room(room_code: String = "") -> void:
+	_waiting_room_code = room_code.strip_edges().to_upper()
+	_waiting_is_quick_match = false
 	_begin_online_session()
 	_online_match.host_friend_room(room_code)
 
 
 func join_friend_room(room_code: String) -> void:
+	_waiting_room_code = room_code.strip_edges().to_upper()
+	_waiting_is_quick_match = false
 	_begin_online_session()
 	_online_match.join_friend_room(room_code)
 
@@ -631,17 +803,17 @@ func _begin_online_session() -> void:
 	_top_container.offset_bottom = -2.0
 	_bottom_container.visible = true
 	_divider.visible = true
-	_player_one_label.text = "TY"
-	_player_two_label.text = "PRZECIWNIK"
+	_player_one_label.text = tr("HUD_YOU")
+	_player_two_label.text = tr("HUD_OPPONENT")
 	_player_two_label.position.y = 382.0
 	_player_two_timer_label.position.y = 412.0
 	_network_status_label.visible = true
-	_network_status_label.text = "ŁĄCZENIE…"
+	_network_status_label.text = tr("HUD_CONNECTING")
 	_opponent_progress_label.visible = false
 	_opponent_progress_label.text = ""
 	if _menu_screen != MenuScreen.WAITING:
 		_title_panel.visible = false
-	_finish_status_label.text = "ŁĄCZENIE Z PRZECIWNIKIEM…"
+	_finish_status_label.text = tr("HUD_CONNECTING_OPPONENT")
 	_finish_status_label.visible = true
 	_player_one_world.set_race_active(false)
 	_player_two_world.set_race_active(false)
@@ -664,10 +836,11 @@ func _start_online_match_from_command_line() -> void:
 
 
 func _on_room_code_ready(room_code: String) -> void:
-	_seed_label.text = "KOD POKOJU  %s" % room_code
-	_finish_status_label.text = "CZEKA NA DRUGIEGO GRACZA…"
+	_waiting_room_code = room_code
+	_seed_label.text = tr("HUD_ROOM_CODE") % room_code
+	_finish_status_label.text = tr("HUD_WAITING_PLAYER_2")
 	if _menu_screen == MenuScreen.WAITING:
-		_title_panel.show_waiting("KOD POKOJU: %s" % room_code, "PRZEKAŻ KOD ZNAJOMEMU.  ESC  ANULUJ")
+		_title_panel.show_waiting(tr("MENU_ROOM_CODE_DISPLAY") % room_code, tr("MENU_SHARE_CODE_HINT"))
 
 
 func _on_online_match_configured(player_slot: int, seed: int) -> void:
@@ -675,14 +848,14 @@ func _on_online_match_configured(player_slot: int, seed: int) -> void:
 	_title_panel.visible = false
 	_result_panel.visible = false
 	_player_one_label.text = _online_match.local_display_name
-	_player_two_label.text = _online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else "PRZECIWNIK"
-	_network_status_label.text = "POŁĄCZONO"
+	_player_two_label.text = _online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else tr("HUD_OPPONENT")
+	_network_status_label.text = tr("HUD_CONNECTED")
 	_player_one_world.configure_for_online_slot(player_slot)
 	_player_two_world.configure_as_remote_opponent(2 if player_slot == 1 else 1)
 	_status_send_remaining = 0.0
 	_generate_race(seed)
-	_seed_label.text = "POKÓJ  %s" % _online_match.room_code
-	_finish_status_label.text = "SPRAWDZANIE TRASY…"
+	_seed_label.text = tr("HUD_ROOM") % _online_match.room_code
+	_finish_status_label.text = tr("HUD_VERIFYING_COURSE")
 	_finish_status_label.visible = true
 	_online_match.submit_course_signature(_player_one_world.course_signature())
 
@@ -701,11 +874,11 @@ func _on_online_opponent_status_received(_progress: float, _loudness: float, _bo
 
 
 func _on_online_rematch_waiting() -> void:
-	_winner_label.text = "CZEKA NA REWANŻ"
+	_winner_label.text = tr("RESULT_REMATCH_WAITING")
 	if _online_match != null and _online_match.has_local_rematch_vote():
-		_result_reminder.text = "DRUGI GRACZ MUSI POTWIERDZIĆ."
+		_result_reminder.text = tr("RESULT_REMATCH_WAIT_OTHER")
 	else:
-		_result_reminder.text = "PRZECIWNIK CHCE REWANŻU. WCIŚNIJ ENTER / R."
+		_result_reminder.text = tr("RESULT_REMATCH_OPPONENT_WANTS")
 
 
 func _on_online_opponent_finished(player_slot: int, elapsed: float) -> void:
@@ -713,7 +886,7 @@ func _on_online_opponent_finished(player_slot: int, elapsed: float) -> void:
 	_player_two_world.set_race_active(false)
 	var place := 1 if _player_finish_times.size() == 1 else 2
 	_show_player_finish_banner(2, place, elapsed)
-	_finish_status_label.text = "PRZECIWNIK JEST NA MECIE. JEDŹ DALEJ."
+	_finish_status_label.text = tr("HUD_OPPONENT_FINISHED_GO")
 	_finish_status_label.visible = true
 	_update_timer_labels()
 
@@ -727,13 +900,14 @@ func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> vo
 	_player_finish_times = finish_times.duplicate(true)
 	_finish_status_label.visible = false
 	_hide_finish_banners()
-	_winner_label.text = "WYGRYWASZ" if winner_slot == _online_match.player_slot else "WYGRYWA PRZECIWNIK"
-	var p1_label := _online_match.local_display_name if _online_match.player_slot == 1 else (_online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else "PRZECIWNIK")
-	var p2_label := _online_match.local_display_name if _online_match.player_slot == 2 else (_online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else "PRZECIWNIK")
+	_winner_label.text = tr("RESULT_YOU_WIN") if winner_slot == _online_match.player_slot else tr("RESULT_OPPONENT_WINS")
+	var opponent_fallback := tr("HUD_OPPONENT")
+	var p1_label := _online_match.local_display_name if _online_match.player_slot == 1 else (_online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else opponent_fallback)
+	var p2_label := _online_match.local_display_name if _online_match.player_slot == 2 else (_online_match.opponent_display_name if not _online_match.opponent_display_name.is_empty() else opponent_fallback)
 	_update_placement_summary(p1_label, p2_label)
-	_result_actions.text = "ENTER  REWANŻ        ESC  MENU"
-	_result_reminder.text = "WYNIK MECZU ONLINE"
-	_times_label.text = "GRACZ 1  %s\nGRACZ 2  %s" % [
+	_result_actions.text = tr("RESULT_ONLINE_ACTIONS")
+	_result_reminder.text = tr("RESULT_ONLINE_SUMMARY")
+	_times_label.text = tr("RESULT_TIMES") % [
 		_format_time(float(_player_finish_times[1])),
 		_format_time(float(_player_finish_times[2])),
 	]
@@ -741,70 +915,96 @@ func _on_online_match_finished(finish_times: Dictionary, winner_slot: int) -> vo
 	var local_time := float(_player_finish_times.get(local_slot, _player_finish_times.get(1, 0.0)))
 	_prepare_leaderboard_prompt(
 		local_time,
-		"WPISZ NICK DO RANKINGU — TWÓJ CZAS %s" % _format_time(local_time)
+		tr("LB_PROMPT_ONLINE") % _format_time(local_time)
 	)
 	_set_race_state(RaceState.FINISHED)
 
 
 func _on_online_opponent_left(_client_id: int) -> void:
+	if _session_mode != SessionMode.ONLINE:
+		return
 	_finish_status_label.visible = false
 	_hide_finish_banners()
 	_placement_summary_label.text = ""
-	_winner_label.text = "PRZECIWNIK OPUŚCIŁ MECZ"
+	_winner_label.text = tr("RESULT_OPPONENT_LEFT")
 	_times_label.text = ""
-	_result_actions.text = "ESC  MENU"
-	_result_reminder.text = "MECZ ONLINE ZAKOŃCZONY"
+	_result_actions.text = tr("RESULT_ESC_MENU")
+	_result_reminder.text = tr("RESULT_ONLINE_ENDED")
 	if _leaderboard_section != null:
 		_leaderboard_section.visible = false
 	_set_race_state(RaceState.FINISHED)
 
 
 func _on_online_match_failed(reason: String) -> void:
+	if _session_mode != SessionMode.ONLINE:
+		return
 	_finish_status_label.visible = false
 	_hide_finish_banners()
 	_placement_summary_label.text = ""
-	_winner_label.text = "NIE UDAŁO SIĘ ROZPOCZĄĆ MECZU"
+	_winner_label.text = tr("RESULT_MATCH_FAILED")
 	_times_label.text = reason
-	_result_actions.text = "ESC  MENU"
-	_result_reminder.text = "SPRAWDŹ POŁĄCZENIE I KOD POKOJU"
+	_result_actions.text = tr("RESULT_ESC_MENU")
+	_result_reminder.text = tr("RESULT_CHECK_CONNECTION")
 	if _leaderboard_section != null:
 		_leaderboard_section.visible = false
 	_set_race_state(RaceState.FINISHED)
 
 
-func _show_menu(next_screen: MenuScreen) -> void:
+func _show_menu(next_screen: MenuScreen, preserve_selection: bool = false) -> void:
 	_menu_screen = next_screen
 	_title_panel.visible = true
 	match next_screen:
 		MenuScreen.MAIN:
-			_title_panel.reset_to_idle()
+			if not preserve_selection:
+				_title_panel.reset_to_idle()
 			_title_panel.show_options(
-				["GRAJ", "GRA ONLINE", "WYJDŹ"],
-				"STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ",
-				"WYŚCIG ECHA",
+				[tr("MENU_PLAY"), tr("MENU_ONLINE"), tr("MENU_SETTINGS"), tr("MENU_QUIT")],
+				tr("MENU_MAIN_PROMPT"),
+				tr("MENU_MAIN_HINT"),
+				false,
+				preserve_selection,
 			)
 		MenuScreen.LOCAL_PLAY:
 			_title_panel.show_options(
-				["JEDEN GRACZ", "DWÓCH GRACZY"],
-				"STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ",
-				"WYBIERZ TRYB GRY      ESC  POWRÓT",
+				[tr("MENU_SINGLEPLAYER"), tr("MENU_TWO_PLAYERS")],
+				tr("MENU_MAIN_PROMPT"),
+				tr("MENU_LOCAL_PLAY_HINT"),
+				false,
+				preserve_selection,
 			)
 		MenuScreen.ONLINE:
 			_title_panel.show_options(
-				["SZYBKI MECZ", "ZE ZNAJOMYM"],
-				"WYBIERZ TRYB ONLINE      ESC  POWRÓT",
-				"POŁĄCZENIE ZNAJDZIE LUB UTWORZY POKÓJ.",
+				[tr("MENU_QUICK_MATCH"), tr("MENU_WITH_FRIEND")],
+				tr("MENU_ONLINE_PROMPT"),
+				tr("MENU_ONLINE_HINT"),
+				false,
+				preserve_selection,
 			)
 		MenuScreen.FRIENDS:
 			_title_panel.show_options(
-				["STWÓRZ POKÓJ", "DOŁĄCZ KODEM"],
-				"WYBIERZ OPCJĘ      ESC  POWRÓT",
-				"PRYWATNY WYŚCIG DLA DWÓCH GRACZY.",
+				[tr("MENU_CREATE_ROOM"), tr("MENU_JOIN_BY_CODE")],
+				tr("MENU_FRIENDS_PROMPT"),
+				tr("MENU_FRIENDS_HINT"),
+				false,
+				preserve_selection,
+			)
+		MenuScreen.SETTINGS:
+			_title_panel.show_options(
+				_build_settings_options(),
+				tr("SETTINGS_PROMPT"),
+				tr("SETTINGS_HINT"),
+				true,
+				preserve_selection,
 			)
 		MenuScreen.JOIN_CODE:
-			_title_panel.show_room_code_entry("DOŁĄCZ DO POKOJU", "WPISZ KOD I NACIŚNIJ ENTER.  ESC  POWRÓT")
+			_title_panel.show_room_code_entry(tr("MENU_JOIN_ROOM_TITLE"), tr("MENU_JOIN_ROOM_HINT"))
 		MenuScreen.WAITING:
-			_title_panel.show_waiting("ŁĄCZENIE…", "ESC  ANULUJ")
+			if not _waiting_room_code.is_empty():
+				_title_panel.show_waiting(tr("MENU_ROOM_CODE_DISPLAY") % _waiting_room_code, tr("MENU_SHARE_CODE_HINT"))
+			elif _waiting_is_quick_match:
+				_title_panel.show_waiting(tr("MENU_FINDING_OPPONENT"), tr("MENU_ESC_CANCEL"))
+			else:
+				_title_panel.show_waiting(tr("MENU_CONNECTING"), tr("MENU_ESC_CANCEL"))
 
 
 func _on_menu_option_selected(index: int) -> void:
@@ -814,6 +1014,8 @@ func _on_menu_option_selected(index: int) -> void:
 				_show_menu(MenuScreen.LOCAL_PLAY)
 			elif index == 1:
 				_show_menu(MenuScreen.ONLINE)
+			elif index == 2:
+				_show_menu(MenuScreen.SETTINGS)
 			else:
 				get_tree().quit()
 		MenuScreen.LOCAL_PLAY:
@@ -828,11 +1030,24 @@ func _on_menu_option_selected(index: int) -> void:
 			else:
 				_show_menu(MenuScreen.FRIENDS)
 		MenuScreen.FRIENDS:
-			_show_menu(MenuScreen.WAITING)
 			if index == 0:
+				_show_menu(MenuScreen.WAITING)
 				host_friend_room()
 			else:
 				_show_menu(MenuScreen.JOIN_CODE)
+		MenuScreen.SETTINGS:
+			if index == 4:
+				_show_menu(MenuScreen.MAIN)
+			else:
+				_apply_settings_option(index, 1, true)
+				_show_menu(MenuScreen.SETTINGS, true)
+
+
+func _on_menu_option_adjusted(index: int, direction: int) -> void:
+	if _menu_screen != MenuScreen.SETTINGS or index == 4:
+		return
+	_apply_settings_option(index, direction, false)
+	_show_menu(MenuScreen.SETTINGS, true)
 
 
 func _on_room_code_submitted(room_code: String) -> void:
@@ -843,7 +1058,7 @@ func _on_room_code_submitted(room_code: String) -> void:
 func _submit_room_code(room_code: String) -> void:
 	var normalized_code := room_code.strip_edges().to_upper()
 	if normalized_code.is_empty():
-		_title_panel.show_room_code_entry("DOŁĄCZ DO POKOJU", "WPISZ KOD OTRZYMANY OD GOSPODARZA.")
+		_title_panel.show_room_code_entry(tr("MENU_JOIN_ROOM_TITLE"), tr("MENU_JOIN_ROOM_EMPTY_HINT"))
 		return
 	_show_menu(MenuScreen.WAITING)
 	join_friend_room(normalized_code)
@@ -851,16 +1066,104 @@ func _submit_room_code(room_code: String) -> void:
 
 func _return_to_main_menu() -> void:
 	get_tree().paused = false
+	_pause_in_settings = false
+	_waiting_room_code = ""
+	_waiting_is_quick_match = false
 	_cancel_transition()
 	_cancel_invert_flash()
 	_online_match.leave_match()
 	_session_mode = SessionMode.LOCAL
 	_setup_local_two_player_presentation()
-	_result_actions.text = "R  REWANŻ        N  NOWA TRASA        ESC  MENU"
-	_result_reminder.text = "ZŁAP ODBITĄ FALĘ, ABY PRZYSPIESZYĆ"
+	_result_actions.text = tr("RESULT_LOCAL_ACTIONS")
+	_result_reminder.text = tr("RESULT_LOCAL_REMINDER")
 	_generate_race(_next_random_seed())
 	_set_race_state(RaceState.TITLE)
 	_show_menu(MenuScreen.MAIN)
+
+
+func _get_game_settings() -> GameSettingsNode:
+	return get_node_or_null("/root/GameSettings") as GameSettingsNode
+
+
+func _bind_game_settings_signals() -> void:
+	var settings := _get_game_settings()
+	if settings == null:
+		return
+	if not settings.settings_changed.is_connected(_on_game_settings_changed):
+		settings.settings_changed.connect(_on_game_settings_changed)
+
+
+func _on_game_settings_changed() -> void:
+	_refresh_localized_ui()
+
+
+func _build_settings_options() -> Array[String]:
+	var settings := _get_game_settings()
+	var lang_display := settings.get_language_display_name() if settings != null else tr("SETTINGS_LANG_EN")
+	var volume := settings.master_volume if settings != null else 100
+	var crt_state := tr("SETTINGS_ON") if (settings == null or settings.crt_enabled) else tr("SETTINGS_OFF")
+	var fullscreen_state := tr("SETTINGS_ON") if (settings != null and settings.fullscreen) else tr("SETTINGS_OFF")
+	return [
+		"%s:  < %s >" % [tr("SETTINGS_LANGUAGE"), lang_display],
+		"%s:  < %d%% >" % [tr("SETTINGS_VOLUME"), volume],
+		"%s:  < %s >" % [tr("SETTINGS_CRT"), crt_state],
+		"%s:  < %s >" % [tr("SETTINGS_FULLSCREEN"), fullscreen_state],
+		tr("SETTINGS_BACK"),
+	]
+
+
+func _apply_settings_option(index: int, direction: int, wrap_volume: bool) -> void:
+	var settings := _get_game_settings()
+	if settings == null:
+		return
+	match index:
+		0:
+			settings.cycle_language(direction)
+		1:
+			settings.adjust_master_volume(direction, wrap_volume)
+		2:
+			settings.toggle_crt_enabled()
+		3:
+			settings.toggle_fullscreen()
+
+
+func _refresh_localized_ui() -> void:
+	if _title_panel != null:
+		_title_panel.set_room_code_placeholder(tr("MENU_ROOM_CODE_PLACEHOLDER"))
+	if _race_state == RaceState.TITLE:
+		_show_menu(_menu_screen, true)
+
+	if _session_mode == SessionMode.SINGLEPLAYER:
+		_player_one_label.text = tr("HUD_SINGLEPLAYER")
+	elif _session_mode == SessionMode.LOCAL:
+		_player_one_label.text = tr("HUD_PLAYER_1")
+		_player_two_label.text = tr("HUD_PLAYER_2")
+	else:
+		if _online_match != null and not _online_match.local_display_name.is_empty():
+			_player_one_label.text = _online_match.local_display_name
+		else:
+			_player_one_label.text = tr("HUD_YOU")
+		if _online_match != null and not _online_match.opponent_display_name.is_empty():
+			_player_two_label.text = _online_match.opponent_display_name
+		else:
+			_player_two_label.text = tr("HUD_OPPONENT")
+
+	_update_timer_labels()
+	_update_pause_visuals()
+
+	if _leaderboard_board_title != null:
+		_leaderboard_board_title.text = tr("LB_TITLE")
+	if _username_input != null:
+		_username_input.placeholder_text = tr("LB_PLACEHOLDER")
+
+	if _player_one_finish_banner != null and _player_one_finish_banner.visible and _finish_banner_places.has(1):
+		_update_finish_banner_text(_player_one_finish_banner, int(_finish_banner_places[1]), float(_finish_banner_times[1]))
+	if _player_two_finish_banner != null and _player_two_finish_banner.visible and _finish_banner_places.has(2):
+		_update_finish_banner_text(_player_two_finish_banner, int(_finish_banner_places[2]), float(_finish_banner_times[2]))
+
+	if _finish_status_label.visible and _session_mode == SessionMode.LOCAL and _player_finish_times.size() == 1:
+		var finished_player := int(_player_finish_times.keys()[0])
+		_finish_status_label.text = tr("HUD_PLAYER_FINISHED_WAIT") % finished_player
 
 
 func _get_player_world(player_number: int) -> PlayerWorld:
@@ -910,7 +1213,6 @@ func _play_match_victory() -> void:
 		_match_victory.play()
 
 
-
 func _set_invert_intensity(value: float) -> void:
 	if _invert_flash_rect == null:
 		return
@@ -919,21 +1221,31 @@ func _set_invert_intensity(value: float) -> void:
 		mat.set_shader_parameter(&"intensity", value)
 
 
-func _show_player_finish_banner(viewport_slot: int, place: int, elapsed: float) -> void:
-	var banner := _player_one_finish_banner if viewport_slot == 1 else _player_two_finish_banner
-	if banner == null:
-		return
+func _place_label_text(place: int) -> String:
+	return tr("HUD_PLACE_1") if place == 1 else tr("HUD_PLACE_2")
+
+
+func _update_finish_banner_text(banner: Control, place: int, elapsed: float) -> void:
 	var place_label := banner.get_node_or_null("Place") as Label
 	var time_label := banner.get_node_or_null("Time") as Label
 	var border := banner.get_node_or_null("Border") as ReferenceRect
 	var accent := Color(0.941176, 0.921569, 0.752941, 1.0) if place == 1 else Color(0.760784, 0.94902, 0.94902, 1.0)
 	if place_label != null:
-		place_label.text = "%d. MIEJSCE" % place
+		place_label.text = _place_label_text(place)
 		place_label.add_theme_color_override(&"font_color", accent)
 	if time_label != null:
-		time_label.text = "CZAS  %s" % _format_time(elapsed)
+		time_label.text = tr("HUD_TIME") % _format_time(elapsed)
 	if border != null:
 		border.border_color = accent
+
+
+func _show_player_finish_banner(viewport_slot: int, place: int, elapsed: float) -> void:
+	var banner := _player_one_finish_banner if viewport_slot == 1 else _player_two_finish_banner
+	if banner == null:
+		return
+	_finish_banner_places[viewport_slot] = place
+	_finish_banner_times[viewport_slot] = elapsed
+	_update_finish_banner_text(banner, place, elapsed)
 	banner.visible = true
 	banner.pivot_offset = banner.size * 0.5
 	banner.scale = Vector2(0.86, 0.86)
@@ -959,20 +1271,22 @@ func _update_placement_summary(p1_name: String, p2_name: String) -> void:
 		return
 	var t1 := float(_player_finish_times[1])
 	var t2 := float(_player_finish_times[2])
+	var first_place := tr("HUD_PLACE_1")
+	var second_place := tr("HUD_PLACE_2")
 	if t1 <= t2:
-		_placement_summary_label.text = "1. MIEJSCE   %s   —   %s\n2. MIEJSCE   %s   —   %s" % [
-			p1_name, _format_time(t1), p2_name, _format_time(t2)
+		_placement_summary_label.text = "%s   %s   —   %s\n%s   %s   —   %s" % [
+			first_place, p1_name, _format_time(t1), second_place, p2_name, _format_time(t2)
 		]
 	else:
-		_placement_summary_label.text = "1. MIEJSCE   %s   —   %s\n2. MIEJSCE   %s   —   %s" % [
-			p2_name, _format_time(t2), p1_name, _format_time(t1)
+		_placement_summary_label.text = "%s   %s   —   %s\n%s   %s   —   %s" % [
+			first_place, p2_name, _format_time(t2), second_place, p1_name, _format_time(t1)
 		]
 
 
 func _update_timer_labels() -> void:
-	_player_one_timer_label.text = "CZAS  %s" % _format_time(_time_for_player(1))
+	_player_one_timer_label.text = tr("HUD_TIME") % _format_time(_time_for_player(1))
 	if _session_mode != SessionMode.SINGLEPLAYER:
-		_player_two_timer_label.text = "CZAS  %s" % _format_time(_time_for_player(2))
+		_player_two_timer_label.text = tr("HUD_TIME") % _format_time(_time_for_player(2))
 
 
 func _time_for_player(player_number: int) -> float:
@@ -1012,20 +1326,23 @@ func _prepare_leaderboard_prompt(elapsed_seconds: float, prompt_text: String) ->
 	if _leaderboard_section == null:
 		return
 	_leaderboard_section.visible = true
+	if _leaderboard_board_title != null:
+		_leaderboard_board_title.text = tr("LB_TITLE")
 	if _leaderboard_prompt != null:
 		_leaderboard_prompt.text = prompt_text
 	if _leaderboard_status != null:
-		_leaderboard_status.text = "ENTER  ZAPISZ CZAS DO GLOBALNEGO RANKINGU"
+		_leaderboard_status.text = tr("LB_STATUS_READY")
 		_leaderboard_status.add_theme_color_override(&"font_color", Color(0.760784, 0.94902, 0.94902, 1.0))
 	if _username_input != null:
 		_username_input.visible = true
 		_username_input.editable = true
+		_username_input.placeholder_text = tr("LB_PLACEHOLDER")
 		_username_input.text = _last_username
 		_username_input.grab_focus()
 		_username_input.caret_column = _username_input.text.length()
 	if _leaderboard_entries != null:
 		_leaderboard_entries.add_theme_font_size_override(&"font_size", 18)
-		_leaderboard_entries.text = "WCZYTYWANIE RANKINGU…"
+		_leaderboard_entries.text = tr("LB_LOADING")
 	if online_service != null:
 		online_service.browse_leaderboard_times(
 			OnlineServiceBase.DEFAULT_LEADERBOARD_NAME,
@@ -1039,7 +1356,7 @@ func _on_username_submitted(username_text: String) -> void:
 	var trimmed := username_text.strip_edges()
 	if trimmed.is_empty():
 		if _leaderboard_status != null:
-			_leaderboard_status.text = "WPISZ NAZWĘ GRACZA PRZED ZATWIERDZENIEM."
+			_leaderboard_status.text = tr("LB_STATUS_EMPTY_NAME")
 			_leaderboard_status.add_theme_color_override(&"font_color", Color(0.95, 0.45, 0.45, 1.0))
 		return
 	_last_username = trimmed
@@ -1047,13 +1364,13 @@ func _on_username_submitted(username_text: String) -> void:
 	if _username_input != null:
 		_username_input.editable = false
 	if _leaderboard_status != null:
-		_leaderboard_status.text = "ZAPISYWANIE CZASU W GD-SYNC…"
+		_leaderboard_status.text = tr("LB_STATUS_SAVING")
 		_leaderboard_status.add_theme_color_override(&"font_color", Color(0.941176, 0.921569, 0.752941, 1.0))
 	if online_service == null:
 		online_service = get_node_or_null("/root/OnlineService") as OnlineServiceBase
 		_bind_leaderboard_service_signals()
 	if online_service == null:
-		_on_leaderboard_submission_failed(OnlineServiceBase.DEFAULT_LEADERBOARD_NAME, "BRAK USŁUGI ONLINE.")
+		_on_leaderboard_submission_failed(OnlineServiceBase.DEFAULT_LEADERBOARD_NAME, tr("LB_STATUS_NO_SERVICE"))
 		return
 	online_service.submit_leaderboard_time(
 		trimmed,
@@ -1073,7 +1390,7 @@ func _on_leaderboard_score_submitted(_leaderboard_name: String, username: String
 		_username_input.editable = false
 		_username_input.release_focus()
 	if _leaderboard_status != null:
-		_leaderboard_status.text = "ZAPISANO: %s — %s" % [username, _format_time(float(score_ms) / 1000.0)]
+		_leaderboard_status.text = tr("LB_STATUS_SAVED") % [username, _format_time(float(score_ms) / 1000.0)]
 		_leaderboard_status.add_theme_color_override(&"font_color", Color(0.6, 0.98, 0.65, 1.0))
 	if online_service != null:
 		online_service.browse_leaderboard_times(
@@ -1096,7 +1413,7 @@ func _on_leaderboard_scores_loaded(_leaderboard_name: String, entries: Array) ->
 	if _leaderboard_entries == null:
 		return
 	if entries.is_empty():
-		_leaderboard_entries.text = "BRAK WYNIKÓW.\nBĄDŹ PIERWSZY!"
+		_leaderboard_entries.text = tr("LB_EMPTY")
 		return
 	var sorted_entries := entries.duplicate()
 	sorted_entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -1108,9 +1425,9 @@ func _on_leaderboard_scores_loaded(_leaderboard_name: String, entries: Array) ->
 	var count := mini(sorted_entries.size(), OnlineServiceBase.DEFAULT_LEADERBOARD_PAGE_SIZE)
 	for i in count:
 		var item: Dictionary = sorted_entries[i] if sorted_entries[i] is Dictionary else {}
-		var uname := str(item.get("username", "GRACZ")).strip_edges()
+		var uname := str(item.get("username", tr("LB_DEFAULT_PLAYER"))).strip_edges()
 		if uname.is_empty():
-			uname = "GRACZ"
+			uname = tr("LB_DEFAULT_PLAYER")
 		var elapsed := float(item.get("elapsed_seconds", float(item.get("score_ms", 0)) / 1000.0))
 		lines.append("%d. %-14s %s" % [i + 1, uname.substr(0, 14), _format_time(elapsed)])
 	_leaderboard_entries.text = "\n".join(lines)
@@ -1130,4 +1447,3 @@ func _is_username_input_capturing(event: InputEvent) -> bool:
 			return false
 		return true
 	return false
-
