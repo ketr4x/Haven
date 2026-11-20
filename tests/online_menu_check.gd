@@ -47,6 +47,16 @@ func _initialize() -> void:
 	assert(menu.get_option_text(2) == "SETTINGS")
 	assert(menu.get_option_text(3) == "QUIT")
 
+	# Test entering PLAY submenu and ESC back to main menu
+	_send_key(race, KEY_ENTER)
+	assert(menu.get_option_text(0) == "SINGLEPLAYER")
+	assert(menu.get_option_text(1) == "TWO PLAYERS")
+	_send_key(race, KEY_ESCAPE)
+	assert(menu.get_option_text(0) == "PLAY")
+	assert(menu.get_option_text(1) == "ONLINE")
+	assert(menu.get_option_text(2) == "SETTINGS")
+	assert(menu.get_option_text(3) == "QUIT")
+
 	# Test post-match finished state and return to normal main menu on ESC
 	race._race_state = race.RaceState.RACING
 	race._race_elapsed = 12.34

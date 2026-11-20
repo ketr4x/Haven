@@ -16,11 +16,11 @@
 
 ### Pozostałe klawisze:
 * `Esc` – Pauza (w menu: cofnięcie o krok)
-* `R` lub `N` – Nowa trasa (tylko w grze lokalnej)
+* `R` lub `N` – Nowa trasa (tylko w grze lokalnej / jednoosobowej)
 * Strzałki lub `W` / `S` – Wybór w menu
 * `Enter` lub `Space` – Zatwierdzenie
 
-> **Uwaga:** W grze online sterujesz swoją postacią dokładnie tak, jak Gracz 1.
+> **Uwaga:** W grze online sterujesz swoją postacią dokładnie tak, jak Gracz 1. W trybie jednoosobowym możesz korzystać równocześnie z obu układów sterowania (WASD lub Strzałki).
 
 ---
 
@@ -37,7 +37,8 @@
 
 ## Tryby gry
 
-* **Lokalny** – Rozgrywka dla dwóch osób na jednej klawiaturze.
+* **Jeden gracz (Singleplayer)** – Samotna próba czasowa na pełnym ekranie na proceduralnie generowanej trasie, ze wsparciem obu układów sterowania (WASD / Strzałki), natychmiastowym finiszem i zapisem wyniku w globalnym rankingu.
+* **Lokalny dla dwóch graczy** – Konkurencyjna rozgrywka dla dwóch osób na podzielonym ekranie na jednej klawiaturze.
 * **Online** – Tryby online: Szybka gra z losowym przeciwnikiem; Gra ze znajomym z kodem pokoju. 
 
 ---

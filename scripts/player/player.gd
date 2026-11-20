@@ -21,6 +21,12 @@ signal trampoline_jumped(position: Vector2)
 @export var shout_action: StringName = &"p1_shout"
 @export var slide_action: StringName = &"p1_slide"
 @export var trampoline_action: StringName = &"p1_trampoline"
+@export var secondary_left_action: StringName = &""
+@export var secondary_right_action: StringName = &""
+@export var secondary_jump_action: StringName = &""
+@export var secondary_shout_action: StringName = &""
+@export var secondary_slide_action: StringName = &""
+@export var secondary_trampoline_action: StringName = &""
 
 @export_category("Movement")
 @export var run_speed: float = 300.0
@@ -810,17 +816,26 @@ var _shout_action_was_pressed: bool = false
 var _trampoline_action_was_pressed: bool = false
 
 
-func _is_action_newly_pressed(action: StringName, was_pressed_flag: bool) -> bool:
-	if action.is_empty() or not InputMap.has_action(action):
-		return false
-	if Input.is_action_just_pressed(action):
+func _is_action_or_secondary_pressed(action: StringName, secondary_action: StringName = &"") -> bool:
+	if not action.is_empty() and InputMap.has_action(action) and Input.is_action_pressed(action):
 		return true
-	return Input.is_action_pressed(action) and not was_pressed_flag
+	if not secondary_action.is_empty() and InputMap.has_action(secondary_action) and Input.is_action_pressed(secondary_action):
+		return true
+	return false
+
+
+func _is_action_newly_pressed(action: StringName, was_pressed_flag: bool, secondary_action: StringName = &"") -> bool:
+	if not action.is_empty() and InputMap.has_action(action) and Input.is_action_just_pressed(action):
+		return true
+	if not secondary_action.is_empty() and InputMap.has_action(secondary_action) and Input.is_action_just_pressed(secondary_action):
+		return true
+	var pressed := _is_action_or_secondary_pressed(action, secondary_action)
+	return pressed and not was_pressed_flag
 
 
 func _update_jump_buffer(delta: float) -> void:
-	var currently_pressed := not jump_action.is_empty() and InputMap.has_action(jump_action) and Input.is_action_pressed(jump_action)
-	if _is_action_newly_pressed(jump_action, _jump_action_was_pressed):
+	var currently_pressed := _is_action_or_secondary_pressed(jump_action, secondary_jump_action)
+	if _is_action_newly_pressed(jump_action, _jump_action_was_pressed, secondary_jump_action):
 		_jump_buffer_remaining = jump_buffer_time
 	else:
 		_jump_buffer_remaining = maxf(0.0, _jump_buffer_remaining - delta)
@@ -828,8 +843,8 @@ func _update_jump_buffer(delta: float) -> void:
 
 
 func _update_slide_state(delta: float) -> void:
-	var currently_pressed := not slide_action.is_empty() and InputMap.has_action(slide_action) and Input.is_action_pressed(slide_action)
-	var newly_pressed := _is_action_newly_pressed(slide_action, _slide_action_was_pressed)
+	var currently_pressed := _is_action_or_secondary_pressed(slide_action, secondary_slide_action)
+	var newly_pressed := _is_action_newly_pressed(slide_action, _slide_action_was_pressed, secondary_slide_action)
 	_slide_action_was_pressed = currently_pressed
 
 	if _is_sliding:
@@ -903,11 +918,12 @@ func _apply_collision_profile(sliding: bool) -> void:
 
 
 func _read_horizontal_axis() -> float:
-	if left_action.is_empty() or right_action.is_empty():
-		return 0.0
-	if not InputMap.has_action(left_action) or not InputMap.has_action(right_action):
-		return 0.0
-	return Input.get_axis(left_action, right_action)
+	var axis: float = 0.0
+	if not left_action.is_empty() and not right_action.is_empty() and InputMap.has_action(left_action) and InputMap.has_action(right_action):
+		axis = Input.get_axis(left_action, right_action)
+	if is_zero_approx(axis) and not secondary_left_action.is_empty() and not secondary_right_action.is_empty() and InputMap.has_action(secondary_left_action) and InputMap.has_action(secondary_right_action):
+		axis = Input.get_axis(secondary_left_action, secondary_right_action)
+	return axis
 
 
 func _update_horizontal_velocity(delta: float) -> void:
@@ -936,9 +952,12 @@ func _apply_gravity(delta: float) -> void:
 
 
 func _apply_jump_cut() -> void:
-	if jump_action.is_empty() or not InputMap.has_action(jump_action):
-		return
-	if Input.is_action_just_released(jump_action) and velocity.y < -160.0:
+	var jump_released := false
+	if not jump_action.is_empty() and InputMap.has_action(jump_action) and Input.is_action_just_released(jump_action):
+		jump_released = true
+	if not secondary_jump_action.is_empty() and InputMap.has_action(secondary_jump_action) and Input.is_action_just_released(secondary_jump_action):
+		jump_released = true
+	if jump_released and velocity.y < -160.0:
 		velocity.y *= 0.60
 
 
@@ -980,8 +999,8 @@ func _try_jump() -> void:
 
 
 func _try_trampoline() -> void:
-	var currently_pressed := not trampoline_action.is_empty() and InputMap.has_action(trampoline_action) and Input.is_action_pressed(trampoline_action)
-	var newly_pressed := _is_action_newly_pressed(trampoline_action, _trampoline_action_was_pressed)
+	var currently_pressed := _is_action_or_secondary_pressed(trampoline_action, secondary_trampoline_action)
+	var newly_pressed := _is_action_newly_pressed(trampoline_action, _trampoline_action_was_pressed, secondary_trampoline_action)
 	_trampoline_action_was_pressed = currently_pressed
 	if not newly_pressed:
 		return
@@ -1046,8 +1065,8 @@ func _emit_footstep_if_running(delta: float) -> void:
 
 
 func _emit_shout_if_requested() -> void:
-	var currently_pressed := not shout_action.is_empty() and InputMap.has_action(shout_action) and Input.is_action_pressed(shout_action)
-	var newly_pressed := _is_action_newly_pressed(shout_action, _shout_action_was_pressed)
+	var currently_pressed := _is_action_or_secondary_pressed(shout_action, secondary_shout_action)
+	var newly_pressed := _is_action_newly_pressed(shout_action, _shout_action_was_pressed, secondary_shout_action)
 	_shout_action_was_pressed = currently_pressed
 	if newly_pressed and is_zero_approx(_shout_cooldown_remaining):
 		_shout_cooldown_remaining = shout_cooldown
