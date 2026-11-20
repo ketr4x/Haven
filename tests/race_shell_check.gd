@@ -106,6 +106,19 @@ func _initialize() -> void:
 	start_event.action = &"ui_accept"
 	start_event.pressed = true
 	race._input(start_event)
+	assert(title_panel.get_option_text(0) == "JEDEN GRACZ")
+	assert(title_panel.get_option_text(1) == "DWÓCH GRACZY")
+
+	var mode_down_event := InputEventAction.new()
+	mode_down_event.action = &"ui_down"
+	mode_down_event.pressed = true
+	race._input(mode_down_event)
+	assert(title_panel.get_selected_index() == 1)
+
+	var confirm_event := InputEventAction.new()
+	confirm_event.action = &"ui_accept"
+	confirm_event.pressed = true
+	race._input(confirm_event)
 	assert(title_panel.visible)
 	assert(title_panel.is_playing_outro())
 	assert(menu_sprite.animation == &"outro")
