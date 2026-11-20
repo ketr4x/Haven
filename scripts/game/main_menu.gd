@@ -2,6 +2,7 @@ class_name MainMenu
 extends Control
 
 signal option_selected(index: int)
+signal option_adjusted(index: int, direction: int)
 signal quit_requested
 signal outro_finished
 signal room_code_submitted(room_code: String)
@@ -11,9 +12,6 @@ const ANIM_IDLE := &"idle"
 const ANIM_OUTRO := &"outro"
 const SELECTED_COLOR := Color(0.960784, 0.960784, 0.960784, 1.0)
 const UNSELECTED_COLOR := Color(0.74902, 0.74902, 0.74902, 0.92)
-const DEFAULT_OPTIONS: Array[String] = ["GRAJ", "GRA ONLINE", "WYJDŹ"]
-const DEFAULT_PROMPT: String = "STRZAŁKI / W S  WYBÓR      ENTER / SPACJA  ZATWIERDŹ"
-const DEFAULT_HINT: String = "WYŚCIG ECHA"
 
 @onready var _background_sprite: AnimatedSprite2D = $BackgroundSprite
 @onready var _moon_halo: Sprite2D = get_node_or_null("BackgroundSprite/MoonHalo") as Sprite2D
@@ -21,30 +19,38 @@ const DEFAULT_HINT: String = "WYŚCIG ECHA"
 @onready var _wind_streaks: CPUParticles2D = $WindStreaks
 @onready var _wind_dust: CPUParticles2D = $WindDust
 @onready var _menu_overlay: Control = $MenuOverlay
+@onready var _menu_items: VBoxContainer = $MenuOverlay/MenuItems
 @onready var _prompt_label: Label = $MenuOverlay/Prompt
 @onready var _hint_label: Label = $MenuOverlay/Hint
 @onready var _room_code_input: LineEdit = $MenuOverlay/RoomCodeInput
 @onready var _option_rows: Array[Control] = [
 	$MenuOverlay/MenuItems/PlayOption,
 	$MenuOverlay/MenuItems/OnlineOption,
+	$MenuOverlay/MenuItems/SettingsOption,
 	$MenuOverlay/MenuItems/QuitOption,
+	$MenuOverlay/MenuItems/ExtraOption,
 ]
 @onready var _cursor_labels: Array[Label] = [
 	$MenuOverlay/MenuItems/PlayOption/Cursor,
 	$MenuOverlay/MenuItems/OnlineOption/Cursor,
+	$MenuOverlay/MenuItems/SettingsOption/Cursor,
 	$MenuOverlay/MenuItems/QuitOption/Cursor,
+	$MenuOverlay/MenuItems/ExtraOption/Cursor,
 ]
 @onready var _option_labels: Array[Label] = [
 	$MenuOverlay/MenuItems/PlayOption/Text,
 	$MenuOverlay/MenuItems/OnlineOption/Text,
+	$MenuOverlay/MenuItems/SettingsOption/Text,
 	$MenuOverlay/MenuItems/QuitOption/Text,
+	$MenuOverlay/MenuItems/ExtraOption/Text,
 ]
 @onready var _ui_move: AudioStreamPlayer = get_node_or_null("UIMove") as AudioStreamPlayer
 @onready var _ui_select: AudioStreamPlayer = get_node_or_null("UISelect") as AudioStreamPlayer
 
 var _selected_index: int = 0
 var _is_playing_outro: bool = false
-var _option_texts: Array[String] = DEFAULT_OPTIONS.duplicate()
+var _allow_horizontal_adjust: bool = false
+var _option_texts: Array[String] = []
 var _moon_pulse_time: float = 0.0
 
 
@@ -111,10 +117,18 @@ func _setup_moon_light() -> void:
 
 func reset_to_idle() -> void:
 	_is_playing_outro = false
+	_allow_horizontal_adjust = false
 	_selected_index = 0
-	_set_options(DEFAULT_OPTIONS)
+	var default_options: Array[String] = [
+		tr("MENU_PLAY"),
+		tr("MENU_ONLINE"),
+		tr("MENU_SETTINGS"),
+		tr("MENU_QUIT"),
+	]
+	_set_options(default_options, false)
 	_set_room_code_visible(false)
-	_set_footer(DEFAULT_PROMPT, DEFAULT_HINT)
+	_room_code_input.placeholder_text = tr("MENU_ROOM_CODE_PLACEHOLDER")
+	_set_footer(tr("MENU_MAIN_PROMPT"), tr("MENU_MAIN_HINT"))
 	_menu_overlay.visible = true
 	_background_sprite.play(ANIM_IDLE)
 
@@ -141,16 +155,30 @@ func get_option_text(index: int) -> String:
 	return _option_texts[index]
 
 
-func show_options(options: Array[String], prompt: String, hint: String) -> void:
-	_set_options(options)
+func set_room_code_placeholder(placeholder: String) -> void:
+	if _room_code_input != null:
+		_room_code_input.placeholder_text = placeholder
+
+
+func show_options(
+	options: Array[String],
+	prompt: String,
+	hint: String,
+	allow_horizontal_adjust: bool = false,
+	preserve_selection: bool = false
+) -> void:
+	_allow_horizontal_adjust = allow_horizontal_adjust
+	_set_options(options, preserve_selection)
 	_set_room_code_visible(false)
 	_set_footer(prompt, hint)
 	_menu_overlay.visible = true
 
 
 func show_room_code_entry(prompt: String, hint: String) -> void:
-	_set_options([])
+	_allow_horizontal_adjust = false
+	_set_options([], false)
 	_set_footer(prompt, hint)
+	_room_code_input.placeholder_text = tr("MENU_ROOM_CODE_PLACEHOLDER")
 	_set_room_code_visible(true)
 	_room_code_input.clear()
 	_room_code_input.grab_focus()
@@ -158,7 +186,8 @@ func show_room_code_entry(prompt: String, hint: String) -> void:
 
 
 func show_waiting(prompt: String, hint: String) -> void:
-	_set_options([])
+	_allow_horizontal_adjust = false
+	_set_options([], false)
 	_set_room_code_visible(false)
 	_set_footer(prompt, hint)
 	_menu_overlay.visible = true
@@ -173,6 +202,21 @@ func handle_menu_input(event: InputEvent) -> bool:
 		option_selected.emit(_selected_index)
 		return true
 
+	if _allow_horizontal_adjust:
+		if event.is_action_pressed(&"ui_left") \
+			or event.is_action_pressed(&"p1_left") \
+			or event.is_action_pressed(&"p2_left"):
+			_play_ui_move()
+			option_adjusted.emit(_selected_index, -1)
+			return true
+
+		if event.is_action_pressed(&"ui_right") \
+			or event.is_action_pressed(&"p1_right") \
+			or event.is_action_pressed(&"p2_right"):
+			_play_ui_move()
+			option_adjusted.emit(_selected_index, 1)
+			return true
+
 	if event.is_action_pressed(&"ui_up") \
 		or event.is_action_pressed(&"p1_jump") \
 		or event.is_action_pressed(&"p2_jump"):
@@ -180,6 +224,8 @@ func handle_menu_input(event: InputEvent) -> bool:
 		return true
 
 	if event.is_action_pressed(&"ui_down") \
+		or event.is_action_pressed(&"p1_slide") \
+		or event.is_action_pressed(&"p2_slide") \
 		or event.is_action_pressed(&"p1_shout") \
 		or event.is_action_pressed(&"p2_shout"):
 		_move_selection(1)
@@ -188,11 +234,29 @@ func handle_menu_input(event: InputEvent) -> bool:
 	return false
 
 
-func _set_options(options: Array[String]) -> void:
+func _set_options(options: Array[String], preserve_selection: bool) -> void:
 	_option_texts = options.duplicate()
-	_selected_index = 0
+	if preserve_selection and not _option_texts.is_empty():
+		_selected_index = clampi(_selected_index, 0, _option_texts.size() - 1)
+	else:
+		_selected_index = 0
+
+	var font_size := 44
+	var separation := 14
+	if _option_texts.size() >= 5:
+		font_size = 34
+		separation = 10
+	elif _option_texts.size() == 4:
+		font_size = 42
+		separation = 12
+
+	if _menu_items != null:
+		_menu_items.add_theme_constant_override(&"separation", separation)
+
 	for index in _option_rows.size():
 		_option_rows[index].visible = index < _option_texts.size()
+		_cursor_labels[index].add_theme_font_size_override(&"font_size", font_size)
+		_option_labels[index].add_theme_font_size_override(&"font_size", font_size)
 	_update_option_visuals()
 
 
@@ -279,7 +343,6 @@ func _on_option_gui_input(event: InputEvent, index: int) -> void:
 func _on_room_code_text_submitted(room_code: String) -> void:
 	_play_ui_select()
 	room_code_submitted.emit(room_code)
-
 
 
 func _on_background_animation_finished() -> void:

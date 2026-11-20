@@ -10,20 +10,21 @@ func _initialize() -> void:
 
 	var menu := race.get_node("GlobalUi/TitlePanel") as MainMenu
 	var room_code_input := menu.get_node("MenuOverlay/RoomCodeInput") as LineEdit
-	assert(menu.get_option_text(0) == "GRAJ")
-	assert(menu.get_option_text(1) == "GRA ONLINE")
-	assert(menu.get_option_text(2) == "WYJDŹ")
+	assert(menu.get_option_text(0) == "PLAY")
+	assert(menu.get_option_text(1) == "ONLINE")
+	assert(menu.get_option_text(2) == "SETTINGS")
+	assert(menu.get_option_text(3) == "QUIT")
 	assert(not room_code_input.visible)
 
 	_send_key(race, KEY_DOWN)
 	_send_key(race, KEY_ENTER)
-	assert(menu.get_option_text(0) == "SZYBKI MECZ")
-	assert(menu.get_option_text(1) == "ZE ZNAJOMYM")
+	assert(menu.get_option_text(0) == "QUICK MATCH")
+	assert(menu.get_option_text(1) == "WITH FRIEND")
 
 	_send_key(race, KEY_DOWN)
 	_send_key(race, KEY_ENTER)
-	assert(menu.get_option_text(0) == "STWÓRZ POKÓJ")
-	assert(menu.get_option_text(1) == "DOŁĄCZ KODEM")
+	assert(menu.get_option_text(0) == "CREATE ROOM")
+	assert(menu.get_option_text(1) == "JOIN BY CODE")
 
 	_send_key(race, KEY_DOWN)
 	_send_key(race, KEY_ENTER)
@@ -32,18 +33,19 @@ func _initialize() -> void:
 
 	_send_key(race, KEY_ESCAPE)
 	assert(not room_code_input.visible)
-	assert(menu.get_option_text(0) == "STWÓRZ POKÓJ")
+	assert(menu.get_option_text(0) == "CREATE ROOM")
 
 	# ESC back to online screen
 	_send_key(race, KEY_ESCAPE)
-	assert(menu.get_option_text(0) == "SZYBKI MECZ")
-	assert(menu.get_option_text(1) == "ZE ZNAJOMYM")
+	assert(menu.get_option_text(0) == "QUICK MATCH")
+	assert(menu.get_option_text(1) == "WITH FRIEND")
 
 	# ESC back to main menu
 	_send_key(race, KEY_ESCAPE)
-	assert(menu.get_option_text(0) == "GRAJ")
-	assert(menu.get_option_text(1) == "GRA ONLINE")
-	assert(menu.get_option_text(2) == "WYJDŹ")
+	assert(menu.get_option_text(0) == "PLAY")
+	assert(menu.get_option_text(1) == "ONLINE")
+	assert(menu.get_option_text(2) == "SETTINGS")
+	assert(menu.get_option_text(3) == "QUIT")
 
 	# Test post-match finished state and return to normal main menu on ESC
 	race._race_state = race.RaceState.RACING
@@ -54,16 +56,18 @@ func _initialize() -> void:
 	assert(race._race_state == race.RaceState.FINISHED)
 	_send_key(race, KEY_ESCAPE)
 	assert(race._race_state == race.RaceState.TITLE)
-	assert(menu.get_option_text(0) == "GRAJ")
-	assert(menu.get_option_text(1) == "GRA ONLINE")
-	assert(menu.get_option_text(2) == "WYJDŹ")
+	assert(menu.get_option_text(0) == "PLAY")
+	assert(menu.get_option_text(1) == "ONLINE")
+	assert(menu.get_option_text(2) == "SETTINGS")
+	assert(menu.get_option_text(3) == "QUIT")
 
 	# Test _restart_course returns to normal main menu
 	race._restart_course()
 	assert(race._race_state == race.RaceState.TITLE)
-	assert(menu.get_option_text(0) == "GRAJ")
-	assert(menu.get_option_text(1) == "GRA ONLINE")
-	assert(menu.get_option_text(2) == "WYJDŹ")
+	assert(menu.get_option_text(0) == "PLAY")
+	assert(menu.get_option_text(1) == "ONLINE")
+	assert(menu.get_option_text(2) == "SETTINGS")
+	assert(menu.get_option_text(3) == "QUIT")
 
 	# Test local rematch with R key starts countdown immediately on same seed
 	race._race_state = race.RaceState.RACING

@@ -29,5 +29,5 @@ func _next_random_seed() -> int:
 func _on_course_generated(seed: int, signature: String) -> void:
 	_player.global_position = _course_generator.player_spawn
 	_player.velocity = Vector2.ZERO
-	_seed_label.text = "Ziarno: %d   R / N losują nową trasę" % seed
+	_seed_label.text = tr("LAB_SEED_STATUS") % seed
 	_signature_label.text = signature

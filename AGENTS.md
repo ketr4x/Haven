@@ -4,7 +4,7 @@
 
 Rezonans is a local two-player, horizontal split-screen parkour race built with Godot 4.7 GL Compatibility. The entry scene is `scenes/game/race.tscn`. Player 1 plays in the top viewport with `A`/`D` to move, `W` to jump, `S` to slide, and `E` to shout. Player 2 plays in the bottom viewport with the arrow keys: left/right to move, up to jump, down to slide, and Right Shift / Right Ctrl to shout. `R` and `N` both generate a new random course, and `Escape` pauses during a race.
 
-The game’s player-facing text is in Polish. Use Polish for new UI copy, prompts, and other text shown to players. Keep source code, identifiers, comments, and project documentation in English.
+The game’s player-facing text supports English (default, `en`) and Polish (`pl`) via the `GameSettings` autoload (`scripts/game/game_settings.gd`) and `TranslationServer`. Add both English and Polish entries to `TRANSLATIONS_EN` and `TRANSLATIONS_PL` for any new UI copy, prompts, or player-facing text. Keep source code, identifiers, comments, and project documentation in English.
 
 Each viewport has its own `PlayerWorld`, player, generated level, `SonarGrid`, finish area, camera, and echo overlay. The race controller gives both worlds the same seed so they generate the same chunk sequence without sharing physics or rendering. Both players race left-to-right on identical generated courses without course mirroring.
 
@@ -98,6 +98,7 @@ Course chunks are scene instances described by `CourseChunk`. A chunk has entry 
 - **Acoustic Trampoline (`Q` / `/`) & `Space` Jump Binding**: Bound `Space` alongside `W` to `p1_jump` (with menu `ui_accept` checked before `p1_jump`), and added `p1_trampoline` (`Q`) / `p2_trampoline` (`/`) to fire downward sound waves (`PulseKind.TRAMPOLINE`) and propel the player upward mid-air with a flip animation.
 - **Jump Loudness Spike Delay (Anti-Lag)**: Added a cooldown delay (`jump_pulse_cooldown = 0.4s`) in `PlayerWorld` and `MovementLab` for heavy 120-ray jump sonar wave emissions, preventing severe frame drops and lag when players spam jumps or wall-jumps.
 - **`README.md`**: Added root documentation covering game overview, controls, core echolocation mechanics, and all active features.
+- **English/Polish Localization & Settings Menu (`GameSettings` autoload, `scripts/game/game_settings.gd`)**: Added full English (default) and Polish translations registered through `TranslationServer`, plus a frameless retro Settings menu accessible from both the Main Menu (`PLAY`, `ONLINE`, `SETTINGS`, `QUIT`) and the Pause Menu (`RESUME`, `SETTINGS`, `MAIN MENU`). Players can switch Language (`ENGLISH` / `POLSKI`) with live UI refresh, adjust Master Volume (`0%`–`100%`), toggle the CRT filter (`CrtOverlay`), and toggle Fullscreen mode, with settings persisted to `user://settings.cfg` and covered by `tests/settings_localization_check.gd`.
 
 ## TO DO
 

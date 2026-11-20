@@ -9,6 +9,7 @@ const POC_TAGS: Dictionary = {
 	"protocol": POC_PROTOCOL_VERSION,
 }
 
+@onready var _title_label: Label = $Panel/Margin/VBox/Title
 @onready var _status_label: Label = $Panel/Margin/VBox/Status
 @onready var _room_code_label: Label = $Panel/Margin/VBox/RoomCode
 @onready var _details_label: Label = $Panel/Margin/VBox/Details
@@ -26,7 +27,9 @@ func _ready() -> void:
 	_mode = _command_line_value("--poc-mode")
 	_room_code = _command_line_value("--poc-room").to_upper()
 	_is_public_lobby = _command_line_value("--poc-public") == "true"
-	_status_label.text = "ŁĄCZENIE Z GD-SYNC…"
+	if _title_label != null:
+		_title_label.text = tr("POC_TITLE")
+	_status_label.text = tr("POC_CONNECTING")
 	_room_code_label.text = ""
 	_details_label.text = _instructions_for_mode()
 
@@ -57,50 +60,50 @@ func _on_connected(client_id: int) -> void:
 		"join":
 			_join_private_lobby()
 		"browse":
-			_status_label.text = "POBIERANIE PUBLICZNYCH POKOI…"
+			_status_label.text = tr("POC_LISTING_PUBLIC")
 			_online_service.list_public_lobbies()
 		_:
-			_status_label.text = "BRAK TRYBU TESTOWEGO"
-			_details_label.text = "Uruchom z --poc-mode=host, join albo browse."
+			_status_label.text = tr("POC_NO_MODE")
+			_details_label.text = tr("POC_NO_MODE_HINT")
 
 
 func _create_private_lobby() -> void:
 	if _room_code.is_empty():
 		_room_code = _create_room_code()
-	_status_label.text = "TWORZENIE PRYWATNEGO POKOJU…"
-	_room_code_label.text = "KOD POKOJU: %s" % _room_code
+	_status_label.text = tr("POC_CREATING_ROOM")
+	_room_code_label.text = tr("MENU_ROOM_CODE_DISPLAY") % _room_code
 	_online_service.create_lobby(_room_code, "", _is_public_lobby, 2, POC_TAGS)
 
 
 func _join_private_lobby() -> void:
 	if _room_code.is_empty():
-		_status_label.text = "BRAK KODU POKOJU"
-		_details_label.text = "Uruchom z --poc-mode=join --poc-room=KOD."
+		_status_label.text = tr("POC_NO_ROOM_CODE")
+		_details_label.text = tr("POC_NO_ROOM_CODE_HINT")
 		return
-	_status_label.text = "DOŁĄCZANIE DO POKOJU…"
-	_room_code_label.text = "KOD POKOJU: %s" % _room_code
+	_status_label.text = tr("POC_JOINING_ROOM")
+	_room_code_label.text = tr("MENU_ROOM_CODE_DISPLAY") % _room_code
 	_online_service.join_lobby(_room_code)
 
 
 func _on_lobby_created(lobby_name: String) -> void:
 	_print_event("lobby_created=%s" % lobby_name)
-	_status_label.text = "POKÓJ UTWORZONY. DOŁĄCZANIE GOSPODARZA…"
+	_status_label.text = tr("POC_ROOM_CREATED")
 	_online_service.join_lobby(lobby_name)
 
 
 func _on_lobby_joined(lobby_name: String) -> void:
 	_print_event("lobby_joined=%s" % lobby_name)
 	_room_code = lobby_name
-	_status_label.text = "POŁĄCZONO Z POKOJEM"
-	_room_code_label.text = "KOD POKOJU: %s" % _room_code
-	_details_label.text = "Czeka na drugiego klienta i wiadomość testową."
+	_status_label.text = tr("POC_ROOM_JOINED")
+	_room_code_label.text = tr("MENU_ROOM_CODE_DISPLAY") % _room_code
+	_details_label.text = tr("POC_WAITING_PEER")
 	_schedule_test_leave()
 
 
 func _on_lobby_join_failed(lobby_name: String, reason: String) -> void:
 	_print_event("lobby_join_failed=%s reason=%s" % [lobby_name, reason])
-	_status_label.text = "NIE UDAŁO SIĘ DOŁĄCZYĆ"
-	_details_label.text = "Pokój %s odrzucił połączenie." % lobby_name
+	_status_label.text = tr("POC_JOIN_FAILED")
+	_details_label.text = tr("POC_JOIN_REJECTED") % lobby_name
 
 
 func _on_lobbies_listed(lobbies: Array) -> void:
@@ -113,49 +116,49 @@ func _on_lobbies_listed(lobbies: Array) -> void:
 		var tags_value: Variant = lobby.get("Tags", {})
 		if tags_value is Dictionary and (tags_value as Dictionary).get("mode", "") == POC_TAGS["mode"]:
 			matching_lobbies += 1
-	_status_label.text = "PUBLICZNE POKOJE: %d" % matching_lobbies
-	_details_label.text = "Wykryto %d pokoi ogółem. Test przeglądania zakończony." % lobbies.size()
+	_status_label.text = tr("POC_PUBLIC_ROOMS") % matching_lobbies
+	_details_label.text = tr("POC_PUBLIC_ROOMS_DETAILS") % lobbies.size()
 
 
 func _on_peer_joined(client_id: int) -> void:
 	_print_event("peer_joined=%d" % client_id)
-	_status_label.text = "DRUGI KLIENT DOŁĄCZYŁ"
-	_details_label.text = "Wysyłanie wiadomości testowej do klienta %d…" % client_id
+	_status_label.text = tr("POC_PEER_JOINED")
+	_details_label.text = tr("POC_SENDING_PROBE") % client_id
 	_send_probe("echo-poc")
 
 
 func _on_peer_left(client_id: int) -> void:
 	_print_event("peer_left=%d" % client_id)
-	_status_label.text = "DRUGI KLIENT OPUŚCIŁ POKÓJ"
-	_details_label.text = "Klient %d rozłączył się." % client_id
+	_status_label.text = tr("POC_PEER_LEFT")
+	_details_label.text = tr("POC_PEER_DISCONNECTED") % client_id
 
 
 func _on_message_received(sender_id: int, message: Dictionary) -> void:
 	var payload: Dictionary = message["payload"] as Dictionary
 	var probe: String = str(payload.get("probe", ""))
 	_print_event("probe_received_from=%d payload=%s" % [sender_id, probe])
-	_status_label.text = "WIADOMOŚĆ TESTOWA ODEBRANA"
-	_details_label.text = "Klient %d wysłał: %s" % [sender_id, probe]
+	_status_label.text = tr("POC_PROBE_RECEIVED")
+	_details_label.text = tr("POC_PROBE_DETAILS") % [sender_id, probe]
 	if probe == "echo-poc":
 		_send_probe("echo-ack")
 
 
 func _on_operation_rejected(operation: String, reason: String) -> void:
 	_print_event("operation_rejected=%s reason=%s" % [operation, reason])
-	_status_label.text = "OPERACJA ZOSTAŁA ODRZUCONA"
+	_status_label.text = tr("POC_OP_REJECTED")
 	_details_label.text = reason
 
 
 func _on_connection_failed(reason: String) -> void:
 	_print_event("connection_failed=%s" % reason)
-	_status_label.text = "NIE UDAŁO SIĘ POŁĄCZYĆ Z GD-SYNC"
+	_status_label.text = tr("POC_CONNECT_FAILED")
 	_details_label.text = reason
 
 
 func _on_disconnected() -> void:
 	_print_event("disconnected")
-	_status_label.text = "POŁĄCZENIE ZOSTAŁO PRZERWANE"
-	_details_label.text = "Zamknij test i uruchom go ponownie."
+	_status_label.text = tr("POC_DISCONNECTED")
+	_details_label.text = tr("POC_DISCONNECTED_HINT")
 
 
 func _send_probe(probe: String) -> void:
@@ -186,13 +189,13 @@ func _create_room_code() -> String:
 func _instructions_for_mode() -> String:
 	match _mode:
 		"host":
-			return "Uruchom drugą kopię z kodem widocznym powyżej."
+			return tr("POC_MODE_HOST_HINT")
 		"join":
-			return "Dołączanie do pokoju wskazanego przez gospodarza."
+			return tr("POC_MODE_JOIN_HINT")
 		"browse":
-			return "Sprawdzanie publicznego katalogu pokoi testowych."
+			return tr("POC_MODE_BROWSE_HINT")
 		_:
-			return "Tryby: host, join, browse."
+			return tr("POC_MODE_DEFAULT_HINT")
 
 
 func _schedule_automatic_exit() -> void:
@@ -213,7 +216,7 @@ func _leave_lobby_for_test(leave_after_seconds: float) -> void:
 	if not _online_service.has_active_lobby():
 		return
 	_print_event("leaving_lobby_after=%.1f" % leave_after_seconds)
-	_status_label.text = "OPUSZCZANIE POKOJU…"
+	_status_label.text = tr("POC_LEAVING_ROOM")
 	_online_service.leave_lobby()
 
 

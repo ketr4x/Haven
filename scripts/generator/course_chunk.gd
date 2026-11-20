@@ -69,6 +69,20 @@ func _ready() -> void:
 		var target_cell: Vector2i = Vector2i(-cell.x, cell.y) if mirror_horizontally else cell
 		var atlas_coords := _select_atlas_coords(target_cell, occupied, target_cell.y)
 		_terrain.set_cell(target_cell, 0, atlas_coords)
+	_update_localized_labels()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED:
+		_update_localized_labels()
+
+
+func _update_localized_labels() -> void:
+	if chunk_id != &"finish":
+		return
+	var finish_label := get_node_or_null("Label") as Label
+	if finish_label != null:
+		finish_label.text = tr("HUD_FINISH_GATE")
 
 
 func apply_world_autotiling(chunk_offset: Vector2i, world_occupied: Dictionary) -> void:
