@@ -50,8 +50,8 @@ func _initialize() -> void:
 	assert(menu_sprite.sprite_frames.get_frame_count(&"idle") == 11)
 	assert(menu_sprite.sprite_frames.get_frame_count(&"outro") == 8)
 	assert((title_panel.get_node("MenuOverlay") as Control).visible)
-	assert((race.get_node("GlobalUi/PlayerOneTimer") as Label).text == "CZAS  00:00.000")
-	assert((race.get_node("GlobalUi/PlayerTwoTimer") as Label).text == "CZAS  00:00.000")
+	assert((race.get_node("GlobalUi/PlayerOneTimer") as Label).text == "TIME  00:00.000")
+	assert((race.get_node("GlobalUi/PlayerTwoTimer") as Label).text == "TIME  00:00.000")
 	assert(not player_one.is_physics_processing())
 	assert(player_one_world != player_two_world)
 	assert(player_one_generator != player_two_generator)
@@ -106,8 +106,8 @@ func _initialize() -> void:
 	start_event.action = &"ui_accept"
 	start_event.pressed = true
 	race._input(start_event)
-	assert(title_panel.get_option_text(0) == "JEDEN GRACZ")
-	assert(title_panel.get_option_text(1) == "DWÓCH GRACZY")
+	assert(title_panel.get_option_text(0) == "SINGLEPLAYER")
+	assert(title_panel.get_option_text(1) == "TWO PLAYERS")
 
 	var mode_down_event := InputEventAction.new()
 	mode_down_event.action = &"ui_down"
@@ -184,14 +184,14 @@ func _initialize() -> void:
 	assert(is_equal_approx(float((invert_rect.material as ShaderMaterial).get_shader_parameter(&"intensity")), 1.0))
 	var p1_banner := race.get_node("GlobalUi/PlayerOneFinishBanner") as Control
 	assert(p1_banner != null and p1_banner.visible)
-	assert((p1_banner.get_node("Place") as Label).text == "1. MIEJSCE")
-	assert((p1_banner.get_node("Time") as Label).text.begins_with("CZAS  "))
+	assert((p1_banner.get_node("Place") as Label).text == "1ST PLACE")
+	assert((p1_banner.get_node("Time") as Label).text.begins_with("TIME  "))
 	var player_one_timer_label := race.get_node("GlobalUi/PlayerOneTimer") as Label
 	var player_two_timer_label := race.get_node("GlobalUi/PlayerTwoTimer") as Label
 	var finish_status_label := race.get_node("GlobalUi/FinishStatus") as Label
 	assert(not (race.get_node("GlobalUi/ResultPanel") as Control).visible)
 	assert(finish_status_label.visible)
-	assert(finish_status_label.text == "GRACZ 1 NA MECIE. DRUGI GRACZ JEDZIE DALEJ.")
+	assert(finish_status_label.text == "PLAYER 1 FINISHED. OTHER PLAYER IS STILL RACING.")
 	assert(not player_one.is_physics_processing())
 	assert(player_two.is_physics_processing())
 	var player_one_time := player_one_timer_label.text
@@ -206,9 +206,9 @@ func _initialize() -> void:
 	assert((race.get_node("GlobalUi/ResultPanel") as Control).visible)
 	assert(not finish_status_label.visible)
 	assert(not p1_banner.visible)
-	assert(winner_label.text == "WYGRYWA GRACZ 1")
-	assert("1. MIEJSCE" in placement_label.text and "2. MIEJSCE" in placement_label.text)
-	assert(times_label.text == "GRACZ 1  %s\nGRACZ 2  %s" % [
+	assert(winner_label.text == "PLAYER 1 WINS")
+	assert("1ST PLACE" in placement_label.text and "2ND PLACE" in placement_label.text)
+	assert(times_label.text == "PLAYER 1  %s\nPLAYER 2  %s" % [
 		race._format_time(float(race._player_finish_times[1])),
 		race._format_time(float(race._player_finish_times[2])),
 	])

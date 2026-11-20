@@ -90,7 +90,7 @@ func host_friend_room(requested_room_code: String = "") -> void:
 	if room_code.is_empty():
 		room_code = _create_room_code()
 	if not _is_valid_room_code(room_code):
-		_fail("Room code must contain 3 to 32 characters.")
+		_fail(tr("ONLINE_ERR_ROOM_CODE"))
 		return
 	room_code_ready.emit(room_code)
 	online_service.connect_online()
@@ -102,7 +102,7 @@ func join_friend_room(requested_room_code: String) -> void:
 	_kind = MatchKind.FRIEND
 	room_code = requested_room_code.to_upper()
 	if not _is_valid_room_code(room_code):
-		_fail("Room code must contain 3 to 32 characters.")
+		_fail(tr("ONLINE_ERR_ROOM_CODE"))
 		return
 	online_service.connect_online()
 
@@ -330,7 +330,7 @@ func _receive_race_setup(payload: Dictionary) -> void:
 		return
 	var seed_value: Variant = payload.get("seed")
 	if not seed_value is int or int(seed_value) <= 0:
-		_fail("Host sent an invalid course seed.")
+		_fail(tr("ONLINE_ERR_INVALID_SEED"))
 		return
 	finish_times.clear()
 	_course_signatures.clear()
@@ -347,7 +347,7 @@ func _receive_course_ready(payload: Dictionary) -> void:
 	var slot_value: Variant = payload.get("slot")
 	var signature_value: Variant = payload.get("signature")
 	if not slot_value is int or int(slot_value) != 2 or not signature_value is String or signature_value.is_empty():
-		_fail("Guest sent an invalid course signature.")
+		_fail(tr("ONLINE_ERR_INVALID_SIGNATURE"))
 		return
 	_course_signatures[2] = signature_value
 	_try_start_race()
@@ -357,7 +357,7 @@ func _try_start_race() -> void:
 	if not _course_signatures.has(1) or not _course_signatures.has(2):
 		return
 	if str(_course_signatures[1]) != str(_course_signatures[2]):
-		_fail("The generated courses do not match.")
+		_fail(tr("ONLINE_ERR_COURSE_MISMATCH"))
 		return
 	state = MatchState.COUNTDOWN
 	_send("race_start", {"duration": countdown_duration})
@@ -369,11 +369,11 @@ func _receive_race_start(payload: Dictionary) -> void:
 		return
 	var duration_value: Variant = payload.get("duration")
 	if not duration_value is float and not duration_value is int:
-		_fail("Host sent an invalid countdown.")
+		_fail(tr("ONLINE_ERR_INVALID_COUNTDOWN"))
 		return
 	var duration := float(duration_value)
 	if duration <= 0.0 or duration > 5.0:
-		_fail("Host sent an invalid countdown.")
+		_fail(tr("ONLINE_ERR_INVALID_COUNTDOWN"))
 		return
 	state = MatchState.COUNTDOWN
 	countdown_started.emit(duration)
@@ -386,10 +386,10 @@ func _receive_player_finished(payload: Dictionary) -> void:
 	var elapsed_value: Variant = payload.get("elapsed")
 	var expected_slot := 2 if player_slot == 1 else 1
 	if not slot_value is int or int(slot_value) != expected_slot:
-		_fail("Opponent sent an invalid player slot.")
+		_fail(tr("ONLINE_ERR_INVALID_SLOT"))
 		return
 	if not elapsed_value is float and not elapsed_value is int or float(elapsed_value) < 0.0:
-		_fail("Opponent sent an invalid finish time.")
+		_fail(tr("ONLINE_ERR_INVALID_FINISH_TIME"))
 		return
 	finish_times[expected_slot] = float(elapsed_value)
 	opponent_finished.emit(expected_slot, float(elapsed_value))
@@ -443,11 +443,11 @@ func _receive_match_result(payload: Dictionary) -> void:
 	var times_value: Variant = payload.get("finish_times")
 	var winner_value: Variant = payload.get("winner_slot")
 	if not times_value is Dictionary or not winner_value is int:
-		_fail("Host sent an invalid match result.")
+		_fail(tr("ONLINE_ERR_INVALID_RESULT"))
 		return
 	var times: Dictionary = times_value
 	if not times.has(1) or not times.has(2) or not [1, 2].has(int(winner_value)):
-		_fail("Host sent an incomplete match result.")
+		_fail(tr("ONLINE_ERR_INCOMPLETE_RESULT"))
 		return
 	finish_times = times.duplicate(true)
 	state = MatchState.FINISHED
@@ -484,18 +484,20 @@ func _on_peer_left(client_id: int) -> void:
 
 
 func _on_connection_failed(reason: String) -> void:
+	if state in [MatchState.IDLE, MatchState.FINISHED, MatchState.FAILED]:
+		return
 	_fail(reason)
 
 
 func _on_online_disconnected() -> void:
 	if state not in [MatchState.IDLE, MatchState.FINISHED, MatchState.FAILED]:
-		_fail("The online connection was lost.")
+		_fail(tr("ONLINE_ERR_CONNECTION_LOST"))
 
 
 func _send(kind: String, payload: Dictionary) -> void:
 	_next_sequence += 1
 	if not online_service.send_message(OnlineProtocol.make_message(kind, room_code, _next_sequence, payload)):
-		_fail("The online message could not be sent.")
+		_fail(tr("ONLINE_ERR_SEND_FAILED"))
 
 
 func _fail(reason: String) -> void:

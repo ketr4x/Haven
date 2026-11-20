@@ -149,6 +149,16 @@ func _ready() -> void:
 	if _crt_rect != null and _crt_rect.material != null and not Engine.is_editor_hint():
 		_crt_rect.material = _crt_rect.material.duplicate()
 	_apply_shader_parameters()
+	if not Engine.is_editor_hint():
+		var settings := get_node_or_null("/root/GameSettings")
+		if settings != null:
+			visible = bool(settings.get("crt_enabled"))
+			if settings.has_signal(&"crt_enabled_changed") and not settings.is_connected(&"crt_enabled_changed", _on_crt_enabled_changed):
+				settings.connect(&"crt_enabled_changed", _on_crt_enabled_changed)
+
+
+func _on_crt_enabled_changed(enabled: bool) -> void:
+	visible = enabled
 
 
 func get_shader_material() -> ShaderMaterial:
